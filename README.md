@@ -110,6 +110,9 @@ Filetor includes the functions of these two apps. They remain available as separ
 - [Konverter](https://github.com/davidpraznik/Konverter): convert, optimize and clean images (Convert Image, Optimize, Strip Metadata, WebP).
 - [Archivator](https://github.com/davidpraznik/Archivator): compress and extract archives (ZIP, 7z, tar.gz and more).
 
+Another app of mine, not part of Filetor:
+- [Memory Pressure](https://github.com/davidpraznik/MemoryPressure): a menu bar app that shows CPU and RAM use and can clear memory.
+
 ## Third-party software
 
 - [libwebp](https://chromium.googlesource.com/webm/libwebp) (BSD 3-Clause), WebP encoding.
