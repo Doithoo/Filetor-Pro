@@ -35,6 +35,7 @@ struct AppCommand: Identifiable {
         AppCommand(id: "toHEIC", title: "Convert Image to HEIC", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "heic", ext: "heic") },
         AppCommand(id: "optimize", title: "Optimize Images…", isEnabled: hasImage) { $0.optimizeImages($0.active.selection) },
         AppCommand(id: "stripMeta", title: "Strip Metadata", isEnabled: hasImage) { $0.stripMetadata($0.active.selection) },
+        AppCommand(id: "toWebP", title: "Convert Image to WebP", isEnabled: { hasImage($0) && FileTools.canWriteWebP }) { $0.convertImages($0.active.selection, format: "webp", ext: "webp") },
         AppCommand(id: "toTIFF", title: "Convert Image to TIFF", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "tiff", ext: "tiff") },
         AppCommand(id: "dupes", title: "Find Duplicates…") { $0.findDuplicates() },
         AppCommand(id: "compare", title: "Compare Folders…") { $0.compareFolders() },

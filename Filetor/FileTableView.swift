@@ -519,7 +519,9 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(item("Rotate Right") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 90) })
                 let conv = NSMenuItem(title: "Convert Image", action: nil, keyEquivalent: "")
                 let sub = NSMenu()
-                for (title, fmt, ext) in [("PNG", "png", "png"), ("JPEG", "jpeg", "jpg"), ("HEIC", "heic", "heic"), ("TIFF", "tiff", "tiff")] {
+                var formats = [("PNG", "png", "png"), ("JPEG", "jpeg", "jpg"), ("HEIC", "heic", "heic"), ("TIFF", "tiff", "tiff")]
+                if FileTools.canWriteWebP { formats.append(("WebP", "webp", "webp")) }
+                for (title, fmt, ext) in formats {
                     sub.addItem(item(title) { [weak self] in self?.parent.app.convertImages(urls, format: fmt, ext: ext) })
                 }
                 conv.submenu = sub

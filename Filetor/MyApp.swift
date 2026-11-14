@@ -108,6 +108,9 @@ import SwiftUI
                     Button("JPEG") { app.convertImages(app.active.selection, format: "jpeg", ext: "jpg") }
                     Button("HEIC") { app.convertImages(app.active.selection, format: "heic", ext: "heic") }
                     Button("TIFF") { app.convertImages(app.active.selection, format: "tiff", ext: "tiff") }
+                    if FileTools.canWriteWebP {
+                        Button("WebP") { app.convertImages(app.active.selection, format: "webp", ext: "webp") }
+                    }
                 }
                 .disabled(app.active.selection.isEmpty)
                 Button("Optimize…") { app.optimizeImages(app.active.selection) }
