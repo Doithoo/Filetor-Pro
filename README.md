@@ -8,6 +8,8 @@ Filetor is a free, open source dual-pane file manager for macOS, written in Swif
 
 I made it for my own work, where I move and compare files between folders, disks and network drives all day.
 
+Filetor also includes the functions of my two other apps, [Konverter](https://github.com/davidpraznik/Konverter) (convert, optimize and clean images) and [Archivator](https://github.com/davidpraznik/Archivator) (compress and extract archives), so that the file work I do as a UX/UI designer happens in one app. Konverter and Archivator remain separate apps.
+
 ## Features
 
 **Browsing**
@@ -101,6 +103,12 @@ Filetor works on real files: it copies, moves, renames and trashes them. It is e
 ## About
 
 I am David Praznik, a UX/UI and product designer. Filetor started as a tool for my own needs and I am sharing it as it is. It is open source under the MIT licence. If you find a bug or miss something, open an [issue](https://github.com/davidpraznik/Filetor/issues).
+
+## My other apps
+
+Filetor includes the functions of these two apps. They remain available as separate apps:
+- [Konverter](https://github.com/davidpraznik/Konverter): convert, optimize and clean images (Convert Image, Optimize, Strip Metadata, WebP).
+- [Archivator](https://github.com/davidpraznik/Archivator): compress and extract archives (ZIP, 7z, tar.gz and more).
 
 ## Third-party software
 
