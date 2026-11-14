@@ -34,7 +34,10 @@ I made it for my own work, where I move and compare files between folders, disks
 - Touch: sets the modification date of the selected files to now.
 - Folder sizes: an option shows the size of every folder in the list, like Finder does (Settings > Rows).
 - Compress and Decompress, Copy Path, Reveal in Finder, Open in Terminal.
-- Rotate Left, Rotate Right and Convert Image (PNG, JPEG, HEIC, TIFF) for image files.
+- Rotate Left, Rotate Right and Convert Image (PNG, JPEG, HEIC, TIFF, WebP) for image files.
+- Optimize for images: sets the longest side (never enlarges), quality, sRGB conversion and metadata removal. Saves `name-web` next to the original, or replaces the original (it goes to the Trash, undo works). PNG can be reduced to 256 colors. Works with JPEG, PNG, HEIC and WebP.
+- Strip Metadata removes EXIF, location and other metadata from images and saves `name-clean` next to the original.
+- Delete Immediately (⌥⌘⌫) for files that cannot go to the Trash, for example on network disks. It asks for confirmation first.
 - Get Info opens the Finder info window for the selected items (⌘I).
 - Open With, Share (AirDrop, Mail, Messages) and the macOS Services menu, from the Commands menu and the context menu.
 - Show or hide hidden files with one click.
@@ -98,6 +101,10 @@ Filetor works on real files: it copies, moves, renames and trashes them. It is e
 ## About
 
 I am David Praznik, a UX/UI and product designer. Filetor started as a tool for my own needs and I am sharing it as it is. It is open source under the MIT licence. If you find a bug or miss something, open an [issue](https://github.com/davidpraznik/Filetor/issues).
+
+## Third-party software
+
+- [libwebp](https://chromium.googlesource.com/webm/libwebp) (BSD 3-Clause), WebP encoding.
 
 ## Licence
 
