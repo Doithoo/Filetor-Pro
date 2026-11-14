@@ -320,13 +320,25 @@ nonisolated extension FileTools {
         let writeURL = options.replace
             ? dir.appending(path: ".filetor-\(UUID().uuidString)." + ext)
             : unique(dir.appending(path: base + "-web." + ext))
-        guard let out = CGImageDestinationCreateWithURL(writeURL as CFURL, type, 1, nil) else {
-            return fail("This format cannot be written.")
+        var wroteWebP = false
+        #if canImport(libwebp)
+        if UTType(type as String)?.conforms(to: .webP) == true {
+            guard let data = encodeWebP(image, quality: Float(options.quality * 100)), (try? data.write(to: writeURL)) != nil else {
+                try? fm.removeItem(at: writeURL)
+                return fail("Could not write the image.")
+            }
+            wroteWebP = true
         }
-        CGImageDestinationAddImage(out, image, dict as CFDictionary)
-        guard CGImageDestinationFinalize(out) else {
-            try? fm.removeItem(at: writeURL)
-            return fail("Could not write the image.")
+        #endif
+        if !wroteWebP {
+            guard let out = CGImageDestinationCreateWithURL(writeURL as CFURL, type, 1, nil) else {
+                return fail("This format cannot be written.")
+            }
+            CGImageDestinationAddImage(out, image, dict as CFDictionary)
+            guard CGImageDestinationFinalize(out) else {
+                try? fm.removeItem(at: writeURL)
+                return fail("Could not write the image.")
+            }
         }
         if options.pngPalette, options.strip, UTType(type as String)?.conforms(to: .png) == true,
            let data = PNGQuantizer.encode(image),

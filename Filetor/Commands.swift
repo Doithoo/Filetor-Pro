@@ -683,7 +683,7 @@ struct OptimizeSheet: View {
                     Text("\(Int((quality * 100).rounded())) %").foregroundStyle(.secondary)
                 }
                 Slider(value: $quality, in: 0.3...1.0)
-                Text("Applies to JPEG and HEIC.").font(.system(size: 12 * s)).foregroundStyle(.secondary)
+                Text("Applies to JPEG, HEIC and WebP.").font(.system(size: 12 * s)).foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
