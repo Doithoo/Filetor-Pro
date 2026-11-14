@@ -63,6 +63,8 @@ enum ToolCatalog {
                 run: { $0.compress($0.active.selection) }),
         ToolDef(id: "decompress", title: "Decompress", symbol: "arrow.up.left.and.arrow.down.right", needsSelection: true,
                 run: { $0.decompress($0.active.selection) }),
+        ToolDef(id: "convert", title: "Convert", symbol: "arrow.triangle.2.circlepath", needsSelection: true,
+                run: { let images = $0.active.selection.filter { FileTools.isImage($0) }; $0.convertURLs = images.isEmpty ? nil : images }),
         ToolDef(id: "optimize", title: "Optimize", symbol: "photo", needsSelection: true,
                 run: { $0.optimizeImages($0.active.selection) }),
         ToolDef(id: "stripMeta", title: "Strip Metadata", symbol: "eraser", needsSelection: true,
@@ -95,7 +97,7 @@ enum ToolCatalog {
         "sidebar", "backfwd", "enclosing", "title", "view", "dual", "swap",
         "quickLook", "hidden", "newFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
-        "decompress", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
+        "decompress", "convert", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
         "airdrop", "connect", "info", "customize", "search", "space", "flex",
     ]
 

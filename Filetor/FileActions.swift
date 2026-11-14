@@ -95,6 +95,27 @@ nonisolated enum FileTools {
         return errors.isEmpty ? nil : errors.joined(separator: "\n")
     }
 
+    static let webPType = "org.webmproject.webp"
+
+    /// WebP output only exists when this macOS version can write it through ImageIO.
+    static var canWriteWebP: Bool {
+        (CGImageDestinationCopyTypeIdentifiers() as? [String])?.contains(webPType) == true
+    }
+
+    private static func writeWebP(_ url: URL, to dest: URL) -> String? {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
+            return "Could not read the image."
+        }
+        guard let out = CGImageDestinationCreateWithURL(dest as CFURL, webPType as CFString, 1, nil) else {
+            return "This macOS cannot write WebP."
+        }
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
+        var options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.85]
+        if let o = props?[kCGImagePropertyOrientation] { options[kCGImagePropertyOrientation] = o }
+        CGImageDestinationAddImage(out, image, options as CFDictionary)
+        return CGImageDestinationFinalize(out) ? nil : "Could not write the image."
+    }
+
     /// Writes a converted copy next to each image and leaves the original untouched.
     static func convert(_ urls: [URL], format: String, ext: String) -> String? {
         let images = urls.filter(isImage)
@@ -103,7 +124,9 @@ nonisolated enum FileTools {
         for url in images {
             let dest = unique(url.deletingLastPathComponent()
                 .appending(path: url.deletingPathExtension().lastPathComponent + "." + ext))
-            if let err = run("/usr/bin/sips", ["-s", "format", format, url.path, "--out", dest.path]) {
+            if format == "webp" {
+                if let err = writeWebP(url, to: dest) { errors.append("\(url.lastPathComponent): \(err)") }
+            } else if let err = run("/usr/bin/sips", ["-s", "format", format, url.path, "--out", dest.path]) {
                 errors.append("\(url.lastPathComponent): \(err)")
             }
         }

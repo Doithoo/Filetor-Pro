@@ -79,6 +79,8 @@ final class AppModel {
     var pendingDelete: [URL]?
     /// Images in the Optimize dialog.
     var optimizeURLs: [URL]?
+    /// Images in the Convert dialog.
+    var convertURLs: Set<URL>?
     /// Result of Find Duplicates or Compare Folders.
     var report: Report?
     var sync: SyncSession?
