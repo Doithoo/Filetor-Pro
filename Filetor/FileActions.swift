@@ -2,6 +2,9 @@ import Foundation
 import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
+#if canImport(libwebp)
+import libwebp
+#endif
 
 /// Helpers that run outside the main actor (archives, folder sizes).
 nonisolated enum FileTools {
@@ -97,15 +100,28 @@ nonisolated enum FileTools {
 
     static let webPType = "org.webmproject.webp"
 
-    /// WebP output only exists when this macOS version can write it through ImageIO.
+    /// True when the libwebp package is linked, or this macOS can write WebP through ImageIO.
     static var canWriteWebP: Bool {
-        (CGImageDestinationCopyTypeIdentifiers() as? [String])?.contains(webPType) == true
+        #if canImport(libwebp)
+        return true
+        #else
+        return (CGImageDestinationCopyTypeIdentifiers() as? [String])?.contains(webPType) == true
+        #endif
     }
 
     private static func writeWebP(_ url: URL, to dest: URL) -> String? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
-            return "Could not read the image."
-        }
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return "Could not read the image." }
+        #if canImport(libwebp)
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 1 << 16,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary),
+              let data = encodeWebP(image, quality: 85) else { return "Could not encode WebP." }
+        do { try data.write(to: dest); return nil } catch { return error.localizedDescription }
+        #else
+        guard let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return "Could not read the image." }
         guard let out = CGImageDestinationCreateWithURL(dest as CFURL, webPType as CFString, 1, nil) else {
             return "This macOS cannot write WebP."
         }
@@ -114,7 +130,42 @@ nonisolated enum FileTools {
         if let o = props?[kCGImagePropertyOrientation] { options[kCGImagePropertyOrientation] = o }
         CGImageDestinationAddImage(out, image, options as CFDictionary)
         return CGImageDestinationFinalize(out) ? nil : "Could not write the image."
+        #endif
     }
+
+    #if canImport(libwebp)
+    private static func encodeWebP(_ image: CGImage, quality: Float) -> Data? {
+        let w = image.width, h = image.height
+        let bytesPerRow = w * 4
+        var pixels = [UInt8](repeating: 0, count: bytesPerRow * h)
+        let drawn: Bool = pixels.withUnsafeMutableBytes { buf in
+            guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                  let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+                                      space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return nil }
+        var i = 0
+        while i < pixels.count {
+            let a = Int(pixels[i + 3])
+            if a > 0 && a < 255 {
+                pixels[i] = UInt8(min(255, Int(pixels[i]) * 255 / a))
+                pixels[i + 1] = UInt8(min(255, Int(pixels[i + 1]) * 255 / a))
+                pixels[i + 2] = UInt8(min(255, Int(pixels[i + 2]) * 255 / a))
+            }
+            i += 4
+        }
+        var output: UnsafeMutablePointer<UInt8>? = nil
+        let size = pixels.withUnsafeBufferPointer { p in
+            WebPEncodeRGBA(p.baseAddress, Int32(w), Int32(h), Int32(bytesPerRow), quality, &output)
+        }
+        guard size > 0, let out = output else { return nil }
+        let data = Data(bytes: out, count: size)
+        WebPFree(out)
+        return data
+    }
+    #endif
 
     /// Writes a converted copy next to each image and leaves the original untouched.
     static func convert(_ urls: [URL], format: String, ext: String) -> String? {
