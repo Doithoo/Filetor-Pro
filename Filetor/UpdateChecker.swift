@@ -12,6 +12,8 @@ final class UpdateChecker {
 
     static let repo = "davidpraznik/Filetor"
     var state: State = .idle
+    /// Set once per new version by an automatic check. Drives the "update available" dialog.
+    var promptVersion: String?
 
     /// True while a newer release exists. Drives the dot on the Settings button.
     var isAvailable: Bool {
@@ -24,7 +26,7 @@ final class UpdateChecker {
     }
 
     @MainActor
-    func check() async {
+    func check(automatic: Bool = false) async {
         // A background re-check keeps showing a known update instead of flickering to "Checking…".
         let previous = state
         if !isAvailable { state = .checking }
@@ -46,6 +48,10 @@ final class UpdateChecker {
             let page = (json["html_url"] as? String).flatMap(URL.init(string:)) ?? URL(string: "https://github.com/\(Self.repo)/releases")!
             if latest.compare(installed, options: .numeric) == .orderedDescending {
                 state = .available(version: latest, url: page)
+                if automatic, UserDefaults.standard.string(forKey: "lastPromptedUpdate") != latest {
+                    UserDefaults.standard.set(latest, forKey: "lastPromptedUpdate")
+                    promptVersion = latest
+                }
             } else {
                 state = .upToDate
             }

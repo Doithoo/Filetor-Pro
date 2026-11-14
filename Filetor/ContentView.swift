@@ -108,6 +108,18 @@ struct ContentView: View {
                  ? "\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this."
                  : "\(urls.count) items will be deleted right away. You can't undo this.")
         }
+        .alert("Filetor \(app.updater.promptVersion ?? "") is available", isPresented: Binding(
+            get: { app.updater.promptVersion != nil },
+            set: { if !$0 { app.updater.promptVersion = nil } }
+        )) {
+            Button("Download") {
+                if case .available(_, let url) = app.updater.state { NSWorkspace.shared.open(url) }
+                app.updater.promptVersion = nil
+            }
+            Button("Later", role: .cancel) { app.updater.promptVersion = nil }
+        } message: {
+            Text("You have version \(app.updater.installed). The update is also shown in Settings.")
+        }
         .task {
             app.network.onError = { app.alert = $0 }
             app.network.onMounted = { app.active.navigate(to: $0) }
@@ -117,7 +129,7 @@ struct ContentView: View {
             // At launch and then every 6 hours while the app stays open.
             while !Task.isCancelled {
                 if UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
-                    await app.updater.check()
+                    await app.updater.check(automatic: true)
                 }
                 try? await Task.sleep(for: .seconds(6 * 3600))
             }
