@@ -104,6 +104,10 @@ You only need to do this once.
 2. Open `Filetor.xcodeproj` in Xcode.
 3. Select the Filetor scheme and press Run (⌘R).
 
+## Privacy
+
+Filetor does not collect any telemetry, analytics or usage data. The only network request the app makes by itself is the update check, which asks GitHub for the latest release number. You can turn it off in Settings. Everything else (files, tags, searches, settings) stays on your Mac.
+
 ## Safety
 
 Filetor works on real files: it copies, moves, renames and trashes them. It is early software. Try it on a test folder first and keep backups of anything important.
