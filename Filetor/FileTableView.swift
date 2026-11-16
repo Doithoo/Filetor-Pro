@@ -46,6 +46,7 @@ struct FileTableView: NSViewRepresentable {
         }
         add("name", "Name", 320, min: 140)
         add("folder", "Folder", 200, min: 80)
+        add("tags", "Tags", 150, min: 60)
         add("modified", "Date Modified", 150, min: 100)
         add("created", "Date Created", 150, min: 100)
         add("lastOpened", "Date Last Opened", 160, min: 100)
@@ -61,6 +62,7 @@ struct FileTableView: NSViewRepresentable {
             if from >= 0, from != i + 1, i + 1 < table.numberOfColumns { table.moveColumn(from, toColumn: i + 1) }
         }
         NotificationCenter.default.addObserver(c, selector: #selector(Coordinator.columnMoved(_:)), name: NSTableView.columnDidMoveNotification, object: table)
+        NotificationCenter.default.addObserver(c, selector: #selector(Coordinator.layoutChanged(_:)), name: Coordinator.layoutChangedName, object: nil)
         table.allowsColumnResizing = true
         // User resizing only: an autoresizing Name column would absorb every widening and keep the table locked to the visible width.
         for col in table.tableColumns { col.resizingMask = .userResizingMask }
@@ -147,9 +149,46 @@ struct FileTableView: NSViewRepresentable {
             return CGFloat(w)
         }
 
-        @objc func columnMoved(_ note: Notification) {
+        // MARK: Column layout shared by all lists (order, visibility, widths)
+
+        static let layoutChangedName = Notification.Name("FiletorColumnLayoutChanged")
+        private var applyingLayout = false
+
+        /// Another list changed its columns: follow it, so both panes (and all tabs) look the same.
+        @objc func layoutChanged(_ note: Notification) {
+            guard let table, (note.object as AnyObject?) !== table else { return }
+            applyLayout()
+        }
+
+        private func announceLayout() {
+            guard !applyingLayout else { return }
+            NotificationCenter.default.post(name: Self.layoutChangedName, object: table)
+        }
+
+        private func applyLayout() {
             guard let table else { return }
+            applyingLayout = true
+            defer { applyingLayout = false }
+            let visible = Self.visibleColumns()
+            for col in table.tableColumns {
+                let id = col.identifier.rawValue
+                guard id != "name" else { continue }
+                // Folder is shown only while searching; the list decides that itself.
+                if id != "folder" { col.isHidden = !visible.contains(id) }
+                if let w = Self.savedWidth(id) { col.width = w }
+            }
+            let order = (UserDefaults.standard.array(forKey: "columnOrder") as? [String] ?? []).filter { $0 != "name" }
+            for (i, id) in order.enumerated() {
+                let from = table.column(withIdentifier: NSUserInterfaceItemIdentifier(id))
+                if from >= 0, from != i + 1, i + 1 < table.numberOfColumns { table.moveColumn(from, toColumn: i + 1) }
+            }
+            fitName(force: true)
+        }
+
+        @objc func columnMoved(_ note: Notification) {
+            guard let table, !applyingLayout else { return }
             UserDefaults.standard.set(table.tableColumns.map(\.identifier.rawValue), forKey: "columnOrder")
+            announceLayout()
         }
 
         /// Name cannot be moved, and nothing can be dropped in front of it.
@@ -159,10 +198,11 @@ struct FileTableView: NSViewRepresentable {
         }
 
         @objc func columnResized(_ note: Notification) {
-            guard let col = note.userInfo?["NSTableColumn"] as? NSTableColumn, col.identifier.rawValue != "name" else { return }
+            guard !applyingLayout, let col = note.userInfo?["NSTableColumn"] as? NSTableColumn, col.identifier.rawValue != "name" else { return }
             var saved = UserDefaults.standard.dictionary(forKey: "columnWidths") as? [String: Double] ?? [:]
             saved[col.identifier.rawValue] = Double(col.width)
             UserDefaults.standard.set(saved, forKey: "columnWidths")
+            announceLayout()
         }
 
         /// Notification entry point: only a change of the visible width re-fits Name. A scroller appearing changes the
@@ -182,12 +222,20 @@ struct FileTableView: NSViewRepresentable {
 
         static let optionalColumns: [(id: String, title: String)] = [
             ("modified", "Date Modified"), ("created", "Date Created"), ("lastOpened", "Date Last Opened"),
-            ("added", "Date Added"), ("size", "Size"), ("kind", "Kind"),
+            ("added", "Date Added"), ("size", "Size"), ("kind", "Kind"), ("tags", "Tags"),
         ]
 
         static func visibleColumns() -> Set<String> {
-            if let saved = UserDefaults.standard.array(forKey: "fileColumns") as? [String] { return Set(saved) }
-            return ["modified", "kind", "size"]
+            if var saved = UserDefaults.standard.array(forKey: "fileColumns") as? [String] {
+                // The Tags column is new: switch it on once for lists saved before it existed.
+                if !UserDefaults.standard.bool(forKey: "tagsColumnAdded") {
+                    UserDefaults.standard.set(true, forKey: "tagsColumnAdded")
+                    saved.append("tags")
+                    UserDefaults.standard.set(saved, forKey: "fileColumns")
+                }
+                return Set(saved)
+            }
+            return ["modified", "kind", "size", "tags"]
         }
 
         init(_ parent: FileTableView) { self.parent = parent }
@@ -200,6 +248,7 @@ struct FileTableView: NSViewRepresentable {
             if c.keyPath == \FileItem.size as PartialKeyPath<FileItem> { return "size" }
             if c.keyPath == \FileItem.kind as PartialKeyPath<FileItem> { return "kind" }
             if c.keyPath == \FileItem.folder as PartialKeyPath<FileItem> { return "folder" }
+            if c.keyPath == \FileItem.tagsText as PartialKeyPath<FileItem> { return "tags" }
             return "name"
         }
 
@@ -239,7 +288,6 @@ struct FileTableView: NSViewRepresentable {
             table.scrollRowToVisible(row)
             guard let cell = table.view(atColumn: col, row: row, makeIfNecessary: true) as? NSTableCellView,
                   let field = cell.textField else { return }
-            (cell as? NameCellView)?.setRenaming(true)
             renaming = true
             renameOriginal = items[row].name
             field.isEditable = true
@@ -269,7 +317,6 @@ struct FileTableView: NSViewRepresentable {
             field.isEditable = false
             field.isSelectable = false
             field.isBezeled = false
-            (field.superview as? NameCellView)?.setRenaming(false)
             field.drawsBackground = false
             field.stringValue = renameOriginal
             table?.window?.makeFirstResponder(table)
@@ -308,7 +355,7 @@ struct FileTableView: NSViewRepresentable {
             let font = NSFont.systemFont(ofSize: 13 * s)
             let id = col.identifier
 
-            let cell: NSTableCellView = id.rawValue == "name" ? NameCellView() : NSTableCellView()
+            let cell = NSTableCellView()
             let text = NSTextField(labelWithString: "")
             text.font = font
             text.lineBreakMode = .byTruncatingTail
@@ -330,16 +377,36 @@ struct FileTableView: NSViewRepresentable {
                     icon.widthAnchor.constraint(equalToConstant: 17 * s),
                     icon.heightAnchor.constraint(equalToConstant: 17 * s),
                     text.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
+                    text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
                     text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
                 ])
-                let fullWidth = text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4)
-                if let named = cell as? NameCellView {
-                    named.fullWidth = fullWidth
-                    named.addTags(item.tags, text: text, scale: s)
-                    if !named.hasTags { fullWidth.isActive = true }
-                } else {
-                    fullWidth.isActive = true
+            case "tags":
+                var colors: [NSColor] = []
+                var names: [String] = []
+                for t in item.tags {
+                    if let c = TagStore.shared.color(for: t) { colors.append(c) } else { names.append(t) }
                 }
+                text.stringValue = names.joined(separator: " ")
+                text.textColor = .secondaryLabelColor
+                cell.toolTip = item.tags.isEmpty ? nil : item.tags.joined(separator: ", ")
+                var leading = text.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4)
+                if !colors.isEmpty {
+                    let dots = TagDotsView(colors: colors, scale: s)
+                    dots.translatesAutoresizingMaskIntoConstraints = false
+                    cell.addSubview(dots)
+                    NSLayoutConstraint.activate([
+                        dots.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+                        dots.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                        dots.widthAnchor.constraint(equalToConstant: dots.contentWidth),
+                        dots.heightAnchor.constraint(equalToConstant: 14 * s),
+                    ])
+                    leading = text.leadingAnchor.constraint(equalTo: dots.trailingAnchor, constant: names.isEmpty ? 0 : 5)
+                }
+                NSLayoutConstraint.activate([
+                    leading,
+                    text.trailingAnchor.constraint(lessThanOrEqualTo: cell.trailingAnchor, constant: -8),
+                    text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                ])
             case "size":
                 if item.isDirectory && !item.sizeCalculated {
                     text.stringValue = UserDefaults.standard.bool(forKey: "calculateFolderSizes") ? "…" : "--"
@@ -416,6 +483,7 @@ struct FileTableView: NSViewRepresentable {
             case "size": comparator = KeyPathComparator(\FileItem.size, order: order)
             case "kind": comparator = KeyPathComparator(\FileItem.kind, comparator: .localizedStandard, order: order)
             case "folder": comparator = KeyPathComparator(\FileItem.folder, comparator: .localizedStandard, order: order)
+            case "tags": comparator = KeyPathComparator(\FileItem.tagsText, comparator: .localizedStandard, order: order)
             default: comparator = KeyPathComparator(\FileItem.name, comparator: .localizedStandard, order: order)
             }
             parent.pane.sortOrder = [comparator]
@@ -606,6 +674,7 @@ struct FileTableView: NSViewRepresentable {
             UserDefaults.standard.set(Array(visible), forKey: "fileColumns")
             table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(id))?.isHidden = !visible.contains(id)
             fitName(force: true)
+            announceLayout()
         }
 
         private func tagsItem(_ urls: Set<URL>) -> NSMenuItem {
@@ -617,7 +686,7 @@ struct FileTableView: NSViewRepresentable {
                 let n = chosen.filter { f in f.tags.contains { store.matches($0, tag.name) } }.count
                 let mi = item(tag.name) { [weak self] in self?.parent.app.toggleTag(tag.name, on: urls) }
                 mi.state = n == 0 ? .off : (n == chosen.count ? .on : .mixed)
-                mi.image = FinderTags.circleImage(color: tag.color)
+                mi.attributedTitle = FinderTags.menuTitle(tag.name, color: tag.color)
                 sub.addItem(mi)
             }
             sub.addItem(.separator())

@@ -19,6 +19,9 @@ struct FileItem: Identifiable, Hashable {
 
     var id: URL { url }
 
+    /// Tag names as one text, used for sorting the Tags column.
+    var tagsText: String { tags.joined(separator: " ") }
+
     static let keys: [URLResourceKey] = [
         .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
         .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey, .tagNamesKey

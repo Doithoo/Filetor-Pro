@@ -113,21 +113,15 @@ enum FinderTags {
         }
     }
 
-    /// Small circle for menus: filled for standard tags, hollow for named tags.
-    static func circleImage(color: NSColor?, size: CGFloat = 12) -> NSImage {
-        let img = NSImage(size: NSSize(width: size, height: size))
-        img.lockFocus()
-        let path = NSBezierPath(ovalIn: NSRect(x: 1, y: 1, width: size - 2, height: size - 2))
-        if let color {
-            color.setFill()
-            path.fill()
-        } else {
-            NSColor.secondaryLabelColor.setStroke()
-            path.lineWidth = 1.2
-            path.stroke()
-        }
-        img.unlockFocus()
-        return img
+    /// Menu title with a coloured circle in front (filled for standard tags, hollow for named tags).
+    /// Drawn as text because menu item images are not shown reliably.
+    static func menuTitle(_ name: String, color: NSColor?) -> NSAttributedString {
+        let font = NSFont.menuFont(ofSize: 0)
+        let out = NSMutableAttributedString(
+            string: color == nil ? "○" : "●",
+            attributes: [.foregroundColor: color ?? NSColor.secondaryLabelColor, .font: font])
+        out.append(NSAttributedString(string: "  " + name, attributes: [.font: font]))
+        return out
     }
 }
 
@@ -182,85 +176,6 @@ final class TagDotsView: NSView {
         for (i, c) in colors.enumerated() {
             c.setFill()
             NSBezierPath(ovalIn: NSRect(x: CGFloat(i) * step, y: y, width: d, height: d)).fill()
-        }
-    }
-}
-
-/// Name cell of the file list: icon, name, then the tags (circles for standard tags, grey text for named tags).
-final class NameCellView: NSTableCellView {
-    private(set) var tagViews: [NSView] = []
-    private var chain: [NSLayoutConstraint] = []
-    /// Name text runs to the cell edge; used while renaming so the edit field has the full width.
-    var fullWidth: NSLayoutConstraint?
-
-    var hasTags: Bool { !tagViews.isEmpty }
-
-    func addTags(_ tags: [String], text: NSTextField, scale s: CGFloat) {
-        let store = TagStore.shared
-        var colors: [NSColor] = []
-        var names: [String] = []
-        for t in tags {
-            if let c = store.color(for: t) { colors.append(c) } else { names.append(t) }
-        }
-        guard !colors.isEmpty || !names.isEmpty else { return }
-        toolTip = tags.joined(separator: ", ")
-        text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        var prev: NSView = text
-        var gap: CGFloat = 6
-        var cons: [NSLayoutConstraint] = []
-
-        if !colors.isEmpty {
-            let dots = TagDotsView(colors: colors, scale: s)
-            dots.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(dots)
-            let follow = dots.leadingAnchor.constraint(equalTo: prev.trailingAnchor, constant: gap)
-            follow.priority = .defaultHigh
-            cons += [
-                follow,
-                dots.leadingAnchor.constraint(greaterThanOrEqualTo: prev.trailingAnchor, constant: gap),
-                dots.centerYAnchor.constraint(equalTo: centerYAnchor),
-                dots.widthAnchor.constraint(equalToConstant: dots.contentWidth),
-                dots.heightAnchor.constraint(equalToConstant: 14 * s),
-            ]
-            tagViews.append(dots)
-            prev = dots
-            gap = 5
-        }
-
-        if !names.isEmpty {
-            let label = NSTextField(labelWithString: names.joined(separator: " "))
-            label.font = .systemFont(ofSize: 12.5 * s)
-            label.textColor = .secondaryLabelColor
-            label.lineBreakMode = .byTruncatingTail
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(500), for: .horizontal)
-            addSubview(label)
-            let follow = label.leadingAnchor.constraint(equalTo: prev.trailingAnchor, constant: gap)
-            follow.priority = .defaultHigh
-            cons += [
-                follow,
-                label.leadingAnchor.constraint(greaterThanOrEqualTo: prev.trailingAnchor, constant: gap),
-                label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            ]
-            tagViews.append(label)
-            prev = label
-        }
-
-        cons.append(prev.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4))
-        NSLayoutConstraint.activate(cons)
-        chain = cons
-    }
-
-    func setRenaming(_ on: Bool) {
-        guard hasTags else { return }
-        for v in tagViews { v.isHidden = on }
-        if on {
-            NSLayoutConstraint.deactivate(chain)
-            fullWidth?.isActive = true
-        } else {
-            fullWidth?.isActive = false
-            NSLayoutConstraint.activate(chain)
         }
     }
 }
@@ -363,8 +278,8 @@ extension AppModel {
 
     private func applyTags(_ change: TagChange, to urls: Set<URL>) {
         let list = Array(urls)
+        let known = knownTags(urls)
         Task { [weak self] in
-            let known = knownTags(urls)
             let result = await Task.detached(priority: .userInitiated) { FinderTags.apply(change, to: list, known: known) }.value
             guard let self else { return }
             TagStore.shared.remember(result.after.values.flatMap { $0 })
@@ -376,15 +291,15 @@ extension AppModel {
                 }
                 let before = result.before
                 let after = result.after
-                pushUndo("Tags", undo: { restore(before) }, redo: { [weak self] in
+                self.pushUndo("Tags", undo: { restore(before) }, redo: { [weak self] in
                     let error = restore(after)
                     self?.reloadPanesKeepingSelection()
                     return error
                 })
             }
             // Update the lists in place instead of re-reading the folders (slow on cloud drives).
-            for g in groups { for tab in g.tabs { tab.applyTagChanges(result.after) } }
-            if !result.failed.isEmpty { alert = result.failed.prefix(3).joined(separator: "\n") }
+            for g in self.groups { for tab in g.tabs { tab.applyTagChanges(result.after) } }
+            if !result.failed.isEmpty { self.alert = result.failed.prefix(3).joined(separator: "\n") }
         }
     }
 }
