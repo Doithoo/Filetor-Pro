@@ -125,30 +125,39 @@ enum FinderTags {
     }
 }
 
-/// Finds every file with a tag through Spotlight (mdfind, run in the background).
+/// Finds every file with a tag through Spotlight.
 enum TagQuery {
     static func run(_ name: String) async -> [URL] {
+        let clauses = TagStore.shared.aliases(of: name).map { "kMDItemUserTags == \"\(SavedSearch.escape($0))\"c" }
+        return await SpotlightSearch.run(clauses.joined(separator: " || "), onlyIn: "")
+    }
+}
+
+extension TagQuery {
+    /// Looks through a folder (and everything in it) for files with the tag. Slow, used where Spotlight has no index.
+    static func scan(_ name: String, root: URL) async -> [URL] {
         let names = TagStore.shared.aliases(of: name)
-        return await Task.detached(priority: .userInitiated) { search(names) }.value
+        let task = Task.detached(priority: .utility) { scanFolder(names, root) }
+        return await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
     }
 
-    nonisolated private static func search(_ names: [String]) -> [URL] {
-        let clauses = names.map { n -> String in
-            let escaped = n.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-            return "kMDItemUserTags == \"\(escaped)\"c"
+    nonisolated private static func scanFolder(_ names: [String], _ root: URL) -> [URL] {
+        guard let en = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: [.tagNamesKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
+        var out: [URL] = []
+        var visited = 0
+        while let url = en.nextObject() as? URL {
+            if Task.isCancelled { break }
+            visited += 1
+            if visited > 100_000 { break }
+            let tags = (try? url.resourceValues(forKeys: [.tagNamesKey]))?.tagNames ?? []
+            if tags.contains(where: { t in names.contains { $0.caseInsensitiveCompare(t) == .orderedSame } }) {
+                out.append(url)
+                if out.count >= 3000 { break }
+            }
         }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/mdfind")
-        process.arguments = ["-0", clauses.joined(separator: " || ")]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return [] }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return data.split(separator: 0).prefix(3000).compactMap { chunk in
-            String(data: Data(chunk), encoding: .utf8).map { URL(fileURLWithPath: $0) }
-        }
+        return out
     }
 }
 

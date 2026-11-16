@@ -24,6 +24,8 @@ final class PaneModel: Identifiable {
     var foldersScanned = 0
     /// Name of the tag whose files are shown (a Spotlight search over the whole Mac), nil in a normal folder.
     var tagFilter: String?
+    /// Set when the list shows a saved search (tagFilter then holds its name).
+    var savedSearchID: UUID?
     var tagResults: [FileItem] = []
     var tagSearching = false
     @ObservationIgnored private var tagTask: Task<Void, Never>?
@@ -129,8 +131,10 @@ final class PaneModel: Identifiable {
     func applyTagChanges(_ map: [URL: [String]]) {
         for i in items.indices { if let t = map[items[i].url] { items[i].tags = t } }
         for i in searchResults.indices { if let t = map[searchResults[i].url] { searchResults[i].tags = t } }
-        if let f = tagFilter {
+        if tagFilter != nil {
             for i in tagResults.indices { if let t = map[tagResults[i].url] { tagResults[i].tags = t } }
+        }
+        if let f = tagFilter, savedSearchID == nil {
             let store = TagStore.shared
             tagResults.removeAll { item in map[item.url] != nil && !item.tags.contains { store.matches($0, f) } }
         }
@@ -155,7 +159,19 @@ final class PaneModel: Identifiable {
         }
     }
 
+    func showSaved(_ search: SavedSearch) {
+        savedSearchID = search.id
+        tagFilter = search.name
+        tagResults = []
+        selection.removeAll()
+        filter = ""
+        startTagQuery()
+    }
+
     func showTag(_ name: String) {
+        savedSearchID = nil
+        let onNetwork = (try? currentURL.resourceValues(forKeys: [.volumeIsLocalKey]))?.volumeIsLocal == false
+        tagScanRoot = onNetwork ? currentURL : nil
         tagFilter = name
         tagResults = []
         selection.removeAll()
@@ -166,27 +182,46 @@ final class PaneModel: Identifiable {
     func clearTag() {
         tagTask?.cancel()
         tagFilter = nil
+        savedSearchID = nil
         tagResults = []
         tagSearching = false
     }
+
+    /// Folder to scan by hand when the tag view was opened on a network disk (Spotlight does not index those).
+    @ObservationIgnored private var tagScanRoot: URL?
 
     private func startTagQuery() {
         tagTask?.cancel()
         guard let name = tagFilter else { return }
         tagSearching = true
+        let saved = savedSearchID.flatMap { SavedSearchStore.shared.item($0) }
+        let query = saved.map { $0.makeQuery() }
+        let folder = saved?.folder ?? ""
+        let scanRoot = saved == nil ? tagScanRoot : nil
         tagTask = Task { [weak self] in
-            let urls = await TagQuery.run(name)
+            var urls: [URL]
+            if let query { urls = await SpotlightSearch.run(query, onlyIn: folder) } else { urls = await TagQuery.run(name) }
             guard let self, !Task.isCancelled, self.tagFilter == name else { return }
-            let home = NSHomeDirectory()
-            self.tagResults = urls.map { url in
-                var item = FileItem(url: url)
-                var parent = url.deletingLastPathComponent().path
-                if parent.hasPrefix(home) { parent = "~" + String(parent.dropFirst(home.count)) }
-                item.folder = parent
-                return item
-            }
-            self.tagSearching = false
+            self.showTagResults(urls, finished: scanRoot == nil)
+            guard let scanRoot else { return }
+            let extra = await TagQuery.scan(name, root: scanRoot)
+            guard !Task.isCancelled, self.tagFilter == name else { return }
+            let known = Set(urls)
+            urls += extra.filter { !known.contains($0) }
+            self.showTagResults(urls, finished: true)
         }
+    }
+
+    private func showTagResults(_ urls: [URL], finished: Bool) {
+        let home = NSHomeDirectory()
+        tagResults = urls.map { url in
+            var item = FileItem(url: url)
+            var parent = url.deletingLastPathComponent().path
+            if parent.hasPrefix(home) { parent = "~" + String(parent.dropFirst(home.count)) }
+            item.folder = parent
+            return item
+        }
+        if finished { tagSearching = false }
     }
 
     private func reload(keepSelection: Bool) {

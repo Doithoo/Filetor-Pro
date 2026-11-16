@@ -81,6 +81,8 @@ final class AppModel {
     var optimizeURLs: [URL]?
     /// New Project Folder dialog.
     var projectDialog = false
+    /// Saved search being created or edited; nil when the dialog is closed.
+    var savedSearchDialog: SavedSearch?
     /// Images in the Convert dialog.
     var convertURLs: Set<URL>?
     /// Result of Find Duplicates or Compare Folders.

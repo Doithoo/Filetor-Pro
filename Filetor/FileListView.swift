@@ -79,7 +79,7 @@ struct FileListView: View {
         if let tag = pane.tagFilter {
             let n = pane.sortedItems.count
             let count = n == 1 ? "1 item" : "\(n) items"
-            return (pane.tagSearching ? "Searching, " : "") + "\(count) tagged \(tag)"
+            return (pane.tagSearching ? "Searching, " : "") + (pane.savedSearchID != nil ? "\(count) in \(tag)" : "\(count) tagged \(tag)")
         }
         if pane.searchActive {
             let n = pane.searchResults.count

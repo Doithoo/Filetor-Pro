@@ -31,7 +31,7 @@ struct SidebarView: View {
     @State private var liveOrder: [String]?
     @State private var draggingFavorite: URL?
 
-    private static let allSections = ["Devices", "Cloud", "Shared", "Favorites", "Tags"]
+    private static let allSections = ["Devices", "Cloud", "Shared", "Favorites", "Searches", "Tags"]
 
     /// Saved section order; unknown names are dropped and missing ones appended.
     private var order: [String] {
@@ -95,6 +95,9 @@ struct SidebarView: View {
         case "Shared":
             shared
                 .onDrop(of: [.text], delegate: sectionDelegate("Shared"))
+        case "Searches":
+            searchesSection
+                .onDrop(of: [.text], delegate: sectionDelegate("Searches"))
         case "Tags":
             tagsSection
                 .onDrop(of: [.text], delegate: sectionDelegate("Tags"))
@@ -215,13 +218,68 @@ struct SidebarView: View {
         .frame(width: 10.5 * s, height: 10.5 * s)
     }
 
+    private var searchesSection: some View {
+        let store = SavedSearchStore.shared
+        return VStack(alignment: .leading, spacing: 2 * s) {
+            sectionHeader("Searches")
+            if !isCollapsed("Searches") {
+                HStack(spacing: 8 * s) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12.5 * s))
+                        .foregroundStyle(Color.filetor)
+                        .frame(width: 20 * s)
+                    Text("New Saved Search…").font(.system(size: 13 * s))
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5 * s)
+                .contentShape(Rectangle())
+                .onTapGesture { app.savedSearchDialog = SavedSearch(folder: app.active.currentURL.path) }
+                ForEach(store.items) { search in
+                    let on = app.active.savedSearchID == search.id
+                    HStack(spacing: 8 * s) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 12.5 * s))
+                            .foregroundStyle(Color.filetor)
+                            .frame(width: 20 * s)
+                        Text(search.name)
+                            .font(.system(size: 13 * s))
+                            .foregroundStyle(Color.primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5 * s)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if on {
+                            app.active.clearTag()
+                            app.active.load()
+                        } else {
+                            selection = nil
+                            app.active.showSaved(search)
+                        }
+                    }
+                    .contextMenu {
+                        Button("Edit…") { app.savedSearchDialog = search }
+                        Button("Remove from Sidebar") {
+                            if on { app.active.clearTag(); app.active.load() }
+                            store.remove(search.id)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var tagsSection: some View {
         let store = TagStore.shared
         return VStack(alignment: .leading, spacing: 2 * s) {
             sectionHeader("Tags")
             if !isCollapsed("Tags") {
                 ForEach(store.all) { tag in
-                    let on = app.active.tagFilter == tag.name
+                    let on = app.active.tagFilter == tag.name && app.active.savedSearchID == nil
                     HStack(spacing: 8 * s) {
                         tagCircle(tag.color)
                             .frame(width: 20 * s)

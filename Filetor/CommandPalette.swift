@@ -18,6 +18,7 @@ struct AppCommand: Identifiable {
     static let all: [AppCommand] = [
         AppCommand(id: "newFolder", title: "New Folder", keys: "⇧ ⌘ N") { $0.newFolder() },
         AppCommand(id: "projectFolder", title: "New Project Folder…") { $0.projectDialog = true },
+        AppCommand(id: "savedSearch", title: "New Saved Search…") { $0.savedSearchDialog = SavedSearch(folder: $0.active.currentURL.path) },
         AppCommand(id: "rename", title: "Rename…", keys: "F2", isEnabled: hasSelection) { $0.beginRename($0.active.selection) },
         AppCommand(id: "duplicate", title: "Duplicate", keys: "⌘ D", isEnabled: hasSelection) { $0.duplicate($0.active.selection) },
         AppCommand(id: "copyTo", title: "Copy to…", isEnabled: hasSelection) { $0.chooseFolderAndTransfer($0.active.selection, move: false) },
