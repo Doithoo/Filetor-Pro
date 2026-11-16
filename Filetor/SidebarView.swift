@@ -10,7 +10,6 @@ struct Place: Identifiable, Hashable {
 
 struct SidebarView: View {
     let app: AppModel
-    @State private var selection: URL?
     @AppStorage("textSize") private var textSize = 1
 
     private var favorites: [Place] { app.favorites.urls.map { app.favorites.place(for: $0) } }
@@ -172,7 +171,9 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 2 * s) {
             sectionHeader(title)
             ForEach(isCollapsed(title) ? [] : places) { p in
-                let on = selection == p.url
+                let pane = app.active
+                let on = pane.tagFilter == nil
+                    && pane.currentURL.standardizedFileURL.path == p.url.standardizedFileURL.path
                 HStack(spacing: 8 * s) {
                     Image(systemName: p.icon)
                         .font(.system(size: 12.5 * s))
@@ -198,7 +199,6 @@ struct SidebarView: View {
                 .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    selection = p.url
                     app.active.navigate(to: p.url)
                 }
                 .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
@@ -257,7 +257,6 @@ struct SidebarView: View {
                             app.active.clearTag()
                             app.active.load()
                         } else {
-                            selection = nil
                             app.active.showSaved(search)
                         }
                     }
@@ -299,7 +298,6 @@ struct SidebarView: View {
                             app.active.clearTag()
                             app.active.load()
                         } else {
-                            selection = nil
                             app.active.showTag(tag.name)
                         }
                     }
