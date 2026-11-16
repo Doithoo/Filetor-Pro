@@ -144,9 +144,6 @@ struct SidebarView: View {
         .background(Color.primary.opacity(0.04))
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didMountNotification)) { _ in tick += 1 }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didUnmountNotification)) { _ in tick += 1 }
-        .onChange(of: selection) { _, new in
-            if let new { app.active.navigate(to: new) }
-        }
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -200,7 +197,10 @@ struct SidebarView: View {
                 .padding(.vertical, 5 * s)
                 .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
                 .contentShape(Rectangle())
-                .onTapGesture { selection = p.url }
+                .onTapGesture {
+                    selection = p.url
+                    app.active.navigate(to: p.url)
+                }
                 .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
                                               card: dragCard(p.name), onDragStart: watchDragEnd))
             }
