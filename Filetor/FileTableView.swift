@@ -593,6 +593,9 @@ struct FileTableView: NSViewRepresentable {
             if urls.contains(where: { FileTools.isArchive($0) }) {
                 menu.addItem(item("Decompress") { [weak self] in self?.parent.app.decompress(urls) })
             }
+            if urls.count == 1, let only = urls.first, items.first(where: { $0.url == only })?.isDirectory == true {
+                menu.addItem(item("Archive Project…") { [weak self] in self?.parent.app.archiveFolder = only })
+            }
             if urls.contains(where: { FileTools.isImage($0) }) {
                 menu.addItem(.separator())
                 menu.addItem(item("Rotate Left") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })

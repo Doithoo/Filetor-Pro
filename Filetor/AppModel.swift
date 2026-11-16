@@ -83,6 +83,8 @@ final class AppModel {
     var projectDialog = false
     /// Saved search being created or edited; nil when the dialog is closed.
     var savedSearchDialog: SavedSearch?
+    /// Folder being archived; nil when the dialog is closed.
+    var archiveFolder: URL?
     /// Images in the Convert dialog.
     var convertURLs: Set<URL>?
     /// Result of Find Duplicates or Compare Folders.

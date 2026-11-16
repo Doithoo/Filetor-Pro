@@ -325,6 +325,9 @@ private struct ToolPanels: ViewModifier {
         .floatingPanel(isPresented: Binding(get: { app.savedSearchDialog != nil }, set: { if !$0 { app.savedSearchDialog = nil } })) {
             if let search = app.savedSearchDialog { SavedSearchSheet(app: app, initial: search) }
         }
+        .floatingPanel(isPresented: Binding(get: { app.archiveFolder != nil }, set: { if !$0 { app.archiveFolder = nil } })) {
+            if let folder = app.archiveFolder { ArchiveSheet(app: app, folder: folder) }
+        }
         .floatingPanel(isPresented: Binding(get: { app.optimizeURLs != nil }, set: { if !$0 { app.optimizeURLs = nil } })) {
             if let urls = app.optimizeURLs { OptimizeSheet(app: app, urls: urls) }
         }
