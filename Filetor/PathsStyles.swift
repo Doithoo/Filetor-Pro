@@ -16,7 +16,9 @@ struct PathsButtonStyle: ButtonStyle {
                 shape.fill(prominent ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color(nsColor: .controlBackgroundColor)))
             )
             .overlay(shape.strokeBorder(Color.primary.opacity(prominent ? 0 : 0.18)))
-            .opacity(configuration.isPressed ? 0.8 : 1)
+            .overlay(shape.fill(prominent ? Color.black.opacity(configuration.isPressed ? 0.22 : 0) : Color.primary.opacity(configuration.isPressed ? 0.12 : 0)))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
 

@@ -14,6 +14,8 @@ final class UpdateChecker {
     var state: State = .idle
     /// Set once per new version by an automatic check. Drives the "update available" dialog.
     var promptVersion: String?
+    /// True during any check, including a re-check while an update is already known.
+    var checking = false
 
     /// True while a newer release exists. Drives the dot on the Settings button.
     var isAvailable: Bool {
@@ -27,6 +29,19 @@ final class UpdateChecker {
 
     @MainActor
     func check(automatic: Bool = false) async {
+        checking = true
+        // A manual check lasts at least a moment, so every click visibly does something.
+        let started = Date.now
+        await performCheck(automatic: automatic)
+        if !automatic {
+            let rest = 0.7 - Date.now.timeIntervalSince(started)
+            if rest > 0 { try? await Task.sleep(for: .seconds(rest)) }
+        }
+        checking = false
+    }
+
+    @MainActor
+    private func performCheck(automatic: Bool) async {
         // A background re-check keeps showing a known update instead of flickering to "Checking…".
         let previous = state
         if !isAvailable { state = .checking }

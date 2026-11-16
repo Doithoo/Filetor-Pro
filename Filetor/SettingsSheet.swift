@@ -133,7 +133,11 @@ struct SettingsSheet: View {
                 HStack(spacing: 12) {
                     Button("Check for updates") { Task { await app.updater.check() } }
                         .buttonStyle(PathsButtonStyle(scale: s))
-                    if !app.updater.isAvailable {
+                        .disabled(app.updater.checking)
+                    if app.updater.checking {
+                        ProgressView().controlSize(.small)
+                        Text("Checking…").foregroundStyle(.secondary)
+                    } else if !app.updater.isAvailable {
                         Text(app.updater.message).foregroundStyle(.secondary)
                     }
                 }
