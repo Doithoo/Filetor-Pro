@@ -96,30 +96,7 @@ struct ContentView: View {
         )) { request in
             ConflictSheet(request: request, manager: app.transfers)
         }
-        .alert("Delete Immediately?", isPresented: Binding(
-            get: { app.pendingDelete != nil },
-            set: { if !$0 { app.pendingDelete = nil } }
-        )) {
-            Button("Delete", role: .destructive) { app.confirmDelete() }
-            Button("Cancel", role: .cancel) { app.pendingDelete = nil }
-        } message: {
-            let urls = app.pendingDelete ?? []
-            Text(urls.count == 1
-                 ? "\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this."
-                 : "\(urls.count) items will be deleted right away. You can't undo this.")
-        }
-        .alert("Filetor \(app.updater.promptVersion ?? "") is available", isPresented: Binding(
-            get: { app.updater.promptVersion != nil },
-            set: { if !$0 { app.updater.promptVersion = nil } }
-        )) {
-            Button("Download") {
-                if case .available(_, let url) = app.updater.state { NSWorkspace.shared.open(url) }
-                app.updater.promptVersion = nil
-            }
-            Button("Later", role: .cancel) { app.updater.promptVersion = nil }
-        } message: {
-            Text("You have version \(app.updater.installed). The update is also shown in Settings.")
-        }
+        .modifier(AppAlerts(app: app))
         .task {
             app.network.onError = { app.alert = $0 }
             app.network.onMounted = { app.active.navigate(to: $0) }
@@ -134,15 +111,7 @@ struct ContentView: View {
                 try? await Task.sleep(for: .seconds(6 * 3600))
             }
         }
-        .floatingPanel(isPresented: Binding(get: { model.convertURLs != nil }, set: { if !$0 { model.convertURLs = nil } })) {
-            if let urls = model.convertURLs { ConvertSheet(app: app, urls: urls) }
-        }
-        .floatingPanel(isPresented: Binding(get: { model.optimizeURLs != nil }, set: { if !$0 { model.optimizeURLs = nil } })) {
-            if let urls = model.optimizeURLs { OptimizeSheet(app: app, urls: urls) }
-        }
-        .floatingPanel(isPresented: Binding(get: { model.batchRename != nil }, set: { if !$0 { model.batchRename = nil } })) {
-            if let urls = model.batchRename { BatchRenameSheet(app: app, urls: urls) }
-        }
+        .modifier(ToolPanels(app: app))
         .floatingPanel(isPresented: $model.showConnect) {
             ConnectSheet(app: app)
         }
@@ -304,6 +273,60 @@ struct NativeToolbarRemover: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {
         DispatchQueue.main.async {
             view.window?.toolbar = nil
+        }
+    }
+}
+
+/// The alerts live in their own modifier so the main view body stays quick to type-check.
+private struct AppAlerts: ViewModifier {
+    let app: AppModel
+
+    func body(content: Content) -> some View {
+        content
+            .alert("Delete Immediately?", isPresented: Binding(
+            get: { app.pendingDelete != nil },
+            set: { if !$0 { app.pendingDelete = nil } }
+        )) {
+            Button("Delete", role: .destructive) { app.confirmDelete() }
+            Button("Cancel", role: .cancel) { app.pendingDelete = nil }
+        } message: {
+            let urls = app.pendingDelete ?? []
+            Text(urls.count == 1
+                 ? "\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this."
+                 : "\(urls.count) items will be deleted right away. You can't undo this.")
+        }
+        .alert("Filetor \(app.updater.promptVersion ?? "") is available", isPresented: Binding(
+            get: { app.updater.promptVersion != nil },
+            set: { if !$0 { app.updater.promptVersion = nil } }
+        )) {
+            Button("Download") {
+                if case .available(_, let url) = app.updater.state { NSWorkspace.shared.open(url) }
+                app.updater.promptVersion = nil
+            }
+            Button("Later", role: .cancel) { app.updater.promptVersion = nil }
+        } message: {
+            Text("You have version \(app.updater.installed). The update is also shown in Settings.")
+        }
+    }
+}
+
+/// Dialogs for image tools, batch rename and project folders, kept out of ContentView.body for the same reason.
+private struct ToolPanels: ViewModifier {
+    let app: AppModel
+
+    func body(content: Content) -> some View {
+        content
+        .floatingPanel(isPresented: Binding(get: { app.convertURLs != nil }, set: { if !$0 { app.convertURLs = nil } })) {
+            if let urls = app.convertURLs { ConvertSheet(app: app, urls: urls) }
+        }
+        .floatingPanel(isPresented: Binding(get: { app.projectDialog }, set: { app.projectDialog = $0 })) {
+            ProjectFolderSheet(app: app)
+        }
+        .floatingPanel(isPresented: Binding(get: { app.optimizeURLs != nil }, set: { if !$0 { app.optimizeURLs = nil } })) {
+            if let urls = app.optimizeURLs { OptimizeSheet(app: app, urls: urls) }
+        }
+        .floatingPanel(isPresented: Binding(get: { app.batchRename != nil }, set: { if !$0 { app.batchRename = nil } })) {
+            if let urls = app.batchRename { BatchRenameSheet(app: app, urls: urls) }
         }
     }
 }

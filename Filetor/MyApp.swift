@@ -69,6 +69,7 @@ import SwiftUI
                 Divider()
                 Button("New Folder") { app.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
+                Button("New Project Folder…") { app.projectDialog = true }
                 Button("Rename…") { app.beginRename(app.active.selection) }
                     .keyboardShortcut(.f2, modifiers: [])
                 Divider()

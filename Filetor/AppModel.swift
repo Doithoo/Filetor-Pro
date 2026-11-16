@@ -79,6 +79,8 @@ final class AppModel {
     var pendingDelete: [URL]?
     /// Images in the Optimize dialog.
     var optimizeURLs: [URL]?
+    /// New Project Folder dialog.
+    var projectDialog = false
     /// Images in the Convert dialog.
     var convertURLs: Set<URL>?
     /// Result of Find Duplicates or Compare Folders.
@@ -356,7 +358,7 @@ final class AppModel {
     }
 
     /// Undo of a created item sends it to the Trash; redo takes it back out.
-    private static func createdSteps(_ url: URL) -> (undo: () -> String?, redo: () -> String?) {
+    static func createdSteps(_ url: URL) -> (undo: () -> String?, redo: () -> String?) {
         var trashed: URL?
         let undo: () -> String? = {
             do {

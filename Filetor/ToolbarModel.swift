@@ -43,6 +43,8 @@ enum ToolCatalog {
                 isOn: { $0.active.showHidden }, run: { $0.active.toggleHidden() }),
         ToolDef(id: "newFolder", title: "New Folder", symbol: "folder.badge.plus",
                 run: { $0.newFolder() }),
+        ToolDef(id: "projectFolder", title: "New Project Folder", symbol: "folder.badge.gearshape",
+                run: { $0.projectDialog = true }),
         ToolDef(id: "newFile", title: "New File", symbol: "doc.badge.plus",
                 run: { $0.newFile() }),
         ToolDef(id: "newTab", title: "New Tab", symbol: "plus",
@@ -95,7 +97,7 @@ enum ToolCatalog {
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
         "sidebar", "backfwd", "enclosing", "title", "view", "dual", "swap",
-        "quickLook", "hidden", "newFolder", "newFile", "newTab",
+        "quickLook", "hidden", "newFolder", "projectFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "convert", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
         "airdrop", "connect", "info", "customize", "search", "space", "flex",
