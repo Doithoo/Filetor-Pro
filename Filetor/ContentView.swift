@@ -7,6 +7,11 @@ struct ContentView: View {
     @AppStorage("showSidebar") private var showSidebar = true
     @AppStorage("textSize") private var textSize = 1
 
+    /// Sets the appearance on the whole app. `preferredColorScheme(nil)` does not reset the window after Light or Dark was chosen.
+    private static func applyAppearance(_ value: Int) {
+        NSApp.appearance = value == 0 ? NSAppearance(named: .aqua) : (value == 1 ? NSAppearance(named: .darkAqua) : nil)
+    }
+
     var body: some View {
         @Bindable var model = app
         let pane = app.active
@@ -66,7 +71,8 @@ struct ContentView: View {
         .overlay {
             if app.showPalette { CommandPalette(app: app) }
         }
-        .preferredColorScheme(appearance == 0 ? .light : (appearance == 1 ? .dark : nil))
+        .onAppear { Self.applyAppearance(appearance) }
+        .onChange(of: appearance) { _, v in Self.applyAppearance(v) }
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.title)
         .toolbar(removing: .sidebarToggle)
