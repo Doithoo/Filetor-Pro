@@ -16,6 +16,7 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 - Two panes side by side, with tabs in each pane. Swap the panes or switch to a single pane.
 - List, icon and column views, a filter field and an info panel with details and a preview.
 - Search in subfolders: turn it on next to the filter field and the list shows matches from all subfolders, with a Folder column and a Stop button.
+- Columns of the list view (order and width) stay the same in both panes.
 - Open folders and tabs of both panes are restored when you start the app.
 - Sidebar with favorites, mounted disks (with eject), cloud storage (iCloud Drive, Google Drive, Dropbox, OneDrive) and network servers. Drag the sections to put them in your own order.
 - Right-click a folder in the path bar for the same actions as in the list.
@@ -43,6 +44,13 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 - Get Info opens the Finder info window for the selected items (⌘I).
 - Open With, Share (AirDrop, Mail, Messages) and the macOS Services menu, from the Commands menu and the context menu.
 - Show or hide hidden files with one click.
+
+**Projects, tags and searches**
+- New Project Folder creates a project folder with a set of subfolders from a template (Design project, Web project, Empty). You can turn subfolders on or off, rename them and save your own templates.
+- Archive Project zips a folder, checks the zip and can move the original folder to the Trash. The archive is saved next to the folder by default, or in a folder you choose, and has a date in its name.
+- Finder tags: add, change and remove tags from the context menu, including new tags. Tags are the same as in Finder. The list view has a Tags column, and the sidebar has a Tags section where a click shows all items with that tag.
+- Tag search also works on network disks and cloud storage, which Spotlight does not index. Filetor scans the current folder and its subfolders instead.
+- Saved searches: search by name, kind (images, design files, PDF, documents, video, folders), extensions, modified date and tag, in a folder you choose. A saved search appears in the sidebar under Searches.
 
 **Actions and shortcuts**
 - ⌘K opens Actions: type a few letters and run any action.
