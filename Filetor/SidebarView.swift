@@ -31,7 +31,7 @@ struct SidebarView: View {
     @State private var liveOrder: [String]?
     @State private var draggingFavorite: URL?
 
-    private static let allSections = ["Devices", "Cloud", "Shared", "Favorites"]
+    private static let allSections = ["Devices", "Cloud", "Shared", "Favorites", "Tags"]
 
     /// Saved section order; unknown names are dropped and missing ones appended.
     private var order: [String] {
@@ -95,6 +95,9 @@ struct SidebarView: View {
         case "Shared":
             shared
                 .onDrop(of: [.text], delegate: sectionDelegate("Shared"))
+        case "Tags":
+            tagsSection
+                .onDrop(of: [.text], delegate: sectionDelegate("Tags"))
         default:
             section("Favorites", favorites, isFavorites: true)
                 .onDrop(of: [.text, .fileURL], delegate: sectionDelegate("Favorites", urls: true))
@@ -197,6 +200,57 @@ struct SidebarView: View {
                 .onTapGesture { selection = p.url }
                 .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
                                               card: dragCard(p.name), onDragStart: watchDragEnd))
+            }
+        }
+    }
+
+    private func tagCircle(_ color: NSColor?) -> some View {
+        Group {
+            if let color {
+                Circle().fill(Color(nsColor: color))
+            } else {
+                Circle().strokeBorder(Color.primary.opacity(0.45), lineWidth: 1.4)
+            }
+        }
+        .frame(width: 10.5 * s, height: 10.5 * s)
+    }
+
+    private var tagsSection: some View {
+        let store = TagStore.shared
+        return VStack(alignment: .leading, spacing: 2 * s) {
+            sectionHeader("Tags")
+            if !isCollapsed("Tags") {
+                ForEach(store.all) { tag in
+                    let on = app.active.tagFilter == tag.name
+                    HStack(spacing: 8 * s) {
+                        tagCircle(tag.color)
+                            .frame(width: 20 * s)
+                        Text(tag.name)
+                            .font(.system(size: 13 * s))
+                            .foregroundStyle(Color.primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5 * s)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if on {
+                            // Second click on the selected tag leaves the tag view.
+                            app.active.clearTag()
+                            app.active.load()
+                        } else {
+                            selection = nil
+                            app.active.showTag(tag.name)
+                        }
+                    }
+                    .contextMenu {
+                        if tag.color == nil {
+                            Button("Remove from Sidebar") { store.remove(tag.name) }
+                        }
+                    }
+                }
             }
         }
     }

@@ -184,7 +184,7 @@ struct CustomToolbar: View {
             }
             .frame(width: 100 * s, alignment: .leading)
         case "title":
-            Text(CloudLocation.title(for: app.active.currentURL))
+            Text(app.active.title)
                 .font(.system(size: 18 * s, weight: .semibold))
                 .lineLimit(1)
                 .truncationMode(.tail)

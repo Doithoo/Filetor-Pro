@@ -60,7 +60,7 @@ struct FileListView: View {
             scale: scale,
             striped: striped,
             compact: compactRows,
-            showFolder: pane.searchActive
+            showFolder: pane.searchActive || pane.tagFilter != nil
         )
         .overlay {
             if let msg = pane.errorMessage {
@@ -76,6 +76,11 @@ struct FileListView: View {
     }
 
     private var statusText: String {
+        if let tag = pane.tagFilter {
+            let n = pane.sortedItems.count
+            let count = n == 1 ? "1 item" : "\(n) items"
+            return (pane.tagSearching ? "Searching, " : "") + "\(count) tagged \(tag)"
+        }
         if pane.searchActive {
             let n = pane.searchResults.count
             let results = n == 1 ? "1 result" : "\(n) results"

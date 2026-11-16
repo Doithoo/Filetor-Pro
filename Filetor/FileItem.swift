@@ -14,12 +14,14 @@ struct FileItem: Identifiable, Hashable {
     let created: Date
     let added: Date
     let lastOpened: Date
+    /// Finder tag names (standard colour tags and named tags).
+    var tags: [String]
 
     var id: URL { url }
 
     static let keys: [URLResourceKey] = [
         .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
-        .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey
+        .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey, .tagNamesKey
     ]
 
     init(url: URL) {
@@ -33,5 +35,6 @@ struct FileItem: Identifiable, Hashable {
         self.created = v?.creationDate ?? .distantPast
         self.added = v?.addedToDirectoryDate ?? .distantPast
         self.lastOpened = v?.contentAccessDate ?? .distantPast
+        self.tags = v?.tagNames ?? []
     }
 }

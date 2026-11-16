@@ -22,8 +22,14 @@ final class PaneModel: Identifiable {
     var searchResults: [FileItem] = []
     var searching = false
     var foldersScanned = 0
+    /// Name of the tag whose files are shown (a Spotlight search over the whole Mac), nil in a normal folder.
+    var tagFilter: String?
+    var tagResults: [FileItem] = []
+    var tagSearching = false
+    @ObservationIgnored private var tagTask: Task<Void, Never>?
+    var title: String { tagFilter ?? CloudLocation.title(for: currentURL) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
-    var searchActive: Bool { searchSubfolders && !filter.isEmpty }
+    var searchActive: Bool { tagFilter == nil && searchSubfolders && !filter.isEmpty }
     /// 0 = list, 1 = icons, 2 = columns (columns not built yet, shows the list)
     var viewMode = 0
     var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
@@ -36,8 +42,13 @@ final class PaneModel: Identifiable {
     var canGoUp: Bool { currentURL.path != "/" }
 
     var sortedItems: [FileItem] {
-        let visible = searchActive ? searchResults
-            : filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+        let visible: [FileItem]
+        if tagFilter != nil {
+            visible = filter.isEmpty ? tagResults : tagResults.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+        } else {
+            visible = searchActive ? searchResults
+                : filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+        }
         let sorted = visible.sorted(using: sortOrder)
         let foldersFirst = UserDefaults.standard.object(forKey: "foldersFirst") as? Bool ?? true
         guard foldersFirst else { return sorted }
@@ -51,6 +62,10 @@ final class PaneModel: Identifiable {
 
     func navigate(to url: URL) {
         let target = url.standardizedFileURL
+        if tagFilter != nil {
+            clearTag()
+            if target == currentURL { load(); return }
+        }
         guard target != currentURL else { return }
         backStack.append(currentURL)
         forwardStack.removeAll()
@@ -61,6 +76,7 @@ final class PaneModel: Identifiable {
 
     func goBack() {
         guard let prev = backStack.popLast() else { return }
+        clearTag()
         forwardStack.append(currentURL)
         currentURL = prev
         load()
@@ -68,6 +84,7 @@ final class PaneModel: Identifiable {
 
     func goForward() {
         guard let next = forwardStack.popLast() else { return }
+        clearTag()
         backStack.append(currentURL)
         currentURL = next
         load()
@@ -100,6 +117,78 @@ final class PaneModel: Identifiable {
     /// Re-reads the folder after a change made outside the app, keeping the selection.
     private func refresh() { reload(keepSelection: true) }
 
+    /// Re-reads the folder (and the tag view) after a change made in the app, keeping the selection.
+    func reloadKeepingSelection() {
+        reload(keepSelection: true)
+        if tagFilter != nil { startTagQuery() }
+    }
+
+    // MARK: Tags
+
+    /// Shows new tags on files without re-reading the folder.
+    func applyTagChanges(_ map: [URL: [String]]) {
+        for i in items.indices { if let t = map[items[i].url] { items[i].tags = t } }
+        for i in searchResults.indices { if let t = map[searchResults[i].url] { searchResults[i].tags = t } }
+        if let f = tagFilter {
+            for i in tagResults.indices { if let t = map[tagResults[i].url] { tagResults[i].tags = t } }
+            let store = TagStore.shared
+            tagResults.removeAll { item in map[item.url] != nil && !item.tags.contains { store.matches($0, f) } }
+        }
+        resyncSignature()
+    }
+
+    /// Takes the tag change as the new state, so the 2-second folder watcher does not reload the folder for it.
+    private func resyncSignature() {
+        let dir = currentURL
+        let hidden = showHidden
+        Task { [weak self] in
+            let sig = await Task.detached(priority: .utility) { () -> Int? in
+                guard let urls = try? FileManager.default.contentsOfDirectory(
+                    at: dir,
+                    includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .tagNamesKey],
+                    options: hidden ? [] : [.skipsHiddenFiles]
+                ) else { return nil }
+                return Self.signature(of: urls)
+            }.value
+            guard let self, self.currentURL == dir, let sig else { return }
+            self.lastSignature = sig
+        }
+    }
+
+    func showTag(_ name: String) {
+        tagFilter = name
+        tagResults = []
+        selection.removeAll()
+        filter = ""
+        startTagQuery()
+    }
+
+    func clearTag() {
+        tagTask?.cancel()
+        tagFilter = nil
+        tagResults = []
+        tagSearching = false
+    }
+
+    private func startTagQuery() {
+        tagTask?.cancel()
+        guard let name = tagFilter else { return }
+        tagSearching = true
+        tagTask = Task { [weak self] in
+            let urls = await TagQuery.run(name)
+            guard let self, !Task.isCancelled, self.tagFilter == name else { return }
+            let home = NSHomeDirectory()
+            self.tagResults = urls.map { url in
+                var item = FileItem(url: url)
+                var parent = url.deletingLastPathComponent().path
+                if parent.hasPrefix(home) { parent = "~" + String(parent.dropFirst(home.count)) }
+                item.folder = parent
+                return item
+            }
+            self.tagSearching = false
+        }
+    }
+
     private func reload(keepSelection: Bool) {
         let previousSelection = selection
         var knownSizes: [URL: Int64] = [:]
@@ -115,6 +204,7 @@ final class PaneModel: Identifiable {
                 options: showHidden ? [] : [.skipsHiddenFiles]
             )
             items = urls.map { FileItem(url: $0) }
+            TagStore.shared.remember(items.flatMap(\.tags))
             lastSignature = Self.signature(of: urls)
             errorMessage = nil
             if keepSelection {
@@ -220,7 +310,7 @@ final class PaneModel: Identifiable {
                 let sig = await Task.detached(priority: .utility) { () -> Int? in
                     guard let urls = try? FileManager.default.contentsOfDirectory(
                         at: dir,
-                        includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey],
+                        includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .tagNamesKey],
                         options: hidden ? [] : [.skipsHiddenFiles]
                     ) else { return nil }
                     return Self.signature(of: urls)
@@ -234,11 +324,12 @@ final class PaneModel: Identifiable {
     nonisolated private static func signature(of urls: [URL]) -> Int {
         var hasher = Hasher()
         for url in urls.sorted(by: { $0.path < $1.path }) {
-            let v = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey])
+            let v = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .tagNamesKey])
             hasher.combine(url.path)
             hasher.combine(v?.contentModificationDate)
             hasher.combine(v?.fileSize)
             hasher.combine(v?.creationDate)
+            hasher.combine(v?.tagNames)
         }
         return hasher.finalize()
     }

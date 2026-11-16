@@ -239,6 +239,7 @@ struct FileTableView: NSViewRepresentable {
             table.scrollRowToVisible(row)
             guard let cell = table.view(atColumn: col, row: row, makeIfNecessary: true) as? NSTableCellView,
                   let field = cell.textField else { return }
+            (cell as? NameCellView)?.setRenaming(true)
             renaming = true
             renameOriginal = items[row].name
             field.isEditable = true
@@ -268,6 +269,7 @@ struct FileTableView: NSViewRepresentable {
             field.isEditable = false
             field.isSelectable = false
             field.isBezeled = false
+            (field.superview as? NameCellView)?.setRenaming(false)
             field.drawsBackground = false
             field.stringValue = renameOriginal
             table?.window?.makeFirstResponder(table)
@@ -306,7 +308,7 @@ struct FileTableView: NSViewRepresentable {
             let font = NSFont.systemFont(ofSize: 13 * s)
             let id = col.identifier
 
-            let cell = NSTableCellView()
+            let cell: NSTableCellView = id.rawValue == "name" ? NameCellView() : NSTableCellView()
             let text = NSTextField(labelWithString: "")
             text.font = font
             text.lineBreakMode = .byTruncatingTail
@@ -328,9 +330,16 @@ struct FileTableView: NSViewRepresentable {
                     icon.widthAnchor.constraint(equalToConstant: 17 * s),
                     icon.heightAnchor.constraint(equalToConstant: 17 * s),
                     text.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
-                    text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
                     text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
                 ])
+                let fullWidth = text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4)
+                if let named = cell as? NameCellView {
+                    named.fullWidth = fullWidth
+                    named.addTags(item.tags, text: text, scale: s)
+                    if !named.hasTags { fullWidth.isActive = true }
+                } else {
+                    fullWidth.isActive = true
+                }
             case "size":
                 if item.isDirectory && !item.sizeCalculated {
                     text.stringValue = UserDefaults.standard.bool(forKey: "calculateFolderSizes") ? "…" : "--"
@@ -510,6 +519,8 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(item("Copy to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: false) })
             menu.addItem(item("Move to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: true) })
             menu.addItem(.separator())
+            menu.addItem(tagsItem(urls))
+            menu.addItem(.separator())
             menu.addItem(item("Compress") { [weak self] in self?.parent.app.compress(urls) })
             if urls.contains(where: { FileTools.isArchive($0) }) {
                 menu.addItem(item("Decompress") { [weak self] in self?.parent.app.decompress(urls) })
@@ -569,7 +580,7 @@ struct FileTableView: NSViewRepresentable {
                     self?.parent.app.favorites.insert(Array(folders), before: nil)
                 })
             }
-            if parent.pane.searchActive, urls.count == 1, let url = urls.first {
+            if parent.pane.searchActive || parent.pane.tagFilter != nil, urls.count == 1, let url = urls.first {
                 menu.addItem(.separator())
                 menu.addItem(item("Show in Folder") { [weak self] in
                     guard let pane = self?.parent.pane else { return }
@@ -595,6 +606,27 @@ struct FileTableView: NSViewRepresentable {
             UserDefaults.standard.set(Array(visible), forKey: "fileColumns")
             table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(id))?.isHidden = !visible.contains(id)
             fitName(force: true)
+        }
+
+        private func tagsItem(_ urls: Set<URL>) -> NSMenuItem {
+            let store = TagStore.shared
+            let chosen = items.filter { urls.contains($0.url) }
+            let top = NSMenuItem(title: "Tags", action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            for tag in store.all {
+                let n = chosen.filter { f in f.tags.contains { store.matches($0, tag.name) } }.count
+                let mi = item(tag.name) { [weak self] in self?.parent.app.toggleTag(tag.name, on: urls) }
+                mi.state = n == 0 ? .off : (n == chosen.count ? .on : .mixed)
+                mi.image = FinderTags.circleImage(color: tag.color)
+                sub.addItem(mi)
+            }
+            sub.addItem(.separator())
+            sub.addItem(item("New Tag…") { [weak self] in self?.parent.app.newTag(for: urls) })
+            if chosen.contains(where: { !$0.tags.isEmpty }) {
+                sub.addItem(item("Remove All Tags") { [weak self] in self?.parent.app.removeAllTags(urls) })
+            }
+            top.submenu = sub
+            return top
         }
 
         private func item(_ title: String, _ action: @escaping () -> Void) -> NSMenuItem {
