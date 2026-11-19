@@ -61,15 +61,18 @@ struct ContentView: View {
         }
         .overlay(alignment: .bottom) {
             if app.showShortcuts {
-                ShortcutsPanel(app: app).transition(.move(edge: .bottom))
+                ShortcutsPanel(app: app).transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: app.showShortcuts)
+        .animation(app.showShortcuts ? .easeOut(duration: 0.16) : .easeIn(duration: 0.10), value: app.showShortcuts)
         .overlay(alignment: .bottom) {
             ActionsHint(app: app).padding(.bottom, 52)
         }
         .overlay {
-            if app.showPalette { CommandPalette(app: app) }
+            ZStack {
+                if app.showPalette { CommandPalette(app: app).transition(.opacity) }
+            }
+            .animation(app.showPalette ? .easeOut(duration: 0.16) : .easeIn(duration: 0.10), value: app.showPalette)
         }
         .onAppear { Self.applyAppearance(appearance) }
         .onChange(of: appearance) { _, v in Self.applyAppearance(v) }

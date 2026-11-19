@@ -73,6 +73,8 @@ struct CommandPalette: View {
     @State private var index = 0
     @FocusState private var focused: Bool
     @AppStorage("textSize") private var textSize = 1
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var s: CGFloat { UIScale.value(textSize) }
 
@@ -155,9 +157,13 @@ struct CommandPalette: View {
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.12)))
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .shadow(color: .black.opacity(0.3), radius: 24, y: 10)
+            .scaleEffect(reduceMotion || appeared ? 1 : 0.97, anchor: .top)
             .padding(.top, 92)
         }
-        .onAppear { focused = true }
+        .onAppear {
+            focused = true
+            withAnimation(.easeOut(duration: 0.16)) { appeared = true }
+        }
     }
 
     private func row(_ cmd: AppCommand, enabled: Bool, selected: Bool) -> some View {
