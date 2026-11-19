@@ -122,6 +122,7 @@ struct CustomToolbar: View {
             .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
         }
         .frame(height: 64 * s)
+        .focusEffectDisabled()
         .background(WindowDragArea())
         .background(Color(nsColor: .windowBackgroundColor))
         .contextMenu {
