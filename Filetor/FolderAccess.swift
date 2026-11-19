@@ -43,7 +43,7 @@ struct FolderAccessBox: View {
             }
             Text(granted
                  ? "Filetor can open all folders without asking."
-                 : "Allow Filetor in Full Disk Access to stop the prompts for Desktop, Documents, Downloads, external and network disks. Then restart Filetor.")
+                 : "Full Disk Access stops the prompts for Desktop, Documents, Downloads, external and network disks. Open Privacy Settings, drag Filetor.app into the list (or click + and choose it), turn it on and restart Filetor.")
                 .foregroundStyle(.secondary)
                 .frame(width: 400 * s, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -69,7 +69,7 @@ struct FolderAccessPrompt: View {
         VStack(alignment: .leading, spacing: 12 * s) {
             Text("Allow access to your folders").font(.system(size: 22 * s))
             Text("macOS asks for permission every time Filetor opens Desktop, Documents, Downloads, an external disk or a network disk.")
-            Text("To stop the prompts, add Filetor to **Full Disk Access** in System Settings, then restart Filetor.")
+            Text("To stop the prompts, add Filetor to **Full Disk Access**. Click Open Privacy Settings, drag Filetor.app into the list (or click + and choose it), turn it on and restart Filetor.")
             Text("Filetor does not send anything anywhere. You can change this later in Settings, under Folder access.")
                 .foregroundStyle(.secondary)
             HStack(spacing: 12) {
