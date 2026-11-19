@@ -119,7 +119,10 @@ struct FileTableView: NSViewRepresentable {
             fc.isHidden = !showFolder
             c.fitName(force: true)
         }
-        if itemsChanged || settingsChanged { table.reloadData() }
+        if itemsChanged || settingsChanged {
+            // Reloading while a name is being edited would end the edit, so it waits until the edit is over.
+            if c.renaming { c.needsReload = true } else { table.reloadData() }
+        }
         // Rename happens in the row. Only the pane that holds the item starts it (the active one when both do).
         if let target = app.renameTarget, !c.renaming, items.contains(where: { $0.url == target }),
            pane === app.active || !app.active.items.contains(where: { $0.url == target }) {
@@ -279,6 +282,7 @@ struct FileTableView: NSViewRepresentable {
         // MARK: Rename in the row, like Finder
 
         var renaming = false
+        var needsReload = false
         private var renameOriginal = ""
 
         func beginInlineRename(_ url: URL) {
@@ -325,6 +329,10 @@ struct FileTableView: NSViewRepresentable {
             } else {
                 parent.app.renameText = newName
                 parent.app.commitRename()
+            }
+            if needsReload {
+                needsReload = false
+                DispatchQueue.main.async { [weak self] in self?.table?.reloadData() }
             }
         }
 
