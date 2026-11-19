@@ -121,14 +121,16 @@ extension EnvironmentValues {
 private struct FloatingPanel<Panel: View>: ViewModifier {
     @Binding var isPresented: Bool
     @ViewBuilder var panel: () -> Panel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content.overlay {
-            if isPresented {
-                ZStack {
+            ZStack {
+                if isPresented {
                     Color.black.opacity(0.25)
                         .ignoresSafeArea()
                         .onTapGesture { isPresented = false }
+                        .transition(.opacity)
                     panel()
                         .environment(\.closePanel, PanelCloser(action: { isPresented = false }))
                         .background {
@@ -137,8 +139,13 @@ private struct FloatingPanel<Panel: View>: ViewModifier {
                                 .shadow(color: .black.opacity(0.3), radius: 24, y: 8)
                         }
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.12)))
+                        // Opens softly, closes quickly. With Reduce Motion only the fade stays.
+                        .transition(reduceMotion
+                            ? .opacity
+                            : .asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.97)), removal: .opacity))
                 }
             }
+            .animation(isPresented ? .easeOut(duration: 0.16) : .easeIn(duration: 0.10), value: isPresented)
         }
     }
 }
