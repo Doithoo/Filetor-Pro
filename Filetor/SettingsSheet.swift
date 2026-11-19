@@ -143,6 +143,11 @@ struct SettingsSheet: View {
                 }
             }
             Divider()
+            VStack(alignment: .leading, spacing: 8 * s) {
+                Text("Folder access").fontWeight(.semibold)
+                FolderAccessBox(scale: s)
+            }
+            Divider()
             VStack(alignment: .leading, spacing: 9 * s) {
                 Text(aboutLine).fontWeight(.light)
                 HStack {

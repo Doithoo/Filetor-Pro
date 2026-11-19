@@ -74,7 +74,10 @@ struct ContentView: View {
             }
             .animation(app.showPalette ? .easeOut(duration: 0.16) : .easeIn(duration: 0.10), value: app.showPalette)
         }
-        .onAppear { Self.applyAppearance(appearance) }
+        .onAppear {
+            Self.applyAppearance(appearance)
+            FolderAccess.askOnFirstLaunch(app)
+        }
         .onChange(of: appearance) { _, v in Self.applyAppearance(v) }
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.title)
@@ -126,6 +129,9 @@ struct ContentView: View {
         }
         .floatingPanel(isPresented: $model.showSettings) {
             SettingsSheet(app: app)
+        }
+        .floatingPanel(isPresented: $model.showFolderAccess) {
+            FolderAccessPrompt()
         }
         .floatingPanel(isPresented: Binding(get: { model.report != nil }, set: { if !$0 { model.report = nil } })) {
             ReportPanel(app: app)

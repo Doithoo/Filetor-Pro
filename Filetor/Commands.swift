@@ -939,7 +939,7 @@ struct ProjectFolderSheet: View {
                             templates.remove(at: idx)
                             selected = max(0, idx - 1)
                         }
-                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .buttonStyle(.plain).foregroundStyle(Color.red)
                     }
                 }
                 VStack(alignment: .leading, spacing: 0) {

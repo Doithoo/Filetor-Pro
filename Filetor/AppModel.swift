@@ -93,6 +93,7 @@ final class AppModel {
     var largeFiles: LargeFiles?
     /// Space on a folder or archive: list of what is inside.
     var spacePreview: URL?
+    var showFolderAccess = false
     var sync: SyncSession?
     var renameTarget: URL?
     var renameText = ""
