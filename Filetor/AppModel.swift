@@ -91,6 +91,8 @@ final class AppModel {
     var report: Report?
     /// Large Files panel.
     var largeFiles: LargeFiles?
+    /// Space on a folder or archive: list of what is inside.
+    var spacePreview: URL?
     var sync: SyncSession?
     var renameTarget: URL?
     var renameText = ""

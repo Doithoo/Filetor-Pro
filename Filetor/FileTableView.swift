@@ -274,6 +274,15 @@ struct FileTableView: NSViewRepresentable {
             parent.app.dropTransfer(urls, into: parent.pane.currentURL, move: false)
         }
 
+        /// The selected folder or archive that Space lists instead of showing a Quick Look icon.
+        func spacePreviewTarget() -> URL? {
+            let urls = previewURLs
+            guard urls.count == 1, let url = urls.first else { return nil }
+            if ArchiveKind.isArchive(url) { return url }
+            let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+            return (v?.isDirectory ?? false) && !(v?.isPackage ?? false) ? url : nil
+        }
+
         func renameSelection() {
             let urls = Set(previewURLs)
             if !urls.isEmpty { parent.app.beginRename(urls) }
@@ -348,6 +357,13 @@ struct FileTableView: NSViewRepresentable {
         func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
             let urls = previewURLs
             return index < urls.count ? urls[index] as NSURL : nil
+        }
+
+        /// While Quick Look is open the arrow keys go to the panel. Pass them on, so they move to the next file.
+        func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
+            guard event.type == .keyDown, [123, 124, 125, 126].contains(event.keyCode), let table else { return false }
+            table.keyDown(with: event)
+            return true
         }
 
         /// Lets files be dragged out of the list (Drop Stack, Finder, other apps).
@@ -757,8 +773,15 @@ final class QLTableView: NSTableView {
             return
         }
         if event.charactersIgnoringModifiers == " ", event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            // A second Space closes the folder or archive list.
+            if let app = qlSource?.parent.app, app.spacePreview != nil {
+                app.spacePreview = nil
+                return
+            }
             if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
                 QLPreviewPanel.shared().orderOut(nil)
+            } else if let url = qlSource?.spacePreviewTarget() {
+                qlSource?.parent.app.spacePreview = url
             } else if selectedRow >= 0 {
                 QLPreviewPanel.shared().makeKeyAndOrderFront(nil)
             }
