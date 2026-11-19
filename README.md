@@ -52,8 +52,21 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 - Tag search also works on network disks and cloud storage, which Spotlight does not index. Filetor scans the current folder and its subfolders instead.
 - Saved searches: search by name, kind (images, design files, PDF, documents, video, folders), extensions, modified date and tag, in a folder you choose. A saved search appears in the sidebar under Searches.
 
-**Actions and shortcuts**
-- ⌘K opens Actions: type a few letters and run any action.
+<p align="center">
+  <img src="docs/filetor-project-folder-v1.png" alt="New Project Folder dialog in Filetor" width="55%">
+</p>
+
+**Actions**
+- ⌘K opens Actions, one list of everything Filetor can do. Type a few letters and press Return to run an action.
+- It covers file operations (rename, duplicate, copy and move, Move to Trash), compress and decompress, image tools (rotate, convert to PNG, JPEG, HEIC, WebP or TIFF, optimize, strip metadata), New Project Folder, Archive Project, Find Duplicates, Large Files, Compare Folders, Synchronize, Connect to Server, tabs, panes and Settings.
+- Actions that do not apply to the current selection are dimmed, for example image tools when no image is selected.
+- If an action has a keyboard shortcut, it is shown next to it.
+
+<p align="center">
+  <img src="docs/filetor-actions-v1.png" alt="Actions list in Filetor, opened with ⌘K" width="70%">
+</p>
+
+**Keyboard shortcuts**
 - ⌥⌘K shows all keyboard shortcuts in tabs at the bottom of the window.
 - ⌘F moves focus to the search field in the toolbar. If the field is not in the toolbar, it opens a filter bar under the path bar.
 
