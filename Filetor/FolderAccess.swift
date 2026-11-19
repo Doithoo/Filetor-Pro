@@ -43,7 +43,7 @@ struct FolderAccessBox: View {
             }
             Text(granted
                  ? "Filetor can open all folders without asking."
-                 : "Allow Filetor in Full Disk Access to stop the prompts for Desktop, Documents, Downloads, external and network disks. Restart Filetor afterwards.")
+                 : "Allow Filetor in Full Disk Access to stop the prompts for Desktop, Documents, Downloads, external and network disks. Then restart Filetor.")
                 .foregroundStyle(.secondary)
                 .frame(width: 400 * s, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
