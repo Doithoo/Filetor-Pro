@@ -127,6 +127,9 @@ struct ContentView: View {
         .floatingPanel(isPresented: Binding(get: { model.report != nil }, set: { if !$0 { model.report = nil } })) {
             ReportPanel(app: app)
         }
+        .floatingPanel(isPresented: Binding(get: { model.largeFiles != nil }, set: { if !$0 { model.largeFiles = nil } })) {
+            LargeFilesPanel(app: app)
+        }
         .floatingPanel(isPresented: Binding(get: { model.sync != nil }, set: { if !$0 { model.sync = nil } })) {
             SyncPanel(app: app)
         }

@@ -120,6 +120,7 @@ import SwiftUI
                     .disabled(app.active.selection.isEmpty)
                 Divider()
                 Button("Find Duplicates…") { app.findDuplicates() }
+                Button("Large Files…") { app.findLargeFiles() }
                 Button("Compare Folders…") { app.compareFolders() }
                 Button("Synchronize…") { app.synchronize() }
             }

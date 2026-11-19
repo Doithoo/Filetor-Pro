@@ -47,6 +47,7 @@ enum Shortcuts {
             ("Optimize", "—"),
             ("Strip Metadata", "—"),
             ("Find Duplicates", "—"),
+            ("Large Files", "—"),
             ("Compare Folders", "—"),
             ("Synchronize", "—"),
         ]),

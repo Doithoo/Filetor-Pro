@@ -89,6 +89,8 @@ final class AppModel {
     var convertURLs: Set<URL>?
     /// Result of Find Duplicates or Compare Folders.
     var report: Report?
+    /// Large Files panel.
+    var largeFiles: LargeFiles?
     var sync: SyncSession?
     var renameTarget: URL?
     var renameText = ""
