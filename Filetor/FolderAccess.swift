@@ -58,6 +58,12 @@ struct FolderAccessBox: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 400 * s, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
+            if let action {
+                Text(action)
+                    .fontWeight(.semibold)
+                    .frame(width: 400 * s, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if status != .on {
                 Button("Open Privacy Settings") { FolderAccess.openPrivacySettings() }
                     .buttonStyle(PathsButtonStyle(scale: s))
@@ -79,12 +85,17 @@ struct FolderAccessBox: View {
 
     private var detail: String {
         switch status {
-        case .on:
-            return "Filetor can open all folders without asking."
-        case .lost:
-            return "Filetor had Full Disk Access, but macOS drops it after an update. Open Privacy Settings, remove Filetor from the list, drag Filetor.app in again and restart Filetor."
-        case .off:
-            return "Full Disk Access stops the prompts for Desktop, Documents, Downloads, external and network disks. Open Privacy Settings, drag Filetor.app into the list and restart Filetor."
+        case .on: return "Filetor can open all folders without asking."
+        case .lost: return "Filetor had Full Disk Access, but macOS drops it after an update."
+        case .off: return "Full Disk Access stops the prompts for Desktop, Documents, Downloads, external and network disks."
+        }
+    }
+
+    private var action: String? {
+        switch status {
+        case .on: return nil
+        case .lost: return "Open Privacy Settings, remove Filetor from the list, drag Filetor.app in again and restart Filetor."
+        case .off: return "Open Privacy Settings, drag Filetor.app into the list and restart Filetor."
         }
     }
 }
