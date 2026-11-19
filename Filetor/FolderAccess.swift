@@ -10,6 +10,19 @@ enum FolderAccess {
         return false
     }
 
+    enum Status { case on, lost, off }
+
+    private static let hadKey = "hadFullDiskAccess"
+
+    /// `lost`: Filetor had the access before, but macOS no longer applies it (a new build has a new signature).
+    static var status: Status {
+        if hasFullDiskAccess {
+            UserDefaults.standard.set(true, forKey: hadKey)
+            return .on
+        }
+        return UserDefaults.standard.bool(forKey: hadKey) ? .lost : .off
+    }
+
     static func openPrivacySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
             NSWorkspace.shared.open(url)
@@ -20,7 +33,7 @@ enum FolderAccess {
 
     /// Shows the notice once, and only when the access is not on yet.
     @MainActor static func askOnFirstLaunch(_ app: AppModel) {
-        guard !UserDefaults.standard.bool(forKey: askedKey), !hasFullDiskAccess else { return }
+        guard status != .on, !UserDefaults.standard.bool(forKey: askedKey) else { return }
         UserDefaults.standard.set(true, forKey: askedKey)
         Task {
             try? await Task.sleep(for: .seconds(0.7))
@@ -32,22 +45,20 @@ enum FolderAccess {
 /// Status and button, shown in Settings.
 struct FolderAccessBox: View {
     let scale: CGFloat
-    @State private var granted = FolderAccess.hasFullDiskAccess
+    @State private var status = FolderAccess.status
 
     var body: some View {
         let s = scale
         VStack(alignment: .leading, spacing: 6 * s) {
             HStack(spacing: 7 * s) {
-                Circle().fill(granted ? Color.green : Color.orange).frame(width: 8 * s, height: 8 * s)
-                Text(granted ? "Full Disk Access is on" : "macOS asks for each folder separately")
+                Circle().fill(status == .on ? Color.green : Color.orange).frame(width: 8 * s, height: 8 * s)
+                Text(title)
             }
-            Text(granted
-                 ? "Filetor can open all folders without asking."
-                 : "Full Disk Access stops the prompts for Desktop, Documents, Downloads, external and network disks. Open Privacy Settings, drag Filetor.app into the list (or click + and choose it), turn it on and restart Filetor.")
+            Text(detail)
                 .foregroundStyle(.secondary)
                 .frame(width: 400 * s, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-            if !granted {
+            if status != .on {
                 Button("Open Privacy Settings") { FolderAccess.openPrivacySettings() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .padding(.top, 4 * s)
@@ -55,7 +66,26 @@ struct FolderAccessBox: View {
         }
         .padding(12 * s)
         .background(RoundedRectangle(cornerRadius: 8 * s).strokeBorder(Color.primary.opacity(0.12)))
-        .onAppear { granted = FolderAccess.hasFullDiskAccess }
+        .onAppear { status = FolderAccess.status }
+    }
+
+    private var title: String {
+        switch status {
+        case .on: return "Full Disk Access is on"
+        case .lost: return "Full Disk Access needs to be set again"
+        case .off: return "macOS asks for each folder separately"
+        }
+    }
+
+    private var detail: String {
+        switch status {
+        case .on:
+            return "Filetor can open all folders without asking."
+        case .lost:
+            return "Filetor had Full Disk Access, but macOS drops it after an update. Open Privacy Settings, remove Filetor from the list, drag Filetor.app in again and restart Filetor."
+        case .off:
+            return "Full Disk Access stops the prompts for Desktop, Documents, Downloads, external and network disks. Open Privacy Settings, drag Filetor.app into the list and restart Filetor."
+        }
     }
 }
 
@@ -69,7 +99,7 @@ struct FolderAccessPrompt: View {
         VStack(alignment: .leading, spacing: 12 * s) {
             Text("Allow access to your folders").font(.system(size: 22 * s))
             Text("macOS asks for permission every time Filetor opens Desktop, Documents, Downloads, an external disk or a network disk.")
-            Text("To stop the prompts, add Filetor to **Full Disk Access**. Click Open Privacy Settings, drag Filetor.app into the list (or click + and choose it), turn it on and restart Filetor.")
+            Text("To stop the prompts, add Filetor to **Full Disk Access**: click Open Privacy Settings, drag Filetor.app into the list and restart Filetor.")
             Text("Filetor does not send anything anywhere. You can change this later in Settings, under Folder access.")
                 .foregroundStyle(.secondary)
             HStack(spacing: 12) {

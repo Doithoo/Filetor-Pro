@@ -92,6 +92,7 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 - Rows: compact rows, alternating row colours, keep folders on top, calculate all folder sizes.
 - Window: show item count and free space, open with two panes, show sidebar, show info panel.
 - Launch at login and automatic update check.
+- Folder access: shows whether Full Disk Access is on and opens the page in System Settings where you turn it on.
 
 ## Requirements
 
@@ -110,6 +111,12 @@ The builds are not signed with a paid Apple Developer account and are not notari
 3. Click Open Anyway next to Filetor and confirm.
 
 You only need to do this once.
+
+### Full Disk Access (optional)
+
+Without it, macOS asks for permission for each protected folder separately. To stop the prompts, open System Settings > Privacy & Security > Full Disk Access, drag Filetor.app into the list and restart Filetor. Settings > Folder access shows whether it is on.
+
+The builds are not signed with a paid Apple Developer account, so macOS drops this permission after an update. Remove Filetor from the list and drag it in again.
 
 ## Build from source
 
