@@ -51,10 +51,75 @@ final class PaneModel: Identifiable {
             visible = searchActive ? searchResults
                 : filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
         }
-        let sorted = visible.sorted(using: sortOrder)
+        let top = ordered(visible)
+        return treeActive && !expanded.isEmpty ? flatten(top) : top
+    }
+
+    private func ordered(_ list: [FileItem]) -> [FileItem] {
+        let sorted = list.sorted(using: sortOrder)
         let foldersFirst = UserDefaults.standard.object(forKey: "foldersFirst") as? Bool ?? true
         guard foldersFirst else { return sorted }
         return sorted.filter { $0.isDirectory } + sorted.filter { !$0.isDirectory }
+    }
+
+    // MARK: Folders opened in place (list view)
+
+    /// Folders that are open in the list. Kept while moving between folders, cleared only by closing them.
+    var expanded = Set<URL>()
+    private var children: [URL: [FileItem]] = [:]
+
+    /// The tree is only used in the plain list of a folder, not in search results, tag views or filtered lists.
+    var treeActive: Bool { viewMode == 0 && tagFilter == nil && !searchActive && filter.isEmpty }
+
+    /// How deep a row is below the folder that is shown (0 = directly inside it).
+    func level(of url: URL) -> Int {
+        guard treeActive else { return 0 }
+        return max(0, url.pathComponents.count - currentURL.pathComponents.count - 1)
+    }
+
+    private func flatten(_ list: [FileItem]) -> [FileItem] {
+        var out: [FileItem] = []
+        for item in list {
+            out.append(item)
+            if item.expandable, expanded.contains(item.url), let kids = children[item.url] {
+                out += flatten(ordered(kids))
+            }
+        }
+        return out
+    }
+
+    private func readChildren(_ dir: URL) -> [FileItem] {
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: FileItem.keys, options: showHidden ? [] : [.skipsHiddenFiles]
+        ) else { return [] }
+        return urls.map { FileItem(url: $0) }
+    }
+
+    func toggleExpanded(_ url: URL) {
+        if expanded.contains(url) { collapse(url) } else { expand(url) }
+    }
+
+    func expand(_ url: URL) {
+        guard treeActive else { return }
+        children[url] = readChildren(url)
+        expanded.insert(url)
+    }
+
+    func collapse(_ url: URL) {
+        let prefix = url.path + "/"
+        expanded = expanded.filter { $0 != url && !$0.path.hasPrefix(prefix) }
+        children = children.filter { $0.key != url && !$0.key.path.hasPrefix(prefix) }
+        selection = selection.filter { !$0.path.hasPrefix(prefix) }
+    }
+
+    /// Re-reads the content of the open folders that are inside the folder shown now.
+    private func rebuildChildren() {
+        let base = currentURL.path == "/" ? "/" : currentURL.path + "/"
+        var fresh: [URL: [FileItem]] = [:]
+        for url in expanded where url.path.hasPrefix(base) && FileManager.default.fileExists(atPath: url.path) {
+            fresh[url] = readChildren(url)
+        }
+        children = fresh
     }
 
     init(url: URL? = nil) {
@@ -130,6 +195,11 @@ final class PaneModel: Identifiable {
     /// Shows new tags on files without re-reading the folder.
     func applyTagChanges(_ map: [URL: [String]]) {
         for i in items.indices { if let t = map[items[i].url] { items[i].tags = t } }
+        for key in Array(children.keys) {
+            guard var list = children[key] else { continue }
+            for i in list.indices { if let t = map[list[i].url] { list[i].tags = t } }
+            children[key] = list
+        }
         for i in searchResults.indices { if let t = map[searchResults[i].url] { searchResults[i].tags = t } }
         if tagFilter != nil {
             for i in tagResults.indices { if let t = map[tagResults[i].url] { tagResults[i].tags = t } }
@@ -239,6 +309,7 @@ final class PaneModel: Identifiable {
                 options: showHidden ? [] : [.skipsHiddenFiles]
             )
             items = urls.map { FileItem(url: $0) }
+            rebuildChildren()
             TagStore.shared.remember(items.flatMap(\.tags))
             lastSignature = Self.signature(of: urls)
             errorMessage = nil
@@ -249,11 +320,12 @@ final class PaneModel: Identifiable {
                         items[i].sizeCalculated = true
                     }
                 }
-                let present = Set(items.map(\.url))
+                let present = Set(items.map(\.url)).union(children.values.flatMap { $0.map(\.url) })
                 selection = previousSelection.filter { present.contains($0) }
             }
         } catch {
             items = []
+            children = [:]
             errorMessage = error.localizedDescription
         }
         startFolderSizes()

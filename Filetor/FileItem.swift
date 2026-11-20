@@ -4,6 +4,8 @@ struct FileItem: Identifiable, Hashable {
     let url: URL
     let name: String
     let isDirectory: Bool
+    /// A bundle such as an app: it is a folder on disk but shown as one file.
+    let isPackage: Bool
     var size: Int64
     /// True once the total size of a folder has been calculated.
     var sizeCalculated = false
@@ -19,11 +21,14 @@ struct FileItem: Identifiable, Hashable {
 
     var id: URL { url }
 
+    /// A folder whose content can be opened in place in the list.
+    var expandable: Bool { isDirectory && !isPackage }
+
     /// Tag names as one text, used for sorting the Tags column.
     var tagsText: String { tags.joined(separator: " ") }
 
     static let keys: [URLResourceKey] = [
-        .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
+        .isDirectoryKey, .isPackageKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
         .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey, .tagNamesKey
     ]
 
@@ -32,6 +37,7 @@ struct FileItem: Identifiable, Hashable {
         self.url = url
         self.name = url.lastPathComponent
         self.isDirectory = v?.isDirectory ?? false
+        self.isPackage = v?.isPackage ?? false
         self.size = Int64(v?.fileSize ?? 0)
         self.modified = v?.contentModificationDate ?? .distantPast
         self.kind = v?.localizedTypeDescription ?? ""

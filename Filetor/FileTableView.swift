@@ -102,6 +102,7 @@ struct FileTableView: NSViewRepresentable {
         let settingsChanged = settings != c.lastSettings
         let itemsChanged = items != c.items
         c.lastSettings = settings
+        let oldItems = c.items
         c.items = items
 
         table.usesAlternatingRowBackgroundColors = striped
@@ -121,7 +122,15 @@ struct FileTableView: NSViewRepresentable {
         }
         if itemsChanged || settingsChanged {
             // Reloading while a name is being edited would end the edit, so it waits until the edit is over.
-            if c.renaming { c.needsReload = true } else { table.reloadData() }
+            if c.renaming {
+                c.needsReload = true
+            } else if !settingsChanged, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+                      let change = Coordinator.blockChange(from: oldItems, to: items) {
+                // A folder was opened or closed in place: its rows slide in or out instead of the list jumping.
+                c.animate(change)
+            } else {
+                table.reloadData()
+            }
         }
         // Rename happens in the row. Only the pane that holds the item starts it (the active one when both do).
         if let target = app.renameTarget, !c.renaming, items.contains(where: { $0.url == target }),
@@ -395,8 +404,34 @@ struct FileTableView: NSViewRepresentable {
                 cell.addSubview(icon)
                 cell.imageView = icon
                 text.stringValue = item.name
+                // In the plain list, folders open in place: a small arrow in front of the icon, one step in per level.
+                var iconLeading: CGFloat = 8
+                if parent.pane.treeActive {
+                    let x0 = 4 + CGFloat(parent.pane.level(of: item.url)) * 18 * s
+                    iconLeading = x0 + 16 * s + 2
+                    if item.expandable {
+                        let open = parent.pane.expanded.contains(item.url)
+                        let arrow = NSButton()
+                        arrow.isBordered = false
+                        arrow.imagePosition = .imageOnly
+                        arrow.image = NSImage(systemSymbolName: open ? "chevron.down" : "chevron.right", accessibilityDescription: nil)?
+                            .withSymbolConfiguration(.init(pointSize: 9 * s, weight: .semibold))
+                        arrow.contentTintColor = .secondaryLabelColor
+                        arrow.focusRingType = .none
+                        arrow.target = self
+                        arrow.action = #selector(arrowClicked(_:))
+                        arrow.translatesAutoresizingMaskIntoConstraints = false
+                        cell.addSubview(arrow)
+                        NSLayoutConstraint.activate([
+                            arrow.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: x0),
+                            arrow.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                            arrow.widthAnchor.constraint(equalToConstant: 16 * s),
+                            arrow.heightAnchor.constraint(equalToConstant: 16 * s),
+                        ])
+                    }
+                }
                 NSLayoutConstraint.activate([
-                    icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
+                    icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: iconLeading),
                     icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
                     icon.widthAnchor.constraint(equalToConstant: 17 * s),
                     icon.heightAnchor.constraint(equalToConstant: 17 * s),
@@ -532,6 +567,77 @@ struct FileTableView: NSViewRepresentable {
             let dest = (op == .on && row >= 0 && row < items.count && items[row].isDirectory)
                 ? items[row].url : parent.pane.currentURL
             parent.app.dropTransfer(objs, into: dest, move: NSEvent.modifierFlags.contains(.command))
+            return true
+        }
+
+        enum BlockChange {
+            case inserted(Range<Int>)
+            case removed(Range<Int>)
+        }
+
+        /// Finds out whether the new list is the old one with one block of rows added or taken away.
+        /// The block always sits right below its folder, so it never starts at the first row.
+        static func blockChange(from old: [FileItem], to new: [FileItem]) -> BlockChange? {
+            guard old.count != new.count else { return nil }
+            let grew = old.count < new.count
+            let small = grew ? old : new
+            let big = grew ? new : old
+            let n = big.count - small.count
+            var i = 0
+            while i < small.count, small[i] == big[i] { i += 1 }
+            guard i > 0, small[i...] == big[(i + n)...] else { return nil }
+            return grew ? .inserted(i..<(i + n)) : .removed(i..<(i + n))
+        }
+
+        func animate(_ change: BlockChange) {
+            guard let table else { return }
+            let folderRow: Int
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.16
+                table.beginUpdates()
+                switch change {
+                case .inserted(let r):
+                    table.insertRows(at: IndexSet(integersIn: r), withAnimation: [.effectFade, .slideDown])
+                case .removed(let r):
+                    table.removeRows(at: IndexSet(integersIn: r), withAnimation: [.effectFade, .slideUp])
+                }
+                table.endUpdates()
+            }
+            switch change {
+            case .inserted(let r), .removed(let r): folderRow = r.lowerBound - 1
+            }
+            // The arrow of the folder itself turns to the other direction.
+            table.reloadData(forRowIndexes: IndexSet(integer: folderRow), columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
+        }
+
+        @objc func arrowClicked(_ sender: NSButton) {
+            guard let table else { return }
+            let row = table.row(for: sender)
+            guard row >= 0, row < items.count else { return }
+            parent.pane.toggleExpanded(items[row].url)
+        }
+
+        /// Right arrow: opens the selected folder in place.
+        func expandSelected() -> Bool {
+            guard parent.pane.treeActive, let table, table.selectedRowIndexes.count == 1,
+                  table.selectedRow < items.count else { return false }
+            let item = items[table.selectedRow]
+            guard item.expandable, !parent.pane.expanded.contains(item.url) else { return false }
+            parent.pane.expand(item.url)
+            return true
+        }
+
+        /// Left arrow: closes the selected folder, or selects the folder that holds the selected item.
+        func collapseSelected() -> Bool {
+            guard parent.pane.treeActive, let table, table.selectedRowIndexes.count == 1,
+                  table.selectedRow < items.count else { return false }
+            let item = items[table.selectedRow]
+            if item.expandable, parent.pane.expanded.contains(item.url) {
+                parent.pane.collapse(item.url)
+                return true
+            }
+            guard parent.pane.level(of: item.url) > 0 else { return false }
+            parent.pane.selection = [item.url.deletingLastPathComponent()]
             return true
         }
 
@@ -768,6 +874,10 @@ final class QLTableView: NSTableView {
     }
 
     override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty {
+            if event.keyCode == 124, qlSource?.expandSelected() == true { return }
+            if event.keyCode == 123, qlSource?.collapseSelected() == true { return }
+        }
         if event.keyCode == 36, event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
             qlSource?.renameSelection()
             return
