@@ -121,9 +121,6 @@ struct ContentView: View {
         .floatingPanel(isPresented: $model.showSearchPopup) {
             SearchPopup(app: app, pane: app.active)
         }
-        .floatingPanel(isPresented: $model.showGoToFolder) {
-            GoToFolderPopup(app: app, pane: app.active)
-        }
         .floatingPanel(isPresented: $model.showSettings) {
             SettingsSheet(app: app)
         }

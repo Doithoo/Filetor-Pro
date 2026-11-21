@@ -99,12 +99,8 @@ struct BreadcrumbBar: View {
                 Color.clear.frame(width: 0, height: 1).id("start")
                 HStack(spacing: 6 * s) {
                     ForEach(Array(crumbs.enumerated()), id: \.offset) { i, url in
-                        if i > 0 {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9 * s, weight: .semibold))
-                                .foregroundStyle(Color.primary.opacity(0.35))
-                        }
-                        Button { pane.navigate(to: url) } label: {
+                        HStack(spacing: 1) {
+                        Button { app.activate(pane); pane.navigate(to: url) } label: {
                             HStack(spacing: 5 * s) {
                                 if i == 0 {
                                     Image(systemName: rootIcon)
@@ -122,6 +118,8 @@ struct BreadcrumbBar: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu { crumbMenu(url, isRoot: i == 0) }
+                        BreadcrumbFoldersButton(app: app, pane: pane, url: url, scale: s)
+                        }
                         .id(i)
                     }
                 }
@@ -146,21 +144,42 @@ struct BreadcrumbBar: View {
             .onChange(of: pane.currentURL) { _, _ in align(proxy) }
             }
         }
-        .padding(.trailing, 34)
-        .overlay(alignment: .trailing) {
-            Button {
-                app.activate(pane)
-                app.activateGoToFolder()
-            } label: {
-                Image(systemName: "folder.badge.magnifyingglass")
-                    .padding(8)
-                    .background(Color(nsColor: .windowBackgroundColor))
-            }
-            .buttonStyle(.plain)
-            .help("Go to Folder… (⇧⌘G)")
-            .accessibilityLabel("Go to Folder")
-        }
         .frame(height: 44 * s)
+    }
+}
+
+private struct BreadcrumbFoldersButton: View {
+    let app: AppModel
+    let pane: PaneModel
+    let url: URL
+    let scale: CGFloat
+    @State private var presented = false
+
+    var body: some View {
+        Button {
+            app.showGoToFolder = false
+            app.activate(pane)
+            // Let the active-pane update settle before attaching the popover.
+            DispatchQueue.main.async {
+                guard app.active === pane else { return }
+                presented.toggle()
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9 * scale, weight: .semibold))
+                .foregroundStyle(presented ? Color.filetor : Color.secondary)
+                .frame(width: 23 * scale, height: 28 * scale)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help("Browse subfolders of " + (url.path == "/" ? "/" : url.lastPathComponent))
+        .accessibilityLabel("Browse subfolders of " + url.lastPathComponent)
+        .accessibilityIdentifier("breadcrumb-folders:" + url.path)
+        .popover(isPresented: $presented, arrowEdge: .bottom) {
+            GoToFolderPopup(app: app, pane: pane, initialURL: url, showsPlaces: false).id(url)
+        }
+        .onChange(of: pane.currentURL) { _, _ in presented = false }
+        .onChange(of: app.showGoToFolder) { _, open in if open { presented = false } }
     }
 }
 

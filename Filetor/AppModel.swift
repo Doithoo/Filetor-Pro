@@ -94,9 +94,11 @@ final class AppModel {
     }
     var showSearchPopup = false
     var showGoToFolder = false
-    func activateGoToFolder() {
+    var goToFolderFocusPath = false
+    func activateGoToFolder(focusPath: Bool = true) {
         showPalette = false
         showSearchPopup = false
+        goToFolderFocusPath = focusPath
         showGoToFolder = true
     }
     var showPalette = false

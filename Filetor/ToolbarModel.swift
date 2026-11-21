@@ -33,6 +33,8 @@ enum ToolCatalog {
                 run: { $0.sidebarVisibility = ($0.sidebarVisibility == .detailOnly) ? .all : .detailOnly }),
         ToolDef(id: "enclosing", title: "Enclosing Folder", symbol: "chevron.up",
                 run: { $0.active.goUp() }),
+        ToolDef(id: "goTo", title: "Go To", symbol: "folder",
+                isOn: { $0.showGoToFolder }, run: { $0.activateGoToFolder(focusPath: false) }),
         ToolDef(id: "dual", title: "Dual Browser", symbol: "rectangle.split.2x1",
                 isOn: { $0.dual }, run: { $0.dual.toggle() }),
         ToolDef(id: "swap", title: "Swap Panes", symbol: "arrow.left.arrow.right", needsDual: true,
@@ -96,7 +98,7 @@ enum ToolCatalog {
 
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
-        "sidebar", "backfwd", "enclosing", "title", "view", "dual", "swap",
+        "sidebar", "backfwd", "enclosing", "goTo", "title", "view", "dual", "swap",
         "quickLook", "hidden", "newFolder", "projectFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "convert", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
@@ -104,7 +106,7 @@ enum ToolCatalog {
     ]
 
     static let defaultKinds: [String] = [
-        "sidebar", "backfwd", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
+        "sidebar", "backfwd", "goTo", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
         "newFolder", "copyPath", "connect", "swap", "view", "dual", "search",
     ]
 }
@@ -116,6 +118,23 @@ final class ToolbarModel {
 
     private static let key = "toolbar.entries.v1"
     private static let labelsKey = "toolbar.showLabels.v1"
+
+    /// Add the visible navigation entry once, keeping every existing item ID and order.
+    /// Later removal through Customize is a user choice and must survive relaunch.
+    static func migrateNavigationButton(_ defaults: UserDefaults = .standard) {
+        let migration = "toolbar.goToMigrated.v1"
+        guard !defaults.bool(forKey: migration) else { return }
+        if let data = defaults.data(forKey: key) {
+            guard var entries = try? JSONDecoder().decode([ToolbarEntry].self, from: data) else { return }
+            if !entries.contains(where: { $0.kind == "goTo" }) {
+                let anchor = entries.firstIndex { $0.kind == "backfwd" } ?? entries.firstIndex { $0.kind == "sidebar" }
+                entries.insert(ToolbarEntry(kind: "goTo"), at: anchor.map { $0 + 1 } ?? 0)
+                guard let updated = try? JSONEncoder().encode(entries) else { return }
+                defaults.set(updated, forKey: key)
+            }
+        }
+        defaults.set(true, forKey: migration)
+    }
 
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.key),

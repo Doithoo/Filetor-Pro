@@ -41,7 +41,8 @@ nonisolated struct PathCandidate: Identifiable, Equatable, Sendable {
         return URL(fileURLWithPath: value, relativeTo: URL(fileURLWithPath: base.path, isDirectory: true)).standardizedFileURL
     }
 
-    nonisolated static func list(_ text: String, base: URL) throws -> [PathCandidate] {
+    nonisolated static func list(_ text: String, base: URL, limit: Int? = 12,
+                                foldersOnly: Bool = false, showHidden: Bool = false) throws -> [PathCandidate] {
         var value = try input(text)
         // Split incomplete input before standardizing: URL normalization removes
         // a trailing dot, which is also the prefix for hidden-file completion.
@@ -56,20 +57,21 @@ nonisolated struct PathCandidate: Identifiable, Equatable, Sendable {
         let parentText = inside ? value : slash.map { String(value[...$0]) } ?? ""
         let parent = try url(for: parentText, base: base)
         let urls = try FileManager.default.contentsOfDirectory(at: parent,
-            includingPropertiesForKeys: [.isDirectoryKey, .isPackageKey], options: prefix.hasPrefix(".") ? [] : [.skipsHiddenFiles])
+            includingPropertiesForKeys: [.isDirectoryKey, .isPackageKey], options: showHidden || prefix.hasPrefix(".") ? [] : [.skipsHiddenFiles])
         var results: [PathCandidate] = []
         for url in urls {
             try Task.checkCancellation()
             guard prefix.isEmpty || url.lastPathComponent.range(of: prefix, options: [.caseInsensitive, .diacriticInsensitive, .anchored]) != nil else { continue }
             let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
-            results.append(PathCandidate(url: url.standardizedFileURL, directory: values?.isDirectory == true && values?.isPackage != true))
-            results.sort {
-                if $0.directory != $1.directory { return $0.directory }
-                return $0.url.lastPathComponent.localizedStandardCompare($1.url.lastPathComponent) == .orderedAscending
-            }
-            if results.count > 12 { results.removeLast() }
+            let directory = values?.isDirectory == true && values?.isPackage != true
+            if foldersOnly && !directory { continue }
+            results.append(PathCandidate(url: url.standardizedFileURL, directory: directory))
         }
-        return results
+        results.sort {
+            if $0.directory != $1.directory { return $0.directory }
+            return $0.url.lastPathComponent.localizedStandardCompare($1.url.lastPathComponent) == .orderedAscending
+        }
+        return limit.map { Array(results.prefix($0)) } ?? results
     }
 
     func update() {

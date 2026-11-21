@@ -259,7 +259,10 @@ struct Regression {
         try await until("keyboard collapse") { table.numberOfRows == 3 }
         try check(!pane.expanded.contains(child), "native Left Arrow collapses selected folder")
 
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(table)
+        try await Task.sleep(for: .milliseconds(100))
         let space = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                                     windowNumber: window.windowNumber, context: nil, characters: " ",
                                     charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49)!
@@ -394,6 +397,9 @@ struct Regression {
     }
 
     @MainActor static func runTests() async {
+        // A prior failed run exits before its defer; start from the test app's
+        // own clean preferences so restored test windows cannot leak across runs.
+        UserDefaults.standard.removePersistentDomain(forName: "FiletorRegression")
         let root = fm.temporaryDirectory.appending(path: "FiletorRegression-\(UUID().uuidString)")
         defer {
             try? fm.removeItem(at: root)
@@ -402,14 +408,19 @@ struct Regression {
         }
         do {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
-            try renameTests(root)
-            try await transferTests(root)
-            try archiveTests(root)
-            try await paneTests(root)
-            try await managerTests(root)
-            try await nativeUITests(root)
-            try await updateTests(root)
-            try await browsingTests(root)
+            if CommandLine.arguments.contains("--navigation-only") {
+                try await navigationTests(root)
+            } else {
+                try renameTests(root)
+                try await transferTests(root)
+                try archiveTests(root)
+                try await paneTests(root)
+                try await managerTests(root)
+                try await nativeUITests(root)
+                try await updateTests(root)
+                try await browsingTests(root)
+                try await navigationTests(root)
+            }
             print("\nAll \(checks) regression checks passed.")
         } catch {
             fputs("\(error.localizedDescription)\n", stderr)

@@ -113,6 +113,8 @@ struct CustomToolbar: View {
                     .menuIndicator(.hidden)
                     .frame(width: 36 * s)
                     .help("More")
+                    .modifier(FolderNavigationPopover(app: app,
+                        enabled: model.contains("goTo") && !parts.visible.contains { $0.kind == "goTo" }))
                 }
                 if app.transfers.hasActive {
                     TransferButton(app: app, showLabel: model.showLabels)
@@ -125,6 +127,7 @@ struct CustomToolbar: View {
         .focusEffectDisabled()
         .background(WindowDragArea())
         .background(Color(nsColor: .windowBackgroundColor))
+        .modifier(FolderNavigationPopover(app: app, enabled: !model.contains("goTo")))
         .contextMenu {
             Button("Customize Toolbar…") { app.showCustomize = true }
             Button(model.showLabels ? "Icon Only" : "Icon and Text") {
@@ -160,6 +163,21 @@ struct CustomToolbar: View {
     @ViewBuilder
     private func entryView(_ entry: ToolbarEntry) -> some View {
         switch entry.kind {
+        case "goTo":
+            Button { app.activateGoToFolder(focusPath: false) } label: {
+                VStack(spacing: 3) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "folder").font(.system(size: 16 * s, weight: .regular))
+                        Image(systemName: "chevron.down").font(.system(size: 8 * s, weight: .semibold))
+                    }.frame(width: 42 * s, height: 30 * s)
+                    if model.showLabels { Text("Go To").font(.system(size: 10.5 * s)) }
+                }
+                .foregroundStyle(app.showGoToFolder ? Color.filetor : Color.primary.opacity(0.7))
+                .frame(width: buttonWidth - 4)
+            }
+            .buttonStyle(ToolButtonStyle()).help("Go to Folder")
+            .accessibilityLabel("Go to Folder").accessibilityIdentifier("toolbar-go-to")
+            .modifier(FolderNavigationPopover(app: app, enabled: true))
         case "flex":
             Spacer(minLength: 0)
         case "space":

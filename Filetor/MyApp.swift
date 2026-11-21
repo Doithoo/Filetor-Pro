@@ -4,6 +4,7 @@ import SwiftUI
     @NSApplicationDelegateAdaptor(FiletorApplicationDelegate.self) private var applicationDelegate
     init() {
         DisplayPreferences.migrate()
+        ToolbarModel.migrateNavigationButton()
         // Filetor has its own tabs; the system tab bar would draw over the toolbar.
         NSWindow.allowsAutomaticWindowTabbing = false
     }

@@ -16,6 +16,7 @@ final class PaneModel: Identifiable {
     var isVisible = false
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadGeneration = UUID()
+    @ObservationIgnored private var lastRecordedDirectory: URL?
     var revision = 0
     var criteria = SearchCriteria() { didSet { if searchSubfolders { restartSearch() } } }
     var hasSearchFilters: Bool { !filter.isEmpty || !criteria.isEmpty }
@@ -167,6 +168,7 @@ final class PaneModel: Identifiable {
         guard value != isVisible else { return }
         isVisible = value
         if value {
+            lastRecordedDirectory = nil
             reload(keepSelection: true); startWatching()
             if searchActive { restartSearch() }
             if tagFilter != nil { startTagQuery() }
@@ -408,6 +410,10 @@ final class PaneModel: Identifiable {
             switch result {
             case .success(let (items, descendants)):
                 self.items = items
+                if self.isVisible && self.lastRecordedDirectory != root {
+                    RecentFolders.shared.record(root)
+                    self.lastRecordedDirectory = root
+                }
                 // Preserve expansions completed while the root was being refreshed.
                 let completedMeanwhile = self.children.filter { !openFolders.contains($0.key) && self.expanded.contains($0.key) }
                 self.children = descendants.filter { self.expanded.contains($0.key) }
