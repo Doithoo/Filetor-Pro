@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>SUFeedURL</key>
-	<string>https://github.com/Doithoo/Filetor/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/Doithoo/Filetor-Pro/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>VybQ8H4xDI/IlwlKr78BXozNvcQfsvFauiljwT9l5zU=</string>
 	<key>SUEnableAutomaticChecks</key>

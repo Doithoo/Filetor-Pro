@@ -1,6 +1,6 @@
 # Filetor Pro 开发与验证
 
-这是由 Doithoo 持续维护的 Filetor Pro，基于 David Praznik 的 Filetor。保留上游原生 SwiftUI / AppKit 实现。更新使用原生 Sparkle 组件，更新说明采用纯文本，没有加入 WebView 或常驻后台服务。代码及产品版本发布在自己的 `Doithoo/Filetor` 仓库，没有向上游提交 PR。
+这是由 Doithoo 持续维护的 Filetor Pro，基于 David Praznik 的 Filetor。保留上游原生 SwiftUI / AppKit 实现。更新使用原生 Sparkle 组件，更新说明采用纯文本，没有加入 WebView 或常驻后台服务。代码及产品版本发布在自己的 `Doithoo/Filetor-Pro` 仓库，没有向上游提交 PR。
 
 ## 使用重点
 
@@ -25,7 +25,7 @@ open ".build/pro/Filetor Pro.app"
 
 该脚本针对本机 Command Line Tools 和 macOS 26+，默认使用已安装的 26.5 SDK，以避开本机 27.x CLT 缺少 SwiftUI 编译插件的问题；可通过 `SDKROOT` 指定 SDK。需要支持默认 MainActor 隔离的 Swift 编译器。已有 Homebrew 静态 libwebp 时会链接它；否则使用系统可用的图像格式。应用图标来自仓库内的 `Resources/FiletorPro.icns`，保留原作者署名；构建不依赖已安装的应用。
 
-Filetor Pro 使用固定 Bundle ID `com.doithoo.Filetor.personal`，设置和原版隔离。更新源固定为自己的 `Doithoo/Filetor` Release，不检查上游发布。首次构建会下载 SHA-256 固定的 Sparkle 2.10.1，后续使用已校验的本地缓存。应用采用本地临时签名，更新包及更新清单另有 Ed25519 签名。本机构建不代表完成了其他 macOS 版本、Intel 或网络卷兼容性验证。
+Filetor Pro 使用固定 Bundle ID `com.doithoo.Filetor.personal`，设置和原版隔离。更新源固定为自己的 `Doithoo/Filetor-Pro` Release，不检查上游发布。首次构建会下载 SHA-256 固定的 Sparkle 2.10.1，后续使用已校验的本地缓存。应用采用本地临时签名，更新包及更新清单另有 Ed25519 签名。本机构建不代表完成了其他 macOS 版本、Intel 或网络卷兼容性验证。
 
 ## 自动更新
 

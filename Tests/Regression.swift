@@ -365,7 +365,7 @@ struct Regression {
         try check(AppModel.hasActiveFileOperations, "background compression blocks restart before its task begins")
         try await until("background archive finishes") { !AppModel.hasActiveFileOperations }
         try check(app1.backgroundWrites == 0, "background write tracking clears after compression")
-        try check(UpdateChecker.shared.feedURLString(for: SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil).updater) == UpdateChecker.feedURL && UpdateChecker.repo == "Doithoo/Filetor", "updater uses only the personal fork feed")
+        try check(UpdateChecker.shared.feedURLString(for: SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil).updater) == "https://github.com/Doithoo/Filetor-Pro/releases/latest/download/appcast.xml" && UpdateChecker.repo == "Doithoo/Filetor-Pro", "updater uses the canonical Filetor Pro repository feed")
 
         let host = NSHostingView(rootView: SettingsSheet(app: app1).background(Color(nsColor: .windowBackgroundColor)))
         let size = host.fittingSize

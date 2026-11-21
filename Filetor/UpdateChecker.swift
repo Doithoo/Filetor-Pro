@@ -13,8 +13,8 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
     }
 
     static let shared = UpdateChecker()
-    static let repo = "Doithoo/Filetor"
-    static let feedURL = "https://github.com/Doithoo/Filetor/releases/latest/download/appcast.xml"
+    static let repo = "Doithoo/Filetor-Pro"
+    static let feedURL = "https://github.com/\(repo)/releases/latest/download/appcast.xml"
     private(set) var state: State = .idle
     private(set) var canCheck = false
     private(set) var automaticUpdates: AutomaticUpdateSettings?

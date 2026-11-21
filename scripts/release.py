@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare and publish signed Filetor Pro releases to Doithoo/Filetor."""
+"""Prepare and publish signed Filetor Pro releases to Doithoo/Filetor-Pro."""
 import argparse
 from datetime import datetime, timezone
 from email.utils import format_datetime
@@ -52,10 +52,10 @@ def make_feed(archive, signature, notes, destination, *, version=None, build=Non
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--publish", action="store_true", help="Publish the prepared release to Doithoo/Filetor")
+    parser.add_argument("--publish", action="store_true", help="Publish the prepared release to Doithoo/Filetor-Pro")
     parser.add_argument("--notes", type=Path, default=ROOT / "docs/releases" / (CONFIG["version"] + ".md"))
     args = parser.parse_args()
-    if CONFIG["repository"] != "Doithoo/Filetor":
+    if CONFIG["repository"] != "Doithoo/Filetor-Pro":
         raise RuntimeError("This release script is restricted to the Filetor Pro repository")
     if platform.machine() != "arm64":
         raise RuntimeError("This release channel currently targets Apple Silicon")

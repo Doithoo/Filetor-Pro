@@ -25,13 +25,13 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.3.2**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.3.3**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
-Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
+Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 
 Existing `0.2.0-personal.2` users can choose **Check for Updates…** in the app. Filetor Pro preserves the existing preferences identity, including toolbar layout, labels, sidebar and workspaces. The installed filename may stay unchanged during an in-app update; the product shown in menus and settings becomes Filetor Pro.
 
-Settings has one **Automatically check for and install updates** switch. When enabled, updates download in the background and install when you quit. The manual check can install and restart immediately. Updates are downloaded, verified, installed and relaunched by Sparkle; relaunch waits for active file operations. Only Filetor Pro releases from **Doithoo/Filetor** are offered. Committing code alone does not publish an update: each release must be built, signed and published.
+Settings has one **Automatically check for and install updates** switch. When enabled, updates download in the background and install when you quit. The manual check can install and restart immediately. Updates are downloaded, verified, installed and relaunched by Sparkle; relaunch waits for active file operations. Only Filetor Pro releases from **Doithoo/Filetor-Pro** are offered. Committing code alone does not publish an update: each release must be built, signed and published.
 
 The app currently uses ad hoc code signing, without Developer ID signing or notarization. A first installation may need approval under **System Settings → Privacy & Security → Open Anyway**. Full Disk Access is optional and may need to be granted again after an update. The update archive and feed are separately protected by Ed25519 signatures.
 
@@ -46,12 +46,12 @@ open ".build/pro/Filetor Pro.app"
 
 See the [development and verification guide](docs/DEVELOPMENT.md) for prerequisites and current limitations, and the [release workflow](docs/UPDATES.md) for publishing signed updates. The source includes the application icon; a clean build does not require an existing installation.
 
-Versions use `MAJOR.MINOR.PATCH`, starting with `0.3.0` under the Filetor Pro name. Each release also increments its numeric build. The repository address and internal bundle identifier remain stable so existing installations retain settings and can keep updating.
+Versions use `MAJOR.MINOR.PATCH`, starting with `0.3.0` under the Filetor Pro name. Each release also increments its numeric build. The independent repository is **Doithoo/Filetor-Pro**. Version `0.3.3` uses its new update address; older versions reach it through GitHub's redirect from `Doithoo/Filetor`. The internal bundle identifier and update signing key remain stable so existing installations retain settings and can keep updating.
 
 ## Privacy, attribution and feedback
 
 File operations run locally. Update checks and downloads contact GitHub; the updater does not upload file contents or send Sparkle system profiles. Network file access and external applications run only as requested by the user.
 
-Please report Filetor Pro issues in [this repository's issue tracker](https://github.com/Doithoo/Filetor/issues).
+Please report Filetor Pro issues in [this repository's issue tracker](https://github.com/Doithoo/Filetor-Pro/issues).
 
 Original Filetor and its icon: **David Praznik**. Filetor Pro modifications: **Doithoo**. Source is provided under the [MIT license](LICENSE). Sparkle and optional libwebp retain their respective bundled licenses.
