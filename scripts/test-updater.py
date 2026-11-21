@@ -27,7 +27,8 @@ def main():
     executable = root / "UpdateProbe"
     subprocess.run(["xcrun", "swiftc", "-swift-version", "5", "-default-isolation", "MainActor", "-sdk", sdk,
                     "-parse-as-library", "-F", str(dependency), "-framework", "Sparkle", "-Xlinker", "-rpath", "-Xlinker",
-                    "@executable_path/../Frameworks", str(ROOT / "Tests/UpdateProbe.swift"), "-o", str(executable)], check=True)
+                    "@executable_path/../Frameworks", str(ROOT / "Filetor/AutomaticUpdateSettings.swift"),
+                    str(ROOT / "Tests/UpdateProbe.swift"), "-o", str(executable)], check=True)
     class QuietHandler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -38,7 +39,7 @@ def main():
     account = CONFIG["signing_account"]
     results = []
     try:
-        for mode in ["valid", "renamed", "tampered_archive", "tampered_feed", "no_update", "unreachable"]:
+        for mode in ["valid", "renamed", "automatic", "tampered_archive", "tampered_feed", "no_update", "unreachable"]:
             case = root / mode
             case.mkdir()
             bundle_id = "com.doithoo.Filetor.UpdateProbe." + uuid.uuid4().hex
@@ -60,7 +61,7 @@ def main():
                 info = {"CFBundleIdentifier": bundle_id, "CFBundleExecutable": executable_name, "CFBundleName": product_name,
                         "CFBundleDisplayName": product_name,
                         "CFBundlePackageType": "APPL", "CFBundleVersion": build, "CFBundleShortVersionString": version,
-                        "LSMinimumSystemVersion": "26.0", "LSUIElement": True, "ProbeLog": str(log),
+                        "LSMinimumSystemVersion": "26.0", "LSUIElement": True, "ProbeLog": str(log), "ProbeMode": mode,
                         "SUFeedURL": base_url + f"/{mode}/appcast.xml", "SUPublicEDKey": CONFIG["public_ed_key"],
                         "SUEnableAutomaticChecks": False, "SUAutomaticallyUpdate": False,
                         "SUVerifyUpdateBeforeExtraction": True, "SURequireSignedFeed": True,
@@ -82,15 +83,27 @@ def main():
                 feed.unlink()
             process = subprocess.Popen([str(app / "Contents/MacOS" / ("FiletorPersonal" if renamed else "UpdateProbe"))], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             deadline = time.monotonic() + 75
+            reopened = False
             try:
                 while time.monotonic() < deadline:
                     text = log.read_text() if log.exists() else ""
-                    if any(marker in text for marker in ["INSTALLED_PREFERENCES_PRESERVED", "PREFERENCES_LOST", "UPDATE_ERROR:", "START_ERROR:", "NO_UPDATE"]):
+                    if mode == "automatic" and "INSTALL_ON_QUIT" in text and process.poll() is not None and not reopened:
+                        # Silent installation intentionally does not relaunch. Simulate the next launch.
+                        info_path = app / "Contents/Info.plist"
+                        if info_path.exists() and plistlib.loads(info_path.read_bytes())["CFBundleVersion"] == "2":
+                            subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+                            process = subprocess.Popen([str(app / "Contents/MacOS/UpdateProbe")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            reopened = True
+                    if any(marker in text for marker in ["INSTALLED_PREFERENCES_PRESERVED", "PREFERENCES_LOST", "UPDATE_ERROR:", "START_ERROR:", "NO_UPDATE", "SETTINGS_ERROR:"]):
                         break
                     time.sleep(0.2)
                 else:
                     raise RuntimeError(f"{mode} timed out: {text}")
-                if mode in ["valid", "renamed"]:
+                if mode in ["valid", "renamed", "automatic"]:
+                    if mode == "automatic":
+                        assert "COMBINED_SETTINGS_VERIFIED" in text, text
+                        assert "INSTALL_ON_QUIT" in text, text
+                        assert "FOUND:" not in text and "CHECKING" not in text, text
                     assert "INSTALLED_PREFERENCES_PRESERVED" in text, text
                     installed = list((case / "installed").glob("*.app"))
                     assert len(installed) == 1, installed

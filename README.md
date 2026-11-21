@@ -8,7 +8,7 @@ Filetor Pro is a maintained fork of [Filetor by David Praznik](https://github.co
 
 - **Inline folder expansion** in list view: open the disclosure triangle, use the Right/Left arrow keys, or expand selected folders from the View menu. Browse nested folders without leaving the current list.
 - **Independent windows** with `⌘N`. Each window has its own folders, tabs, selections and undo history.
-- **Tabs in each pane**: create, reorder, close and reopen tabs; restore folders, views, sorting and expansion state across launches.
+- **Tabs in each pane**: one always-visible New Tab button, plus create, reorder, close and reopen actions; restore folders, views, sorting and expansion state across launches.
 - **A customizable toolbar** with your choice of tools, order and labels.
 - Single or dual panes, list/icon/column views, breadcrumbs, favorites, mounted disks and network locations.
 - Finder tags, saved searches, subfolder search, Quick Look and an optional information panel.
@@ -23,13 +23,13 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.3.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.3.1**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 
 Existing `0.2.0-personal.2` users can choose **Check for Updates…** in the app. Filetor Pro preserves the existing preferences identity, including toolbar layout, labels, sidebar and workspaces. The installed filename may stay unchanged during an in-app update; the product shown in menus and settings becomes Filetor Pro.
 
-Automatic checks and optional background downloads are available in Settings. Updates are downloaded, verified, installed and relaunched by Sparkle; relaunch waits for active file operations. Only Filetor Pro releases from **Doithoo/Filetor** are offered. Committing code alone does not publish an update: each release must be built, signed and published.
+Settings has one **Automatically check for and install updates** switch. When enabled, updates download in the background and install when you quit. The manual check can install and restart immediately. Updates are downloaded, verified, installed and relaunched by Sparkle; relaunch waits for active file operations. Only Filetor Pro releases from **Doithoo/Filetor** are offered. Committing code alone does not publish an update: each release must be built, signed and published.
 
 The app currently uses ad hoc code signing, without Developer ID signing or notarization. A first installation may need approval under **System Settings → Privacy & Security → Open Anyway**. Full Disk Access is optional and may need to be granted again after an update. The update archive and feed are separately protected by Ed25519 signatures.
 

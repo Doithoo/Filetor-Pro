@@ -6,7 +6,7 @@ The application updates only from `Doithoo/Filetor`. The feed URL is:
 https://github.com/Doithoo/Filetor/releases/latest/download/appcast.xml
 ```
 
-Sparkle 2.10.1 performs downloading, Ed25519 validation, installation and relaunch using native macOS components. The application uses a single shared updater for all windows. Its standard interface supplies progress, cancellation, release notes and error feedback. Automatic checks and downloads are separate user preferences. An existing `autoUpdate` preference migrates once, without overwriting subsequent choices or toolbar settings.
+Sparkle 2.10.1 performs downloading, Ed25519 validation, installation and relaunch using native macOS components. The application uses a single shared updater for all windows. Its standard interface supplies progress, cancellation, release notes and error feedback. A single switch controls automatic checking, downloading and installation on quit. The old check preference (including legacy `autoUpdate`) migrates once to both Sparkle settings, preserving opt-outs and toolbar settings. Changes made in Sparkle’s own update dialog are reflected in the combined switch. Manual checks remain available when automatic updates are off.
 
 The signed feed specifies an increasing numeric build, Apple Silicon hardware and macOS 26 or later. The archive is verified before extraction. Release notes are embedded as plain text. No authentication token or signing private key is shipped in the app.
 
@@ -31,7 +31,7 @@ This is an Apple Silicon distribution. The application is ad hoc code signed, no
 
 ## Verification
 
-`Tests/Regression.swift` covers preference migration without toolbar resets, a shared updater across windows, and restart protection for active file operations. `scripts/test-updater.py` builds disposable applications with unique bundle identifiers and a loopback feed. It verifies actual upgrades and relaunches with preserved preferences, including Filetor Personal to Filetor Pro name and executable changes, rejects tampered archives and feeds, and exercises no-update and HTTP failure responses. It never replaces the installed Filetor or writes its preference domain.
+`Tests/Regression.swift` covers preference migration without toolbar resets, a shared updater across windows, and restart protection for active file operations. `scripts/test-updater.py` builds disposable applications with unique bundle identifiers and a loopback feed. It verifies actual upgrades and relaunches with preserved preferences, including Filetor Personal to Filetor Pro name and executable changes and silent background downloading followed by installation on quit, rejects tampered archives and feeds, and exercises no-update and HTTP failure responses. It never replaces the installed Filetor or writes its preference domain.
 
 The release preparation command uses `scripts/build.py`, which embeds the full verified Sparkle framework. The Xcode project also declares the pinned package; the Command Line Tools release path is the validated build on this machine.
 

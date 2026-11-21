@@ -50,7 +50,7 @@ info = {
     "CFBundleVersion": str(CONFIG["build"]), "LSMinimumSystemVersion": CONFIG["minimum_system_version"],
     "NSHighResolutionCapable": True, "LSApplicationCategoryType": "public.app-category.utilities",
     "SUFeedURL": FEED_URL, "SUPublicEDKey": CONFIG["public_ed_key"],
-    "SUEnableAutomaticChecks": True, "SUAutomaticallyUpdate": False,
+    "SUEnableAutomaticChecks": True, "SUAutomaticallyUpdate": True,
     "SUScheduledCheckInterval": 3600, "SUSendProfileInfo": False,
     "SUVerifyUpdateBeforeExtraction": True, "SURequireSignedFeed": True,
     "NSHumanReadableCopyright": "© 2026 David Praznik; Filetor Pro modifications © 2026 Doithoo.",

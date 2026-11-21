@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Clickable path above each pane, Paths style. The + at the right opens a new tab.
+/// Clickable path above each pane. Tab creation lives in the tab strip.
 struct BreadcrumbBar: View {
     let pane: PaneModel
     let app: AppModel
-    let onNewTab: () -> Void
     @AppStorage("textSize") private var textSize = 1
     @State private var contentWidth: CGFloat = 0
     @State private var viewWidth: CGFloat = 0
@@ -146,15 +145,6 @@ struct BreadcrumbBar: View {
             )
             .onChange(of: pane.currentURL) { _, _ in align(proxy) }
             }
-            Button(action: onNewTab) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14 * s))
-                    .foregroundStyle(Color.primary.opacity(0.55))
-                    .frame(width: 36 * s, height: 30 * s)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("New Tab")
         }
         .frame(height: 44 * s)
     }

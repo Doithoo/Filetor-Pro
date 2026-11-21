@@ -221,7 +221,7 @@ struct Regression {
         let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 940, height: 420), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.title = "Filetor Pro — Folder Expansion Test"
-        let host = NSHostingView(rootView: FileListView(pane: pane, app: app, isActive: true))
+        let host = NSHostingView(rootView: PaneContainer(app: app, index: 0))
         window.contentView = host
         window.makeKeyAndOrderFront(nil)
         defer { window.orderOut(nil); window.contentView = nil; window.close(); app.stop() }
@@ -243,7 +243,7 @@ struct Regression {
         try await until("keyboard expansion") { table.numberOfRows == 4 }
         try check(pane.expanded.contains(child), "native Right Arrow expands selected folder")
         host.layoutSubtreeIfNeeded()
-        let snapshotView: NSView = table.enclosingScrollView ?? table
+        let snapshotView: NSView = host
         if let bitmap = snapshotView.bitmapImageRepForCachingDisplay(in: snapshotView.bounds) {
             snapshotView.cacheDisplay(in: snapshotView.bounds, to: bitmap)
             if let data = bitmap.representation(using: .png, properties: [:]) {
@@ -264,12 +264,28 @@ struct Regression {
         defer { defaults.removePersistentDomain(forName: domain) }
         defaults.set(false, forKey: "autoUpdate")
         defaults.set(Data("toolbar fixture".utf8), forKey: "toolbar.entries.v1")
-        UpdateChecker.migratePreferences(defaults)
-        try check(!defaults.bool(forKey: "SUEnableAutomaticChecks"), "updater preserves a disabled legacy automatic-check preference")
+        AutomaticUpdateSettings.migratePreferences(defaults)
+        try check(!defaults.bool(forKey: "SUEnableAutomaticChecks") && !defaults.bool(forKey: "SUAutomaticallyUpdate"), "combined updates preserve a disabled legacy preference")
         defaults.set(true, forKey: "SUEnableAutomaticChecks")
-        UpdateChecker.migratePreferences(defaults)
-        try check(defaults.bool(forKey: "SUEnableAutomaticChecks"), "updater migration does not override a later user choice")
+        defaults.set(true, forKey: "SUAutomaticallyUpdate")
+        AutomaticUpdateSettings.migratePreferences(defaults)
+        try check(defaults.bool(forKey: "SUEnableAutomaticChecks") && defaults.bool(forKey: "SUAutomaticallyUpdate"), "combined migration does not override a later user choice")
         try check(defaults.data(forKey: "toolbar.entries.v1") == Data("toolbar fixture".utf8), "updater preference migration preserves toolbar configuration")
+        for (checks, downloads) in [(false, false), (false, true), (true, false), (true, true)] {
+            defaults.removePersistentDomain(forName: domain)
+            defaults.set(checks, forKey: "SUEnableAutomaticChecks")
+            defaults.set(downloads, forKey: "SUAutomaticallyUpdate")
+            AutomaticUpdateSettings.migratePreferences(defaults)
+            try check(defaults.bool(forKey: "SUEnableAutomaticChecks") == checks && defaults.bool(forKey: "SUAutomaticallyUpdate") == checks,
+                      "combined migration preserves check choice for \(checks)/\(downloads)")
+        }
+        defaults.removePersistentDomain(forName: domain)
+        AutomaticUpdateSettings.migratePreferences(defaults)
+        try check(defaults.bool(forKey: "SUEnableAutomaticChecks") && defaults.bool(forKey: "SUAutomaticallyUpdate"), "new installations enable the complete automatic update cycle")
+        defaults.set(false, forKey: "SUEnableAutomaticChecks")
+        defaults.set(false, forKey: "SUAutomaticallyUpdate")
+        AutomaticUpdateSettings.migratePreferences(defaults)
+        try check(!defaults.bool(forKey: "SUEnableAutomaticChecks") && !defaults.bool(forKey: "SUAutomaticallyUpdate"), "automatic update opt-out survives subsequent launches")
         let app1 = AppModel(), app2 = AppModel()
         defer { app1.stop(); app2.stop() }
         try check(app1.updater === app2.updater, "all windows share one updater")

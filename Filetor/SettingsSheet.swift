@@ -119,16 +119,11 @@ struct SettingsSheet: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
-                Toggle("Check for updates automatically", isOn: Binding(
-                    get: { app.updater.automaticallyChecks },
-                    set: { app.updater.setAutomaticChecks($0) }
+                Toggle("Automatically check for and install updates", isOn: Binding(
+                    get: { app.updater.automaticallyUpdates },
+                    set: { app.updater.setAutomaticUpdates($0) }
                 ))
-                Toggle("Download updates automatically", isOn: Binding(
-                    get: { app.updater.automaticallyDownloads },
-                    set: { app.updater.setAutomaticDownloads($0) }
-                ))
-                .disabled(!app.updater.automaticallyChecks)
-                Text("Updates come from the Filetor Pro release channel. Your settings are kept.")
+                Text("Updates download in the background and install when you quit. You can also check and install now.")
                     .foregroundStyle(.secondary)
                 HStack(spacing: 12) {
                     Button("Check for updates…") { app.updater.check() }

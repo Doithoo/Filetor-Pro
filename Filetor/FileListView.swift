@@ -9,13 +9,12 @@ struct FileListView: View {
     @AppStorage("striped") private var striped = true
     @AppStorage("statusBar") private var statusBar = true
     var isActive = false
-    var onNewTab: () -> Void = {}
 
     private var scale: CGFloat { UIScale.value(textSize) }
 
     var body: some View {
         VStack(spacing: 0) {
-            BreadcrumbBar(pane: pane, app: app, onNewTab: onNewTab)
+            BreadcrumbBar(pane: pane, app: app)
             Divider()
             if app.showFilterBar && pane === app.active && !app.searchFieldVisible {
                 FilterBar(pane: pane, app: app, scale: scale)

@@ -155,7 +155,7 @@ struct PaneContainer: View {
         let group = app.groups[index]
         VStack(spacing: 0) {
             TabStrip(group: group, app: app)
-            FileListView(pane: group.current, app: app, isActive: app.dual && app.activeIndex == index, onNewTab: { group.newTab() }).id(group.current.id)
+            FileListView(pane: group.current, app: app, isActive: app.dual && app.activeIndex == index).id(group.current.id)
         }
         .frame(minWidth: 280)
         .simultaneousGesture(TapGesture().onEnded { app.activeIndex = index })
@@ -168,50 +168,65 @@ struct TabStrip: View {
     @AppStorage("textSize") private var textSize = 1
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 4) {
-            ForEach(Array(group.tabs.enumerated()), id: \.element.id) { i, tab in
-                let name = tab.title
-                HStack(spacing: 6) {
-                    Text(name).lineLimit(1)
-                    if group.tabs.count > 1 {
-                        Button { group.close(at: i) } label: {
-                            Image(systemName: "xmark").font(.caption2)
+        HStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ForEach(Array(group.tabs.enumerated()), id: \.element.id) { i, tab in
+                            let name = tab.title
+                            HStack(spacing: 6) {
+                                Text(name).lineLimit(1)
+                                if group.tabs.count > 1 {
+                                    Button { group.close(at: i) } label: {
+                                        Image(systemName: "xmark").font(.caption2)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Close Tab")
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .frame(maxWidth: 170)
+                            .background(i == group.selected ? Color.primary.opacity(0.12) : Color.clear,
+                                        in: RoundedRectangle(cornerRadius: 6))
+                            .contentShape(Rectangle())
+                            .onTapGesture { group.selected = i; app.activate(tab) }
+                            .draggable(tab.id.uuidString)
+                            .dropDestination(for: String.self) { values, _ in
+                                guard let value = values.first, let id = UUID(uuidString: value) else { return false }
+                                group.reorder(id, before: tab.id)
+                                return true
+                            }
+                            .contextMenu {
+                                Button("Open in New Window") { app.openWindow?(tab.currentURL) }
+                                Button("Close Tab") { group.close(at: i) }
+                                Button("Reopen Closed Tab") { group.reopen() }.disabled(!group.canReopen)
+                            }
+                            .id(tab.id)
                         }
-                        .buttonStyle(.plain)
-                        .help("Close Tab")
                     }
+                    .padding(.leading, 8)
+                    .padding(.vertical, 4)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .frame(maxWidth: 170)
-                .background(i == group.selected ? Color.primary.opacity(0.12) : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 6))
-                .contentShape(Rectangle())
-                .onTapGesture { group.selected = i; app.activate(tab) }
-                .draggable(tab.id.uuidString)
-                .dropDestination(for: String.self) { values, _ in
-                    guard let value = values.first, let id = UUID(uuidString: value) else { return false }
-                    group.reorder(id, before: tab.id)
-                    return true
-                }
-                .contextMenu {
-                    Button("Open in New Window") { app.openWindow?(tab.currentURL) }
-                    Button("Close Tab") { group.close(at: i) }
-                    Button("Reopen Closed Tab") { group.reopen() }.disabled(!group.canReopen)
+                .onChange(of: group.current.id, initial: true) { _, id in
+                    proxy.scrollTo(id)
                 }
             }
-            Button { group.newTab() } label: { Image(systemName: "plus") }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 6)
-                .help("New Tab")
-            Spacer()
+            // Keep the only New Tab button reachable even when the strip overflows.
+            Button {
+                group.newTab()
+                app.activate(group.current)
+            } label: {
+                Image(systemName: "plus")
+                    .frame(width: 30 * UIScale.value(textSize), height: 26 * UIScale.value(textSize))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("New Tab")
+            .help("New Tab (⌘T)")
         }
         .font(.system(size: 12 * UIScale.value(textSize)))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
         .background(.bar)
-        }
     }
 }
 

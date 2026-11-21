@@ -7,7 +7,7 @@ import Sparkle
 @Observable
 final class UpdateChecker: NSObject, SPUUpdaterDelegate {
     enum State: Equatable {
-        case idle, checking, upToDate, downloading, installing, waitingForOperations
+        case idle, checking, upToDate, downloading, readyOnQuit, installing, waitingForOperations
         case available(version: String)
         case failed(String)
     }
@@ -17,8 +17,8 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
     static let feedURL = "https://github.com/Doithoo/Filetor/releases/latest/download/appcast.xml"
     private(set) var state: State = .idle
     private(set) var canCheck = false
-    private(set) var automaticallyChecks = true
-    private(set) var automaticallyDownloads = false
+    private(set) var automaticUpdates: AutomaticUpdateSettings?
+    var automaticallyUpdates: Bool { automaticUpdates?.isEnabled ?? true }
     private(set) var lastCheck: Date?
     @ObservationIgnored private var controller: SPUStandardUpdaterController?
     @ObservationIgnored private var subscriptions = Set<AnyCancellable>()
@@ -36,28 +36,18 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
     /// Called once by the application, never from each window or from model tests.
     func start() {
         guard controller == nil else { return }
-        Self.migratePreferences(UserDefaults.standard)
+        AutomaticUpdateSettings.migratePreferences(UserDefaults.standard)
         let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
         self.controller = controller
         let updater = controller.updater
         updater.publisher(for: \.canCheckForUpdates).sink { [weak self] in self?.canCheck = $0 }.store(in: &subscriptions)
-        updater.publisher(for: \.automaticallyChecksForUpdates).sink { [weak self] in self?.automaticallyChecks = $0 }.store(in: &subscriptions)
-        updater.publisher(for: \.automaticallyDownloadsUpdates).sink { [weak self] in self?.automaticallyDownloads = $0 }.store(in: &subscriptions)
+        automaticUpdates = AutomaticUpdateSettings(updater: updater)
         updater.publisher(for: \.lastUpdateCheckDate).sink { [weak self] in self?.lastCheck = $0 }.store(in: &subscriptions)
         do { try updater.start() }
         catch { state = .failed(error.localizedDescription) }
     }
 
-    static func migratePreferences(_ defaults: UserDefaults) {
-        // Migrate once; subsequent launches must respect changes made in Sparkle's UI.
-        if defaults.object(forKey: "SUEnableAutomaticChecks") == nil,
-           let legacy = defaults.object(forKey: "autoUpdate") as? Bool {
-            defaults.set(legacy, forKey: "SUEnableAutomaticChecks")
-        }
-    }
-
-    func setAutomaticChecks(_ value: Bool) { controller?.updater.automaticallyChecksForUpdates = value }
-    func setAutomaticDownloads(_ value: Bool) { controller?.updater.automaticallyDownloadsUpdates = value }
+    func setAutomaticUpdates(_ value: Bool) { automaticUpdates?.setEnabled(value) }
 
     func check() {
         start()
@@ -88,6 +78,12 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
     func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
         AppModel.saveAllWorkspaces()
         state = .installing
+    }
+
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
+                 immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        state = .readyOnQuit
+        return false // Let Sparkle install on a normal quit, or offer a user-initiated restart.
     }
 
     func updater(_ updater: SPUUpdater, shouldPostponeRelaunchForUpdate item: SUAppcastItem,
@@ -130,6 +126,7 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
         case .upToDate: return "\(ProductInfo.name) is up to date."
         case .available(let version): return "Version \(version) is available."
         case .downloading: return "Downloading and verifying the update…"
+        case .readyOnQuit: return "Update ready. It will install when you quit."
         case .installing: return "Preparing to install and restart…"
         case .waitingForOperations: return "Waiting for file operations to finish before restarting…"
         case .failed(let message): return message
