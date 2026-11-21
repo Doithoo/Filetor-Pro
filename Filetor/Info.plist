@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+	<key>FiletorPersonalBuild</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/Doithoo/Filetor/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>VybQ8H4xDI/IlwlKr78BXozNvcQfsvFauiljwT9l5zU=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer>
+	<key>SUSendProfileInfo</key>
+	<false/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+	<key>SURequireSignedFeed</key>
+	<true/>
+</dict>
 </plist>

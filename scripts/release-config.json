@@ -1,0 +1,10 @@
+{
+  "repository": "Doithoo/Filetor",
+  "version": "0.2.0-personal.2",
+  "build": 2,
+  "minimum_system_version": "26.0",
+  "sparkle_version": "2.10.1",
+  "sparkle_sha256": "1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27",
+  "signing_account": "com.doithoo.Filetor.personal",
+  "public_ed_key": "VybQ8H4xDI/IlwlKr78BXozNvcQfsvFauiljwT9l5zU="
+}

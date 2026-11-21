@@ -1,24 +1,48 @@
 import SwiftUI
 
 @main struct FiletorApp: App {
-    @State private var app = AppModel()
-
+    @NSApplicationDelegateAdaptor(FiletorApplicationDelegate.self) private var applicationDelegate
     init() {
         // Filetor has its own tabs; the system tab bar would draw over the toolbar.
         NSWindow.allowsAutomaticWindowTabbing = false
     }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView(app: app)
+        WindowGroup("Filetor Personal", id: "workspace", for: UUID.self) { $workspaceID in
+            WorkspaceRoot(workspaceID: workspaceID)
+        } defaultValue: {
+            UUID()
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 700)
-        .commands {
-            CommandGroup(after: .newItem) {
+        .commands { WorkspaceCommands() }
+    }
+}
+
+private struct WorkspaceCommands: Commands {
+    @FocusedValue(\.filetorWorkspace) private var focusedWorkspace
+    @Environment(\.openWindow) private var openWindow
+    var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { UpdateChecker.shared.check() }
+                .disabled(!UpdateChecker.shared.canCheck)
+        }
+        CommandGroup(replacing: .newItem) {
+            Button("New Window") { openWindow(id: "workspace", value: UUID()) }
+                .keyboardShortcut("n", modifiers: .command)
+            if let app = focusedWorkspace {
                 Button("New Tab") { app.newTab() }
                     .keyboardShortcut("t", modifiers: .command)
+                Button("Reopen Closed Tab") { app.activeGroup.reopen() }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
+                    .disabled(!app.activeGroup.canReopen)
+                Button("Next Tab") { app.activeGroup.cycle(1) }
+                    .keyboardShortcut("]", modifiers: [.command, .shift])
+                Button("Previous Tab") { app.activeGroup.cycle(-1) }
+                    .keyboardShortcut("[", modifiers: [.command, .shift])
             }
+        }
+        if let app = focusedWorkspace {
             CommandGroup(replacing: .appInfo) {
                 Button("About Filetor") {
                     let link = "https://github.com/\(UpdateChecker.repo)"
@@ -38,8 +62,10 @@ import SwiftUI
             CommandGroup(replacing: .undoRedo) {
                 Button(app.undoTitle ?? "Undo") { app.undo() }
                     .keyboardShortcut("z", modifiers: .command)
+                    .disabled(app.historyBusy)
                 Button(app.redoTitle ?? "Redo") { app.redo() }
                     .keyboardShortcut("z", modifiers: [.command, .shift])
+                    .disabled(app.historyBusy)
             }
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") { app.showSettings = true }
@@ -52,6 +78,11 @@ import SwiftUI
                     .keyboardShortcut("k", modifiers: [.command, .option])
                 Button("Actions…") { app.showPalette.toggle() }
                     .keyboardShortcut("k", modifiers: .command)
+                Button("Expand Selected Folders") {
+                    for url in app.active.selection where FileItem(url: url).expandable { app.active.expand(url) }
+                }.disabled(!app.active.treeActive)
+                Button("Collapse All Folders") { app.active.collapseAll() }
+                    .disabled(app.active.expanded.isEmpty)
                 Button("Search") { app.activateSearch() }
                     .keyboardShortcut("f", modifiers: .command)
                 Button("Customize Toolbar…") { app.showCustomize = true }
@@ -129,5 +160,24 @@ import SwiftUI
                     .keyboardShortcut("w", modifiers: .command)
             }
         }
+    }
+}
+
+final class FiletorApplicationDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UpdateChecker.shared.start()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !AppModel.hasActiveFileOperations else {
+            let alert = NSAlert()
+            alert.messageText = "File operations are still running"
+            alert.informativeText = "Finish or cancel the file operations before quitting or restarting Filetor."
+            alert.addButton(withTitle: "Keep Filetor Open")
+            alert.runModal()
+            return .terminateCancel
+        }
+        AppModel.saveAllWorkspaces()
+        return .terminateNow
     }
 }

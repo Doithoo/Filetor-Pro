@@ -4,19 +4,37 @@ import Observation
 /// One thing ⌘Z can take back and ⇧⌘Z can do again. The closures return an error message, or nil when it worked.
 struct SyncBatchState {
     var remaining: Int
-    var parts: [(undo: () -> String?, redo: () -> String?, count: Int)] = []
+    var parts: [(undo: () async -> String?, redo: () async -> String?, count: Int)] = []
 }
 
 struct UndoStep {
     let title: String
-    let undo: () -> String?
-    let redo: () -> String?
+    let undo: () async -> String?
+    let redo: () async -> String?
 }
 
 @Observable
 final class PaneGroup {
     var tabs: [PaneModel] = [PaneModel()]
     var selected = 0
+    private var closed: [PaneSnapshot] = []
+    var canReopen: Bool { !closed.isEmpty }
+
+    func cycle(_ offset: Int) { selected = (selected + offset + tabs.count) % tabs.count }
+
+    func reorder(_ id: UUID, before target: UUID) {
+        guard let from = tabs.firstIndex(where: { $0.id == id }), let to = tabs.firstIndex(where: { $0.id == target }), from != to else { return }
+        let active = current.id
+        let tab = tabs.remove(at: from)
+        tabs.insert(tab, at: to)
+        selected = tabs.firstIndex(where: { $0.id == active }) ?? 0
+    }
+
+    func reopen() {
+        guard let state = closed.popLast() else { return }
+        tabs.append(state.makePane())
+        selected = tabs.count - 1
+    }
 
     var current: PaneModel { tabs[min(selected, tabs.count - 1)] }
 
@@ -32,6 +50,9 @@ final class PaneGroup {
 
     func close(at index: Int) {
         guard tabs.count > 1, tabs.indices.contains(index) else { return }
+        closed.append(PaneSnapshot(tabs[index]))
+        if closed.count > 20 { closed.removeFirst() }
+        tabs[index].stop()
         tabs.remove(at: index)
         if index < selected { selected -= 1 }
         selected = min(selected, tabs.count - 1)
@@ -40,6 +61,15 @@ final class PaneGroup {
 
 @Observable
 final class AppModel {
+    static var windowLocations: [UUID: URL] = [:]
+    private static var hasRestoredInitialWindow = false
+    let workspaceID: UUID
+    var openWindow: ((URL?) -> Void)?
+    @ObservationIgnored private var observers: [NSObjectProtocol] = []
+
+    func activate(_ pane: PaneModel) {
+        if let index = groups.firstIndex(where: { $0.current === pane }) { activeIndex = index }
+    }
     let groups = [PaneGroup(), PaneGroup()]
     var activeIndex = 0
     var dual = UserDefaults.standard.object(forKey: "startDual") as? Bool ?? true
@@ -71,7 +101,18 @@ final class AppModel {
     var showInfo = UserDefaults.standard.bool(forKey: "showInfoPanel") {
         didSet { UserDefaults.standard.set(showInfo, forKey: "showInfoPanel") }
     }
-    let updater = UpdateChecker()
+    let updater = UpdateChecker.shared
+    private static let liveModels = NSHashTable<AppModel>.weakObjects()
+    private(set) var backgroundWrites = 0
+
+    static var hasActiveFileOperations: Bool {
+        liveModels.allObjects.contains { $0.transfers.hasActive || $0.historyBusy || $0.backgroundWrites > 0 }
+    }
+
+    static func saveAllWorkspaces() {
+        liveModels.allObjects.forEach { $0.saveSession() }
+        UserDefaults.standard.synchronize()
+    }
     /// Files collected in the sidebar Drop Stack.
     var dropStack: [URL] = []
     var alert: String?
@@ -105,11 +146,13 @@ final class AppModel {
     var undoTitle: String? { undoSteps.last.map { "Undo " + $0.title } }
     var redoTitle: String? { redoSteps.last.map { "Redo " + $0.title } }
 
-    func pushUndo(_ title: String, undo: @escaping () -> String?, redo: @escaping () -> String?) {
+    func pushUndo(_ title: String, undo: @escaping () async -> String?, redo: @escaping () async -> String?) {
         undoSteps.append(UndoStep(title: title, undo: undo, redo: redo))
         if undoSteps.count > 50 { undoSteps.removeFirst() }
         redoSteps.removeAll()
     }
+
+    private(set) var historyBusy = false
 
     private var textFieldHasFocus: Bool { NSApp.keyWindow?.firstResponder is NSTextView }
 
@@ -119,9 +162,17 @@ final class AppModel {
             NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
             return
         }
-        guard let step = undoSteps.popLast() else { NSSound.beep(); return }
-        if let error = step.undo() { alert = error } else { redoSteps.append(step) }
-        refresh()
+        guard !historyBusy, !transfers.hasActive, let step = undoSteps.popLast() else { NSSound.beep(); return }
+        historyBusy = true
+        Task {
+            let id = UUID()
+            _ = await TransferScheduler.shared.acquire(id)
+            if let error = await step.undo() { undoSteps.append(step); alert = error }
+            else { redoSteps.append(step) }
+            TransferScheduler.shared.release(id)
+            historyBusy = false
+            refresh()
+        }
     }
 
     /// ⇧⌘Z.
@@ -130,52 +181,73 @@ final class AppModel {
             NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
             return
         }
-        guard let step = redoSteps.popLast() else { NSSound.beep(); return }
-        if let error = step.redo() { alert = error } else { undoSteps.append(step) }
-        refresh()
+        guard !historyBusy, !transfers.hasActive, let step = redoSteps.popLast() else { NSSound.beep(); return }
+        historyBusy = true
+        Task {
+            let id = UUID()
+            _ = await TransferScheduler.shared.acquire(id)
+            if let error = await step.redo() { redoSteps.append(step); alert = error }
+            else { undoSteps.append(step) }
+            TransferScheduler.shared.release(id)
+            historyBusy = false
+            refresh()
+        }
     }
 
-    init() {
+    init(workspaceID: UUID = UUID()) {
+        self.workspaceID = workspaceID
+        Self.liveModels.add(self)
         transfers.onFinished = { [weak self] in self?.refresh() }
         transfers.onError = { [weak self] message in self?.alert = message }
         transfers.onCompleted = { [weak self] move, records, batch in self?.recordTransferUndo(move: move, records: records, batch: batch) }
-        restoreSession()
+        if let location = Self.windowLocations.removeValue(forKey: workspaceID) {
+            groups[0].tabs = [PaneModel(url: location)]
+            groups[1].tabs = [PaneModel(url: location)]
+        } else if UserDefaults.standard.data(forKey: "workspace.\(workspaceID.uuidString)") != nil || !Self.hasRestoredInitialWindow {
+            restoreSession()
+            Self.hasRestoredInitialWindow = true
+        }
         for name in [NSApplication.willTerminateNotification, NSApplication.didResignActiveNotification] {
-            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.saveSession() }
-            }
+            })
         }
     }
 
     // MARK: Session restore
 
+    func stop() {
+        saveSession()
+        transfers.cancelAll()
+        network.stop()
+        openWindow = nil
+        groups.forEach { $0.tabs.forEach { $0.stop() } }
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers.removeAll()
+    }
+
     /// Saves the open folders and tabs of both panes (restored on next launch).
     func saveSession() {
-        let data: [String: Any] = [
-            "tabs": groups.map { $0.tabs.map { $0.currentURL.path } },
-            "selected": groups.map(\.selected),
-            "active": activeIndex
-        ]
-        UserDefaults.standard.set(data, forKey: "session")
+        let session = WorkspaceSnapshot(panes: groups.map { $0.tabs.map(PaneSnapshot.init) }, selected: groups.map(\.selected), active: activeIndex, dual: dual)
+        guard let data = try? JSONEncoder().encode(session) else { return }
+        UserDefaults.standard.set(data, forKey: "workspace.\(workspaceID.uuidString)")
+        UserDefaults.standard.set(data, forKey: "workspace.last")
     }
 
     private func restoreSession() {
-        guard UserDefaults.standard.object(forKey: "restoreSession") as? Bool ?? true,
-              let data = UserDefaults.standard.dictionary(forKey: "session"),
-              let tabs = data["tabs"] as? [[String]],
-              tabs.count == groups.count else { return }
-        let selected = data["selected"] as? [Int] ?? []
-        for (i, paths) in tabs.enumerated() {
-            let urls = paths.map { URL(fileURLWithPath: $0, isDirectory: true) }.filter {
-                var isDir: ObjCBool = false
-                return FileManager.default.fileExists(atPath: $0.path, isDirectory: &isDir) && isDir.boolValue
+        let defaults = UserDefaults.standard
+        let data = defaults.data(forKey: "workspace.\(workspaceID.uuidString)") ?? defaults.data(forKey: "workspace.last")
+        if let data, let saved = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data), saved.panes.count == 2 {
+            for i in groups.indices {
+                let panes = saved.panes[i].map { $0.makePane() }
+                if !panes.isEmpty { groups[i].tabs = panes }
+                groups[i].selected = min(max(saved.selected.indices.contains(i) ? saved.selected[i] : 0, 0), groups[i].tabs.count - 1)
             }
-            guard !urls.isEmpty else { continue }
-            groups[i].tabs = urls.map { PaneModel(url: $0) }
-            let sel = i < selected.count ? selected[i] : 0
-            groups[i].selected = min(max(sel, 0), urls.count - 1)
+            activeIndex = min(max(saved.active, 0), 1)
+            dual = saved.dual
+        } else if let legacy = defaults.dictionary(forKey: "session"), let tabs = legacy["tabs"] as? [[String]], tabs.count == 2 {
+            for i in groups.indices where !tabs[i].isEmpty { groups[i].tabs = tabs[i].map { PaneModel(url: URL(fileURLWithPath: $0)) } }
         }
-        if let a = data["active"] as? Int, groups.indices.contains(a) { activeIndex = a }
     }
 
     var activeGroup: PaneGroup { groups[activeIndex] }
@@ -203,17 +275,15 @@ final class AppModel {
             let steps = Self.createdSteps(url)
             pushUndo("New File", undo: steps.undo, redo: steps.redo)
             pane.load()
-            let created = pane.items.filter { $0.name == url.lastPathComponent }.map(\.id)
-            pane.selection = Set(created)
-            if let u = created.first { beginRename([u]) }
+            pane.selection = [url]
+            beginRename([url])
         } else {
             alert = "Could not create the file."
         }
     }
 
     func duplicate(_ urls: Set<URL>) {
-        let dir = active.currentURL
-        let items = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }.map { (src: $0, dstDir: dir) }
+        let items = FileOperationSafety.topLevel(Array(urls)).map { (src: $0, dstDir: $0.deletingLastPathComponent()) }
         transfers.start(items: items, move: false)
     }
 
@@ -228,7 +298,7 @@ final class AppModel {
     }
 
     func touch(_ urls: Set<URL>) {
-        for url in urls {
+        for url in FileOperationSafety.topLevel(Array(urls)) {
             try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
         }
         refresh()
@@ -248,7 +318,9 @@ final class AppModel {
     func compress(_ urls: Set<URL>) {
         let dir = active.currentURL
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        backgroundWrites += 1
         Task {
+            defer { backgroundWrites -= 1 }
             let err = await Task.detached { FileTools.compress(list, in: dir) }.value
             refresh()
             if let err { alert = err }
@@ -258,7 +330,9 @@ final class AppModel {
     func decompress(_ urls: Set<URL>) {
         let dir = active.currentURL
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        backgroundWrites += 1
         Task {
+            defer { backgroundWrites -= 1 }
             let err = await Task.detached { FileTools.decompress(list, in: dir) }.value
             refresh()
             if let err { alert = err }
@@ -278,7 +352,9 @@ final class AppModel {
 
     func rotateImages(_ urls: Set<URL>, degrees: Int) {
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        backgroundWrites += 1
         Task {
+            defer { backgroundWrites -= 1 }
             let err = await Task.detached { FileTools.rotate(list, degrees: degrees) }.value
             refresh()
             if let err { alert = err }
@@ -287,7 +363,9 @@ final class AppModel {
 
     func stripMetadata(_ urls: Set<URL>) {
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        backgroundWrites += 1
         Task {
+            defer { backgroundWrites -= 1 }
             let err = await Task.detached { FileTools.stripMetadata(list) }.value
             refresh()
             if let err { alert = err }
@@ -296,7 +374,9 @@ final class AppModel {
 
     func convertImages(_ urls: Set<URL>, format: String, ext: String) {
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        backgroundWrites += 1
         Task {
+            defer { backgroundWrites -= 1 }
             let err = await Task.detached { FileTools.convert(list, format: format, ext: ext) }.value
             refresh()
             if let err { alert = err }
@@ -334,7 +414,7 @@ final class AppModel {
     func reloadPanes() { refresh() }
 
     func refresh() {
-        for g in groups { g.current.load() }
+        for g in groups { g.current.reloadKeepingSelection() }
     }
 
     private func sourceIndex(for urls: Set<URL>) -> Int {
@@ -358,54 +438,42 @@ final class AppModel {
             let steps = Self.createdSteps(folderURL)
             pushUndo("New Folder", undo: steps.undo, redo: steps.redo)
             refresh()
-            let created = pane.items.filter { $0.name == name }.map(\.id)
-            pane.selection = Set(created)
-            if let url = created.first { beginRename([url]) }
+            pane.selection = [folderURL]
+            beginRename([folderURL])
         } catch {
             alert = error.localizedDescription
         }
     }
 
     /// Undo of a created item sends it to the Trash; redo takes it back out.
-    static func createdSteps(_ url: URL) -> (undo: () -> String?, redo: () -> String?) {
-        var trashed: URL?
-        let undo: () -> String? = {
-            do {
-                var result: NSURL?
-                try FileManager.default.trashItem(at: url, resultingItemURL: &result)
-                trashed = result as URL?
-                return nil
-            } catch { return error.localizedDescription }
-        }
-        let redo: () -> String? = {
-            guard let t = trashed else { return "Nothing to redo." }
-            do { try FileManager.default.moveItem(at: t, to: url); return nil }
-            catch { return error.localizedDescription }
-        }
-        return (undo, redo)
+    static func createdSteps(_ url: URL) -> (undo: () async -> String?, redo: () async -> String?) {
+        transferClosures([TransferRecord(src: url, dst: url, moved: false, trashed: nil)])
     }
 
     func trash(_ urls: Set<URL>) {
         // Off the main thread: on a network disk trashItem can take a while before it fails, which showed the spinning wheel.
         // The toolbar progress ring only shows up when it takes longer than a moment, so quick trashing causes no flicker.
         let job = TransferJob(title: "Moving to Trash")
+        backgroundWrites += 1
         Task {
+            defer { backgroundWrites -= 1 }
             let shower = Task {
                 try? await Task.sleep(for: .milliseconds(400))
                 if !Task.isCancelled { transfers.jobs.append(job) }
             }
-            let r = await Task.detached(priority: .userInitiated) { Self.trashAll(urls) }.value
+            let r = await Task.detached(priority: .userInitiated) { Self.trashAll(urls, control: job.control) }.value
             shower.cancel()
             transfers.jobs.removeAll { $0.id == job.id }
             finishTrash(failed: r.failed, noTrash: r.noTrash, moved: r.moved)
         }
     }
 
-    nonisolated private static func trashAll(_ urls: Set<URL>) -> (failed: [String], noTrash: [URL], moved: [(original: URL, trashed: URL)]) {
+    nonisolated private static func trashAll(_ urls: Set<URL>, control: TransferControl) -> (failed: [String], noTrash: [URL], moved: [(original: URL, trashed: URL)]) {
         var failed: [String] = []
         var noTrash: [URL] = []
         var moved: [(original: URL, trashed: URL)] = []
-        for url in urls {
+        for url in FileOperationSafety.topLevel(Array(urls)) {
+            if control.cancelled { break }
             do {
                 var result: NSURL?
                 try FileManager.default.trashItem(at: url, resultingItemURL: &result)
@@ -420,31 +488,10 @@ final class AppModel {
     }
 
     private func finishTrash(failed: [String], noTrash: [URL], moved movedItems: [(original: URL, trashed: URL)]) {
-        var moved = movedItems
         if !noTrash.isEmpty { pendingDelete = noTrash.sorted { $0.path < $1.path } }
-        if !moved.isEmpty {
-            pushUndo(moved.count == 1 ? "Move to Trash" : "Move to Trash (\(moved.count) items)", undo: {
-                var errors: [String] = []
-                for m in moved {
-                    if FileManager.default.fileExists(atPath: m.original.path) {
-                        errors.append("\"\(m.original.lastPathComponent)\" already exists.")
-                        continue
-                    }
-                    do { try FileManager.default.moveItem(at: m.trashed, to: m.original) }
-                    catch { errors.append("\(m.original.lastPathComponent): \(error.localizedDescription)") }
-                }
-                return errors.isEmpty ? nil : errors.joined(separator: "\n")
-            }, redo: {
-                var errors: [String] = []
-                for i in moved.indices {
-                    do {
-                        var result: NSURL?
-                        try FileManager.default.trashItem(at: moved[i].original, resultingItemURL: &result)
-                        if let result { moved[i].trashed = result as URL }
-                    } catch { errors.append("\(moved[i].original.lastPathComponent): \(error.localizedDescription)") }
-                }
-                return errors.isEmpty ? nil : errors.joined(separator: "\n")
-            })
+        if !movedItems.isEmpty {
+            let steps = Self.transferClosures(movedItems.map { TransferRecord(src: $0.original, dst: $0.trashed, moved: true, trashed: nil) })
+            pushUndo(movedItems.count == 1 ? "Move to Trash" : "Move to Trash (\(movedItems.count) items)", undo: steps.undo, redo: steps.redo)
         }
         refresh()
         if !failed.isEmpty { alert = failed.joined(separator: "\n") }
@@ -453,7 +500,7 @@ final class AppModel {
     /// Asks first, then deletes without the Trash. This cannot be undone.
     func deleteImmediately(_ urls: Set<URL>) {
         guard !urls.isEmpty else { return }
-        pendingDelete = urls.sorted { $0.path < $1.path }
+        pendingDelete = FileOperationSafety.topLevel(Array(urls))
     }
 
     func confirmDelete() {
@@ -465,6 +512,7 @@ final class AppModel {
         Task {
             var failed: [String] = []
             for (i, url) in urls.enumerated() {
+                if job.control.cancelled { break }
                 job.currentName = url.lastPathComponent
                 if let error = await Task.detached(priority: .userInitiated, operation: { Self.remove(url) }).value { failed.append(error) }
                 job.fraction = Double(i + 1) / Double(urls.count)
@@ -494,17 +542,11 @@ final class AppModel {
 
     /// Renames in two steps through temporary names, so swaps and shifted numbering never collide.
     private static func moveViaTemps(_ moves: [(from: URL, to: URL)]) throws {
-        let fm = FileManager.default
-        var temps: [(tmp: URL, final: URL)] = []
-        for m in moves {
-            let tmp = m.from.deletingLastPathComponent().appending(path: ".filetor-\(UUID().uuidString)")
-            try fm.moveItem(at: m.from, to: tmp)
-            temps.append((tmp: tmp, final: m.to))
-        }
-        for t in temps { try fm.moveItem(at: t.tmp, to: t.final) }
+        try RenameTransaction.run(moves)
     }
 
     func applyBatchRename(_ pairs: [(URL, String)]) {
+        guard pairs.allSatisfy({ FileOperationSafety.validName($0.1) }) else { alert = "Enter valid file names without slashes."; return }
         let moves = pairs
             .filter { $0.1 != $0.0.lastPathComponent }
             .map { (from: $0.0, to: $0.0.deletingLastPathComponent().appending(path: $0.1)) }
@@ -532,25 +574,11 @@ final class AppModel {
         guard !name.isEmpty, name != url.lastPathComponent else { return }
         guard !name.contains("/") else { alert = "A name cannot contain \"/\"."; return }
         let dest = url.deletingLastPathComponent().appending(path: name)
-        if FileManager.default.fileExists(atPath: dest.path) {
+        if FileOperationSafety.exists(dest) && !FileOperationSafety.sameItem(url, dest) {
             alert = "\"\(name)\" already exists."
             return
         }
-        do {
-            try FileManager.default.moveItem(at: url, to: dest)
-            pushUndo("Rename", undo: {
-                if FileManager.default.fileExists(atPath: url.path) { return "\"\(url.lastPathComponent)\" already exists." }
-                do { try FileManager.default.moveItem(at: dest, to: url); return nil }
-                catch { return error.localizedDescription }
-            }, redo: {
-                if FileManager.default.fileExists(atPath: dest.path) { return "\"\(dest.lastPathComponent)\" already exists." }
-                do { try FileManager.default.moveItem(at: url, to: dest); return nil }
-                catch { return error.localizedDescription }
-            })
-            refresh()
-        } catch {
-            alert = error.localizedDescription
-        }
+        applyBatchRename([(url, name)])
     }
 
     /// Files dropped onto a pane or folder (from the other pane, Drop Stack, Finder).

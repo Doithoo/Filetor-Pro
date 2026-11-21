@@ -63,6 +63,7 @@ nonisolated struct TransferRecord: Sendable {
     let moved: Bool
     /// Where the item that was replaced at `dst` ended up in the Trash (nil when nothing was replaced).
     var trashed: URL?
+    var originalURL: URL? = nil
 }
 
 nonisolated final class TransferEngine: @unchecked Sendable {
@@ -86,9 +87,15 @@ nonisolated final class TransferEngine: @unchecked Sendable {
 
     /// Returns a list of human readable failures (empty when everything went fine).
     func run(items: [(src: URL, dstDir: URL)]) async -> [String] {
+        let roots = Set(FileOperationSafety.topLevel(items.map(\.src)).map { $0.standardizedFileURL.path })
+        var seen = Set<String>()
+        let items = items.filter { roots.contains($0.src.standardizedFileURL.path) && seen.insert($0.src.standardizedFileURL.path + "\0" + $0.dstDir.standardizedFileURL.path).inserted }
         var failures: [String] = []
         var total: Int64 = 0
-        for item in items { total += size(of: item.src) }
+        for item in items {
+            if control.cancelled { return [] }
+            total += size(of: item.src)
+        }
         control.setTotal(total)
 
         for item in items {
@@ -113,13 +120,15 @@ nonisolated final class TransferEngine: @unchecked Sendable {
         control.setName(name)
         var dst = dstDir.appending(path: name)
 
-        if dstDir.standardizedFileURL.path.hasPrefix(src.standardizedFileURL.path + "/") {
+        let sourceValues = try src.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        if sourceValues.isDirectory == true, sourceValues.isSymbolicLink != true,
+           FileOperationSafety.contains(src, dstDir) {
             throw NSError(domain: "Filetor", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "A folder cannot be copied into itself."])
         }
 
         var replace = false
-        if src.standardizedFileURL.path == dst.standardizedFileURL.path {
+        if src.standardizedFileURL.path == dst.standardizedFileURL.path || FileOperationSafety.sameItem(src, dst) {
             // Same place: a copy becomes a duplicate, a move does nothing.
             if move { control.add(size(of: src)); return }
             dst = uniqueURL(for: dst)
@@ -158,28 +167,72 @@ nonisolated final class TransferEngine: @unchecked Sendable {
 
     private func transferItem(_ src: URL, to dst: URL, replace: Bool) throws {
         if replace {
-            // Copy next to the destination first, then swap, so a failure never loses the old item.
+            // Keep the source intact until the replacement has committed.
             let tmp = dst.deletingLastPathComponent().appending(path: ".filetor-\(UUID().uuidString)")
             do {
-                try doTransfer(src, to: tmp)
+                try copyTree(src, to: tmp)
+                if control.cancelled { throw CancellationError() }
             } catch {
                 try? fm.removeItem(at: tmp)
                 throw error
             }
-            var trashedURL: URL?
+            let backup = dst.deletingLastPathComponent().appending(path: ".filetor-backup-\(UUID().uuidString)")
             do {
-                var result: NSURL?
-                try fm.trashItem(at: dst, resultingItemURL: &result)
-                trashedURL = result as URL?
+                try fm.moveItem(at: dst, to: backup)
+            } catch {
+                try? fm.removeItem(at: tmp)
+                throw error
+            }
+            do {
                 try fm.moveItem(at: tmp, to: dst)
             } catch {
-                // No Trash available (for example a network volume): swap in place.
-                _ = try fm.replaceItemAt(dst, withItemAt: tmp)
+                do { try fm.moveItem(at: backup, to: dst) }
+                catch { throw FileOperationSafety.failure("Replacement failed. Original preserved at \(backup.path); staged copy at \(tmp.path).") }
+                try? fm.removeItem(at: tmp)
+                throw error
             }
-            records.append(TransferRecord(src: src, dst: dst, moved: move, trashed: trashedURL))
+            // A volume without Trash retains an explicit, recoverable sibling backup.
+            var original = backup
+            var trash: NSURL?
+            if (try? fm.trashItem(at: backup, resultingItemURL: &trash)) != nil, let trash {
+                original = trash as URL
+            }
+            var didMove = false
+            var cleanup: URL?
+            if move {
+                do { cleanup = try SourceRetirement.run(src); didMove = true }
+                catch {
+                    records.append(TransferRecord(src: src, dst: dst, moved: false, trashed: original))
+                    throw FileOperationSafety.failure("Copied successfully, but the source could not be removed: \(error.localizedDescription)")
+                }
+            }
+            records.append(TransferRecord(src: src, dst: dst, moved: didMove, trashed: original))
+            if let cleanup { throw FileOperationSafety.failure("Move completed. A source cleanup remainder was preserved at \(cleanup.path).") }
         } else {
-            try doTransfer(src, to: dst)
+            var cleanup: URL?
+            if move, sameVolume(src, dst.deletingLastPathComponent()) {
+                try doTransfer(src, to: dst)
+            } else {
+                // A cancelled directory copy never leaves a plausible-looking partial result.
+                let tmp = dst.deletingLastPathComponent().appending(path: ".filetor-\(UUID().uuidString)")
+                do {
+                    try copyTree(src, to: tmp)
+                    if control.cancelled { throw CancellationError() }
+                    try fm.moveItem(at: tmp, to: dst)
+                } catch {
+                    try? fm.removeItem(at: tmp)
+                    throw error
+                }
+                if move {
+                    do { cleanup = try SourceRetirement.run(src) }
+                    catch {
+                        records.append(TransferRecord(src: src, dst: dst, moved: false, trashed: nil))
+                        throw FileOperationSafety.failure("Copied successfully, but the source could not be removed: \(error.localizedDescription)")
+                    }
+                }
+            }
             records.append(TransferRecord(src: src, dst: dst, moved: move, trashed: nil))
+            if let cleanup { throw FileOperationSafety.failure("Move completed. A source cleanup remainder was preserved at \(cleanup.path).") }
         }
     }
 
@@ -213,7 +266,9 @@ nonisolated final class TransferEngine: @unchecked Sendable {
             try copyTree(child, to: dst.appending(path: child.lastPathComponent))
         }
         let meta = copyfile_flags_t(COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR)
-        _ = copyfile(src.path, dst.path, nil, meta)
+        if copyfile(src.path, dst.path, nil, meta) != 0 {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
     }
 
     private func copyFile(_ src: URL, to dst: URL) throws {
@@ -254,13 +309,12 @@ nonisolated final class TransferEngine: @unchecked Sendable {
     private func resolve(src: URL, dst: URL) async -> ConflictChoice {
         let sv = try? src.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
         let dv = try? dst.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
-        let srcDir = sv?.isDirectory ?? false
-        let dstDir = dv?.isDirectory ?? false
+        let srcDir = (sv?.isDirectory ?? false) && (try? src.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true
+        let dstDir = (dv?.isDirectory ?? false) && (try? dst.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true
         let canMerge = srcDir && dstDir
 
         if let s = sticky {
-            if s == .merge && !canMerge { return .replace }
-            return s
+            if s != .merge || canMerge { return s }
         }
         let info = ConflictInfo(name: src.lastPathComponent,
                                 srcIsDir: srcDir, dstIsDir: dstDir,
@@ -302,6 +356,7 @@ nonisolated final class TransferEngine: @unchecked Sendable {
             var total: Int64 = 0
             if let e = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) {
                 for case let u as URL in e {
+                    if control.cancelled { break }
                     let r = try? u.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
                     if r?.isRegularFile == true { total += Int64(r?.fileSize ?? 0) }
                 }

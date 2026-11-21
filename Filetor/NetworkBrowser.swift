@@ -30,6 +30,13 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
         }
     }
 
+    func stop() {
+        browsers.forEach { $0.stop(); $0.delegate = nil }
+        resolving.forEach { $0.stop(); $0.delegate = nil }
+        browsers.removeAll()
+        resolving.removeAll()
+    }
+
     /// Resolves the host name of the server, then macOS mounts it (and asks for the login).
     func connect(_ server: NetworkServer) {
         let svc = NetService(domain: "local.", type: server.type, name: server.name)

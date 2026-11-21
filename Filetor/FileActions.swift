@@ -44,13 +44,30 @@ nonisolated enum FileTools {
     }
 
     static func compress(_ urls: [URL], in dir: URL) -> String? {
+        let urls = FileOperationSafety.topLevel(urls)
         guard let first = urls.first else { return nil }
         if urls.count == 1 {
             let dest = unique(dir.appending(path: first.lastPathComponent + ".zip"))
-            return run("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", first.path, dest.path])
+            let error = run("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", first.path, dest.path])
+            if error != nil { try? FileManager.default.removeItem(at: dest) }
+            return error
         }
         let dest = unique(dir.appending(path: "Archive.zip"))
-        return run("/usr/bin/zip", ["-r", "-y", dest.path] + urls.map(\.lastPathComponent), cwd: dir)
+        // Keep paths relative to the common parent, including tree/search selections.
+        var root = first.deletingLastPathComponent().standardizedFileURL
+        while !urls.allSatisfy({
+            let parent = $0.deletingLastPathComponent().standardizedFileURL.path
+            return parent == root.path || parent.hasPrefix(root.path == "/" ? "/" : root.path + "/")
+        }) {
+            let next = root.deletingLastPathComponent()
+            if next == root { break }
+            root = next
+        }
+        let prefix = root.path == "/" ? "/" : root.path + "/"
+        let paths = urls.map { "./" + String($0.standardizedFileURL.path.dropFirst(prefix.count)) }
+        let error = run("/usr/bin/zip", ["-r", "-y", dest.path, "--"] + paths, cwd: root)
+        if error != nil { try? FileManager.default.removeItem(at: dest) }
+        return error
     }
 
     static let archiveExtensions: Set<String> = ["zip", "tar", "gz", "tgz", "bz2", "tbz", "tbz2", "xz", "txz"]
@@ -239,6 +256,7 @@ nonisolated enum FileTools {
         var total: Int64 = 0
         if let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) {
             for case let u as URL in e {
+                if Task.isCancelled { break }
                 let r = try? u.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
                 if r?.isRegularFile == true { total += Int64(r?.fileSize ?? 0) }
             }
@@ -357,7 +375,12 @@ nonisolated extension FileTools {
         do { try fm.moveItem(at: writeURL, to: final) }
         catch {
             try? fm.removeItem(at: writeURL)
-            return fail(error.localizedDescription)
+            let failure = error.localizedDescription
+            if let trashed {
+                do { try fm.moveItem(at: trashed as URL, to: url) }
+                catch { return fail("\(failure) Original preserved at \((trashed as URL).path).") }
+            }
+            return fail(failure)
         }
         return (OptimizedItem(original: url, result: final, trashedOriginal: trashed as URL?), nil)
     }

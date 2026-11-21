@@ -1,3 +1,7 @@
+# Personal fork
+
+This personal fork adds native folder expansion refinements, independent windows, tab restoration, safer file operations, and signed in-app updates from **Doithoo/Filetor**. See [the personal build and verification guide](docs/PERSONAL.md) and [the release workflow](docs/UPDATES.md). Updates preserve the personal app's settings and never install upstream releases over the fork.
+
 <p align="center">
   <img src="docs/filetor-social-preview-v2.png" alt="Filetor, a dual-pane file manager for macOS" width="100%">
 </p>

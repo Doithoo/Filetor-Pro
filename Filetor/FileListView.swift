@@ -38,14 +38,17 @@ struct FileListView: View {
                 .background(isActive ? Color.filetor.opacity(0.16) : Color.primary.opacity(0.025))
             }
         }
+        .onAppear { pane.setVisible(true) }
+        .onDisappear { pane.setVisible(false) }
+        .onChange(of: pane.id) { _, _ in pane.setVisible(true) }
     }
 
     @ViewBuilder
     private var table: some View {
         if pane.viewMode == 1 {
-            IconGridView(pane: pane, scale: scale)
+            IconGridView(pane: pane, app: app, scale: scale)
         } else if pane.viewMode == 2 {
-            ColumnsView(pane: pane, scale: scale)
+            ColumnsView(pane: pane, app: app, scale: scale)
         } else {
             listTable
         }
@@ -63,8 +66,19 @@ struct FileListView: View {
             showFolder: pane.searchActive || pane.tagFilter != nil
         )
         .overlay {
-            if let msg = pane.errorMessage {
+            if pane.loading && pane.items.isEmpty {
+                ProgressView("Loading folder…")
+            } else if let msg = pane.errorMessage, pane.items.isEmpty {
                 ContentUnavailableView("Cannot open folder", systemImage: "lock", description: Text(msg))
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let error = pane.errorMessage, !pane.items.isEmpty {
+                HStack {
+                    Text(error).font(.caption).foregroundStyle(.orange)
+                    Spacer()
+                    Button("Dismiss") { pane.errorMessage = nil }
+                }.padding(8)
             }
         }
     }
@@ -85,7 +99,7 @@ struct FileListView: View {
             let n = pane.searchResults.count
             let results = n == 1 ? "1 result" : "\(n) results"
             let folders = pane.foldersScanned.formatted()
-            return pane.searching ? "\(results), searching (\(folders) folders)" : "\(results) in \(folders) folders"
+            return pane.searching ? "\(results), searching (\(folders) folders)" : "\(results) in \(folders) folders" + (pane.searchTruncated ? " · Limit reached; narrow your search" : "")
         }
         let total = pane.sortedItems.count
         let selected = pane.selection.count

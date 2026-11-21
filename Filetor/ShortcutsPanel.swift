@@ -16,6 +16,8 @@ enum Shortcuts {
             ("Back (alternative)", "⌘ ["),
             ("Forward (alternative)", "⌘ ]"),
             ("Enclosing Folder", "⌘ ↑"),
+            ("Expand Folder / First Child", "→"),
+            ("Collapse Folder / Parent", "←"),
             ("Reload", "⌥ ⌘ R"),
             ("Show or Hide Hidden Files", "⇧ ⌘ ."),
             ("Search", "⌘ F"),
@@ -62,6 +64,8 @@ enum Shortcuts {
             ("New Tab", "⌘ T"),
             ("Close Tab", "⌘ W"),
             ("New Window", "⌘ N"),
+            ("Reopen Closed Tab", "⇧ ⌘ T"),
+            ("Next / Previous Tab", "⇧ ⌘ ] / ["),
             ("Settings", "⌘ ,"),
         ]),
     ]

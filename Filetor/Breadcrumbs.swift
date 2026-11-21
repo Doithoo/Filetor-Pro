@@ -71,6 +71,7 @@ struct BreadcrumbBar: View {
         if let ownGroup {
             Button("Open in New Tab") { ownGroup.newTab(at: url) }
         }
+        Button("Open in New Window") { app.openWindow?(url) }
         Divider()
         Button("Copy Path") {
             NSPasteboard.general.clearContents()

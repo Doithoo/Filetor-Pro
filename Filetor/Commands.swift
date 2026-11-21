@@ -49,10 +49,12 @@ nonisolated enum FolderAnalysis {
         guard let f = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? f.close() }
         var h = SHA256()
-        while true {
-            guard let d = try? f.read(upToCount: 1 << 20), !d.isEmpty else { break }
-            h.update(data: d)
-        }
+        do {
+            while let data = try f.read(upToCount: 1 << 20), !data.isEmpty {
+                if Task.isCancelled { return nil }
+                h.update(data: data)
+            }
+        } catch { return nil }
         return h.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
@@ -112,8 +114,8 @@ nonisolated enum FolderAnalysis {
         if !rightOnly.isEmpty { sections.append(ReportSection(title: "Only in right pane (\(rightOnly.count))", rows: rows(rightOnly.sorted(by: sort)))) }
         if !different.isEmpty { sections.append(ReportSection(title: "Different size or date (\(different.count))", rows: rows(different.sorted(by: sort)))) }
         let summary = sections.isEmpty
-            ? "The folders match: \(same) files are the same."
-            : "\(same) files are the same."
+            ? "\(same) visible regular files match by size and date. Hidden files, packages and empty folders are excluded. Contents were not verified."
+            : "\(same) visible regular files match by size and date. Contents were not verified."
         return Report(title: "Compare Folders", summary: summary, sections: sections)
     }
 }
@@ -261,7 +263,14 @@ nonisolated struct SyncRow: Identifiable, Sendable {
         case (.some, nil): return d == .rightToLeft ? .skip : .toRight
         case (nil, .some): return d == .leftToRight ? .skip : .toLeft
         case (let l?, let r?):
-            if abs(l.date.timeIntervalSince(r.date)) <= 2 { return .skip }
+            if abs(l.date.timeIntervalSince(r.date)) <= 2 {
+                if l.size == r.size { return .skip }
+                switch d {
+                case .both: return .skip
+                case .leftToRight: return .toRight
+                case .rightToLeft: return .toLeft
+                }
+            }
             let leftNewer = l.date > r.date
             switch d {
             case .both: return leftNewer ? .toRight : .toLeft
@@ -456,7 +465,7 @@ struct SyncContent: View {
                 HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Comparing…").foregroundStyle(.secondary) }
                     .frame(maxWidth: .infinity, minHeight: 80 * s)
             } else if session.rows.isEmpty {
-                Text("The folders are already in sync.").foregroundStyle(.secondary)
+                Text("Visible regular files match by size and date. Hidden files, packages and empty folders are excluded.").foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 80 * s)
             } else {
                 columns(Text("Path"), Text("Left size"), Text("Left modified"), Text("Action"),
@@ -471,7 +480,7 @@ struct SyncContent: View {
                     }
                 }
                 .frame(height: 320 * s)
-                Text("Newer files replace older ones, and replaced files are moved to the Trash. Nothing is deleted.")
+                Text("Visible regular files only. Newer files replace older ones. Replaced files are kept in Trash or in a hidden .filetor-backup file beside the destination. Equal-date differences require a direction.")
                     .font(.system(size: 12 * s))
                     .foregroundStyle(.secondary)
             }
@@ -523,52 +532,22 @@ extension AppModel {
         let parts = b.parts
         let total = parts.reduce(0) { $0 + $1.count }
         pushUndo(total == 1 ? "Synchronize 1 item" : "Synchronize \(total) items", undo: {
-            let errors = parts.reversed().compactMap { $0.undo() }
+            var errors: [String] = []
+            for part in parts.reversed() { if let error = await part.undo() { errors.append(error) } }
             return errors.isEmpty ? nil : errors.joined(separator: "\n")
         }, redo: {
-            let errors = parts.compactMap { $0.redo() }
+            var errors: [String] = []
+            for part in parts { if let error = await part.redo() { errors.append(error) } }
             return errors.isEmpty ? nil : errors.joined(separator: "\n")
         })
     }
 
-    private static func transferClosures(_ records: [TransferRecord]) -> (undo: () -> String?, redo: () -> String?) {
-        let fm = FileManager.default
-        var recs = records
-        return ({
-            var errors: [String] = []
-            for r in recs.reversed() {
-                do {
-                    if r.moved {
-                        if fm.fileExists(atPath: r.src.path) {
-                            errors.append("\"\(r.src.lastPathComponent)\" already exists.")
-                            continue
-                        }
-                        try fm.createDirectory(at: r.src.deletingLastPathComponent(), withIntermediateDirectories: true)
-                        try fm.moveItem(at: r.dst, to: r.src)
-                    } else {
-                        try fm.trashItem(at: r.dst, resultingItemURL: nil)
-                    }
-                    if let t = r.trashed { try fm.moveItem(at: t, to: r.dst) }
-                } catch { errors.append("\(r.dst.lastPathComponent): \(error.localizedDescription)") }
-            }
-            return errors.isEmpty ? nil : errors.joined(separator: "\n")
-        }, {
-            var errors: [String] = []
-            for i in recs.indices {
-                let r = recs[i]
-                do {
-                    recs[i].trashed = nil
-                    if fm.fileExists(atPath: r.dst.path) {
-                        var result: NSURL?
-                        try fm.trashItem(at: r.dst, resultingItemURL: &result)
-                        recs[i].trashed = result as URL?
-                    }
-                    if r.moved { try fm.moveItem(at: r.src, to: r.dst) } else { try fm.copyItem(at: r.src, to: r.dst) }
-                } catch { errors.append("\(r.dst.lastPathComponent): \(error.localizedDescription)") }
-            }
-            return errors.isEmpty ? nil : errors.joined(separator: "\n")
-        })
+    static func transferClosures(_ records: [TransferRecord]) -> (undo: () async -> String?, redo: () async -> String?) {
+        let history = TransferHistory(records)
+        return ({ await Task.detached(priority: .userInitiated) { history.undo() }.value },
+                { await Task.detached(priority: .userInitiated) { history.redo() }.value })
     }
+
 }
 
 // MARK: - Optimize images
@@ -587,6 +566,7 @@ extension AppModel {
             var done: [OptimizedItem] = []
             var errors: [String] = []
             for (i, url) in urls.enumerated() {
+                if job.control.cancelled { break }
                 job.currentName = url.lastPathComponent
                 let r = await Task.detached(priority: .userInitiated) { FileTools.optimize(url, options: options) }.value
                 if let item = r.item { done.append(item) }
@@ -602,37 +582,12 @@ extension AppModel {
         }
     }
 
-    private func recordOptimizeUndo(_ done: [OptimizedItem]) {
-        let fm = FileManager.default
-        var items = done
-        var inTrash = [URL?](repeating: nil, count: done.count)
-        let title = done.count == 1 ? "Optimize \"\(done[0].original.lastPathComponent)\"" : "Optimize \(done.count) images"
-        pushUndo(title, undo: {
-            var errors: [String] = []
-            for i in items.indices {
-                do {
-                    var r: NSURL?
-                    try fm.trashItem(at: items[i].result, resultingItemURL: &r)
-                    inTrash[i] = r as URL?
-                    if let t = items[i].trashedOriginal { try fm.moveItem(at: t, to: items[i].original) }
-                } catch { errors.append("\(items[i].result.lastPathComponent): \(error.localizedDescription)") }
-            }
-            return errors.isEmpty ? nil : errors.joined(separator: "\n")
-        }, redo: {
-            var errors: [String] = []
-            for i in items.indices {
-                do {
-                    if items[i].trashedOriginal != nil {
-                        var r: NSURL?
-                        try fm.trashItem(at: items[i].original, resultingItemURL: &r)
-                        items[i].trashedOriginal = r as URL?
-                    }
-                    if let t = inTrash[i] { try fm.moveItem(at: t, to: items[i].result) }
-                } catch { errors.append("\(items[i].result.lastPathComponent): \(error.localizedDescription)") }
-            }
-            return errors.isEmpty ? nil : errors.joined(separator: "\n")
-        })
+    func recordOptimizeUndo(_ done: [OptimizedItem], title: String = "Optimize Images") {
+        let records = done.map { TransferRecord(src: $0.original, dst: $0.result, moved: false, trashed: $0.trashedOriginal, originalURL: $0.original) }
+        let steps = Self.transferClosures(records)
+        pushUndo(title, undo: steps.undo, redo: steps.redo)
     }
+
 }
 
 struct OptimizeSheet: View {
@@ -845,16 +800,24 @@ enum ProjectTemplates {
 
 extension AppModel {
     func createProject(name: String, folders: [String]) {
+        guard FileOperationSafety.validName(name), folders.allSatisfy({ path in
+            !path.hasPrefix("/") && path.split(separator: "/", omittingEmptySubsequences: false).allSatisfy { FileOperationSafety.validName(String($0)) }
+        }) else { alert = "Project folders must use relative paths without empty names or '..'."; return }
         let pane = active
         let root = pane.currentURL.appending(path: name)
         let fm = FileManager.default
         do {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
-            for f in folders { try fm.createDirectory(at: root.appending(path: f), withIntermediateDirectories: true) }
+            do {
+                for f in folders { try fm.createDirectory(at: root.appending(path: f), withIntermediateDirectories: true) }
+            } catch {
+                try? fm.removeItem(at: root)
+                throw error
+            }
             let steps = Self.createdSteps(root)
             pushUndo("New Project Folder", undo: steps.undo, redo: steps.redo)
             refresh()
-            pane.selection = Set(pane.items.filter { $0.name == name }.map(\.id))
+            pane.selection = [root]
         } catch {
             alert = error.localizedDescription
         }

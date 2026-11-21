@@ -114,15 +114,6 @@ struct ContentView: View {
             app.network.onMounted = { app.active.navigate(to: $0) }
             app.network.start()
         }
-        .task {
-            // At launch and then every 6 hours while the app stays open.
-            while !Task.isCancelled {
-                if UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
-                    await app.updater.check(automatic: true)
-                }
-                try? await Task.sleep(for: .seconds(6 * 3600))
-            }
-        }
         .modifier(ToolPanels(app: app))
         .floatingPanel(isPresented: $model.showConnect) {
             ConnectSheet(app: app)
@@ -163,8 +154,8 @@ struct PaneContainer: View {
     var body: some View {
         let group = app.groups[index]
         VStack(spacing: 0) {
-            if group.tabs.count > 1 { TabStrip(group: group) }
-            FileListView(pane: group.current, app: app, isActive: app.dual && app.activeIndex == index, onNewTab: { group.newTab() })
+            TabStrip(group: group, app: app)
+            FileListView(pane: group.current, app: app, isActive: app.dual && app.activeIndex == index, onNewTab: { group.newTab() }).id(group.current.id)
         }
         .frame(minWidth: 280)
         .simultaneousGesture(TapGesture().onEnded { app.activeIndex = index })
@@ -173,9 +164,11 @@ struct PaneContainer: View {
 
 struct TabStrip: View {
     let group: PaneGroup
+    let app: AppModel
     @AppStorage("textSize") private var textSize = 1
 
     var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 4) {
             ForEach(Array(group.tabs.enumerated()), id: \.element.id) { i, tab in
                 let name = tab.title
@@ -195,7 +188,18 @@ struct TabStrip: View {
                 .background(i == group.selected ? Color.primary.opacity(0.12) : Color.clear,
                             in: RoundedRectangle(cornerRadius: 6))
                 .contentShape(Rectangle())
-                .onTapGesture { group.selected = i }
+                .onTapGesture { group.selected = i; app.activate(tab) }
+                .draggable(tab.id.uuidString)
+                .dropDestination(for: String.self) { values, _ in
+                    guard let value = values.first, let id = UUID(uuidString: value) else { return false }
+                    group.reorder(id, before: tab.id)
+                    return true
+                }
+                .contextMenu {
+                    Button("Open in New Window") { app.openWindow?(tab.currentURL) }
+                    Button("Close Tab") { group.close(at: i) }
+                    Button("Reopen Closed Tab") { group.reopen() }.disabled(!group.canReopen)
+                }
             }
             Button { group.newTab() } label: { Image(systemName: "plus") }
                 .buttonStyle(.plain)
@@ -207,6 +211,7 @@ struct TabStrip: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(.bar)
+        }
     }
 }
 
@@ -315,18 +320,6 @@ private struct AppAlerts: ViewModifier {
             Text(urls.count == 1
                  ? "\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this."
                  : "\(urls.count) items will be deleted right away. You can't undo this.")
-        }
-        .alert("Filetor \(app.updater.promptVersion ?? "") is available", isPresented: Binding(
-            get: { app.updater.promptVersion != nil },
-            set: { if !$0 { app.updater.promptVersion = nil } }
-        )) {
-            Button("Download") {
-                if case .available(_, let url) = app.updater.state { NSWorkspace.shared.open(url) }
-                app.updater.promptVersion = nil
-            }
-            Button("Later", role: .cancel) { app.updater.promptVersion = nil }
-        } message: {
-            Text("You have version \(app.updater.installed). The update is also shown in Settings.")
         }
     }
 }

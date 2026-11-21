@@ -114,8 +114,15 @@ struct PanelCloser {
     func callAsFunction() { action() }
 }
 
+private struct PanelCloserKey: EnvironmentKey {
+    static let defaultValue = PanelCloser(action: {})
+}
+
 extension EnvironmentValues {
-    @Entry var closePanel = PanelCloser(action: {})
+    var closePanel: PanelCloser {
+        get { self[PanelCloserKey.self] }
+        set { self[PanelCloserKey.self] = newValue }
+    }
 }
 
 private struct FloatingPanel<Panel: View>: ViewModifier {

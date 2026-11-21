@@ -101,6 +101,10 @@ struct FileTableView: NSViewRepresentable {
         let settings = [scale, striped ? 1 : 0, compact ? 1 : 0]
         let settingsChanged = settings != c.lastSettings
         let itemsChanged = items != c.items
+        let treeState = pane.expanded.symmetricDifference(pane.loadingFolders)
+        let treeChanged = treeState != c.lastTreeState || pane.loadingFolders != c.lastLoadingFolders
+        c.lastTreeState = treeState
+        c.lastLoadingFolders = pane.loadingFolders
         c.lastSettings = settings
         let oldItems = c.items
         c.items = items
@@ -120,7 +124,7 @@ struct FileTableView: NSViewRepresentable {
             fc.isHidden = !showFolder
             c.fitName(force: true)
         }
-        if itemsChanged || settingsChanged {
+        if itemsChanged || settingsChanged || treeChanged {
             // Reloading while a name is being edited would end the edit, so it waits until the edit is over.
             if c.renaming {
                 c.needsReload = true
@@ -151,6 +155,8 @@ struct FileTableView: NSViewRepresentable {
         var items: [FileItem] = []
         var lastSettings: [CGFloat] = []
         var syncing = false
+        var lastTreeState = Set<URL>()
+        var lastLoadingFolders = Set<URL>()
 
         private var lastClipWidth: CGFloat = 0
 
@@ -417,6 +423,9 @@ struct FileTableView: NSViewRepresentable {
                         arrow.image = NSImage(systemSymbolName: open ? "chevron.down" : "chevron.right", accessibilityDescription: nil)?
                             .withSymbolConfiguration(.init(pointSize: 9 * s, weight: .semibold))
                         arrow.contentTintColor = .secondaryLabelColor
+                        arrow.toolTip = open ? "Collapse folder (Left Arrow)" : "Expand folder (Right Arrow)"
+                        arrow.setAccessibilityLabel((open ? "Collapse " : "Expand ") + item.name)
+                        arrow.setAccessibilityValue(open ? "Expanded" : "Collapsed")
                         arrow.focusRingType = .none
                         arrow.target = self
                         arrow.action = #selector(arrowClicked(_:))
@@ -428,6 +437,21 @@ struct FileTableView: NSViewRepresentable {
                             arrow.widthAnchor.constraint(equalToConstant: 16 * s),
                             arrow.heightAnchor.constraint(equalToConstant: 16 * s),
                         ])
+                        if parent.pane.loadingFolders.contains(item.url) {
+                            arrow.image = nil
+                            let spinner = NSProgressIndicator()
+                            spinner.style = .spinning
+                            spinner.controlSize = .small
+                            spinner.translatesAutoresizingMaskIntoConstraints = false
+                            cell.addSubview(spinner)
+                            NSLayoutConstraint.activate([
+                                spinner.centerXAnchor.constraint(equalTo: arrow.centerXAnchor),
+                                spinner.centerYAnchor.constraint(equalTo: arrow.centerYAnchor),
+                                spinner.widthAnchor.constraint(equalToConstant: 12),
+                                spinner.heightAnchor.constraint(equalToConstant: 12),
+                            ])
+                            spinner.startAnimation(nil)
+                        }
                     }
                 }
                 NSLayoutConstraint.activate([
@@ -514,6 +538,7 @@ struct FileTableView: NSViewRepresentable {
             guard !syncing, let table else { return }
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             parent.pane.selection = urls
+            parent.app.activate(parent.pane)
             if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
                 QLPreviewPanel.shared().reloadData()
             }
@@ -615,6 +640,7 @@ struct FileTableView: NSViewRepresentable {
             let row = table.row(for: sender)
             guard row >= 0, row < items.count else { return }
             parent.pane.toggleExpanded(items[row].url)
+            parent.app.activate(parent.pane)
         }
 
         /// Right arrow: opens the selected folder in place.
@@ -622,7 +648,14 @@ struct FileTableView: NSViewRepresentable {
             guard parent.pane.treeActive, let table, table.selectedRowIndexes.count == 1,
                   table.selectedRow < items.count else { return false }
             let item = items[table.selectedRow]
-            guard item.expandable, !parent.pane.expanded.contains(item.url) else { return false }
+            guard item.expandable else { return false }
+            if parent.pane.expanded.contains(item.url) {
+                let next = table.selectedRow + 1
+                if next < items.count, items[next].url.deletingLastPathComponent() == item.url {
+                    parent.pane.selection = [items[next].url]
+                }
+                return true
+            }
             parent.pane.expand(item.url)
             return true
         }
@@ -695,6 +728,13 @@ struct FileTableView: NSViewRepresentable {
                 return
             }
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
+            parent.app.activate(parent.pane)
+            if urls.count == 1, let url = urls.first, items.first(where: { $0.url == url })?.expandable == true {
+                menu.addItem(item(parent.pane.expanded.contains(url) ? "Collapse Folder" : "Expand Folder") { [weak self] in self?.parent.pane.toggleExpanded(url) })
+                menu.addItem(item("Open in New Tab") { [weak self] in self?.parent.app.activeGroup.newTab(at: url) })
+                menu.addItem(item("Open in New Window") { [weak self] in self?.parent.app.openWindow?(url) })
+                menu.addItem(.separator())
+            }
             menu.addItem(item("Open") { [weak self] in self?.parent.pane.open(urls) })
             let apps = parent.app.openApps(for: urls)
             if !apps.isEmpty {
@@ -874,6 +914,7 @@ final class QLTableView: NSTableView {
     }
 
     override func keyDown(with event: NSEvent) {
+        if let source = qlSource { source.parent.app.activate(source.parent.pane) }
         if event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty {
             if event.keyCode == 124, qlSource?.expandSelected() == true { return }
             if event.keyCode == 123, qlSource?.collapseSelected() == true { return }

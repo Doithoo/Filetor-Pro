@@ -211,16 +211,19 @@ extension FinderTags {
     }
 
     /// Reads and writes the tags. Runs in the background: on cloud drives (Google Drive) this can take a while.
-    nonisolated static func apply(_ change: TagChange, to urls: [URL], known: [URL: [String]]) -> TagResult {
+    nonisolated static func apply(_ change: TagChange, to urls: [URL]) -> TagResult {
         var before: [URL: [String]] = [:]
-        for u in urls { before[u] = known[u] ?? read(u) }
+        var failed: [String] = []
+        for u in urls {
+            do { before[u] = try URL(fileURLWithPath: u.path).resourceValues(forKeys: [.tagNamesKey]).tagNames ?? [] }
+            catch { failed.append("\(u.lastPathComponent): \(error.localizedDescription)") }
+        }
         var removing = false
         if case .toggle(let aliases, _) = change {
             removing = urls.allSatisfy { u in (before[u] ?? []).contains { has($0, aliases) } }
         }
         var after = before
-        var failed: [String] = []
-        for u in urls {
+        for u in urls where before[u] != nil {
             let old = before[u] ?? []
             let new: [String]
             switch change {
@@ -272,24 +275,10 @@ extension AppModel {
         for g in groups { g.current.reloadKeepingSelection() }
     }
 
-    /// Tags as shown in the lists now (no disk read, which is slow and unreliable on cloud drives).
-    private func knownTags(_ urls: Set<URL>) -> [URL: [String]] {
-        var out: [URL: [String]] = [:]
-        for g in groups {
-            for tab in g.tabs {
-                for item in tab.items where urls.contains(item.url) { out[item.url] = item.tags }
-                for item in tab.searchResults where urls.contains(item.url) { out[item.url] = item.tags }
-                for item in tab.tagResults where urls.contains(item.url) { out[item.url] = item.tags }
-            }
-        }
-        return out
-    }
-
     private func applyTags(_ change: TagChange, to urls: Set<URL>) {
         let list = Array(urls)
-        let known = knownTags(urls)
         Task { [weak self] in
-            let result = await Task.detached(priority: .userInitiated) { FinderTags.apply(change, to: list, known: known) }.value
+            let result = await Task.detached(priority: .userInitiated) { FinderTags.apply(change, to: list) }.value
             guard let self else { return }
             TagStore.shared.remember(result.after.values.flatMap { $0 })
             if result.before != result.after {

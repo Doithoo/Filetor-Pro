@@ -9,6 +9,7 @@ final class TransferJob: Identifiable {
     var fraction: Double = 0
     var currentName = ""
     var isFinished = false
+    var cancellable = true
 
     init(title: String) { self.title = title }
 }
@@ -16,9 +17,11 @@ final class TransferJob: Identifiable {
 final class ConflictRequest: Identifiable {
     let id = UUID()
     let info: ConflictInfo
+    let jobID: UUID
     let continuation: CheckedContinuation<ConflictAnswer, Never>
-    init(info: ConflictInfo, continuation: CheckedContinuation<ConflictAnswer, Never>) {
+    init(info: ConflictInfo, jobID: UUID, continuation: CheckedContinuation<ConflictAnswer, Never>) {
         self.info = info
+        self.jobID = jobID
         self.continuation = continuation
     }
 }
@@ -48,11 +51,19 @@ final class TransferManager {
         jobs.append(job)
 
         let engine = TransferEngine(move: move, control: job.control, preset: conflict) { [weak self] info in
-            await self?.askUser(info) ?? ConflictAnswer(choice: .stop, applyToAll: false)
+            await self?.askUser(info, job: job) ?? ConflictAnswer(choice: .stop, applyToAll: false)
         }
         let pairs = items
 
-        Task { [weak self] in
+        Task {
+            job.currentName = "Waiting for other file operations…"
+            let acquired = await TransferScheduler.shared.acquire(job.id)
+            guard acquired, !job.control.cancelled else {
+                if acquired { TransferScheduler.shared.release(job.id) }
+                jobs.removeAll { $0.id == job.id }
+                if batch != nil { onCompleted?(move, [], batch) }
+                return
+            }
             // Poll shared progress while the engine works in the background.
             let poller = Task { @MainActor in
                 while !Task.isCancelled {
@@ -66,25 +77,36 @@ final class TransferManager {
                 await engine.run(items: pairs)
             }.value
             poller.cancel()
-            job.fraction = 1
+            TransferScheduler.shared.release(job.id)
+            if !job.control.cancelled && failures.isEmpty { job.fraction = 1 }
+            job.currentName = job.control.cancelled ? "Cancelled" : (failures.isEmpty ? "Completed" : "Completed with errors")
             job.isFinished = true
-            self?.onFinished?()
-            if !engine.records.isEmpty || batch != nil { self?.onCompleted?(move, engine.records, batch) }
+            onFinished?()
+            if !engine.records.isEmpty || batch != nil { onCompleted?(move, engine.records, batch) }
             if !failures.isEmpty {
-                self?.onError?(failures.joined(separator: "\n"))
+                onError?(failures.joined(separator: "\n"))
             }
             try? await Task.sleep(for: .seconds(1))
-            self?.jobs.removeAll { $0.id == job.id }
+            jobs.removeAll { $0.id == job.id }
         }
     }
 
     func cancel(_ job: TransferJob) {
+        guard job.cancellable, !job.isFinished else { return }
         job.control.cancelled = true
+        TransferScheduler.shared.cancel(job.id)
+        let cancelled = queue.filter { $0.jobID == job.id }
+        queue.removeAll { $0.jobID == job.id }
+        cancelled.forEach { $0.continuation.resume(returning: ConflictAnswer(choice: .stop, applyToAll: false)) }
+        job.currentName = "Cancelling…"
     }
 
-    private func askUser(_ info: ConflictInfo) async -> ConflictAnswer {
-        await withCheckedContinuation { cont in
-            queue.append(ConflictRequest(info: info, continuation: cont))
+    func cancelAll() { jobs.forEach { cancel($0) } }
+
+    private func askUser(_ info: ConflictInfo, job: TransferJob) async -> ConflictAnswer {
+        guard !job.control.cancelled else { return ConflictAnswer(choice: .stop, applyToAll: false) }
+        return await withCheckedContinuation { cont in
+            queue.append(ConflictRequest(info: info, jobID: job.id, continuation: cont))
         }
     }
 
@@ -149,11 +171,13 @@ struct TransferList: View {
                     Text(job.title).font(.callout)
                     HStack {
                         ProgressView(value: job.fraction)
-                        Button { manager.cancel(job) } label: {
+                        if job.cancellable && !job.isFinished {
+                          Button { manager.cancel(job) } label: {
                             Image(systemName: "xmark.circle.fill")
                         }
                         .buttonStyle(.plain)
                         .help("Cancel")
+                        }
                     }
                     Text(job.currentName)
                         .font(.caption)

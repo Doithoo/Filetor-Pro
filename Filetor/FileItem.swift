@@ -1,11 +1,12 @@
 import Foundation
 
-struct FileItem: Identifiable, Hashable {
+nonisolated struct FileItem: Identifiable, Hashable, Sendable {
     let url: URL
     let name: String
     let isDirectory: Bool
     /// A bundle such as an app: it is a folder on disk but shown as one file.
     let isPackage: Bool
+    let isSymbolicLink: Bool
     var size: Int64
     /// True once the total size of a folder has been calculated.
     var sizeCalculated = false
@@ -22,22 +23,23 @@ struct FileItem: Identifiable, Hashable {
     var id: URL { url }
 
     /// A folder whose content can be opened in place in the list.
-    var expandable: Bool { isDirectory && !isPackage }
+    var expandable: Bool { isDirectory && !isPackage && !isSymbolicLink }
 
     /// Tag names as one text, used for sorting the Tags column.
     var tagsText: String { tags.joined(separator: " ") }
 
     static let keys: [URLResourceKey] = [
-        .isDirectoryKey, .isPackageKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
+        .isDirectoryKey, .isPackageKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
         .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey, .tagNamesKey
     ]
 
     init(url: URL) {
         let v = try? url.resourceValues(forKeys: Set(Self.keys))
-        self.url = url
+        self.url = url.standardizedFileURL
         self.name = url.lastPathComponent
         self.isDirectory = v?.isDirectory ?? false
         self.isPackage = v?.isPackage ?? false
+        self.isSymbolicLink = v?.isSymbolicLink ?? false
         self.size = Int64(v?.fileSize ?? 0)
         self.modified = v?.contentModificationDate ?? .distantPast
         self.kind = v?.localizedTypeDescription ?? ""

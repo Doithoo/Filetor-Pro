@@ -16,7 +16,6 @@ struct SettingsSheet: View {
     @AppStorage("startDual") private var startDual = true
     @AppStorage("showSidebar") private var showSidebar = true
     @AppStorage("showHidden") private var showHidden = false
-    @AppStorage("autoUpdate") private var autoUpdate = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     static let accents: [Color] = [.blue, .purple, Color(red: 1.0, green: 0.16, blue: 0.67), .red, .orange, .green, .gray]
@@ -33,6 +32,13 @@ struct SettingsSheet: View {
     }
 
     var body: some View {
+        ScrollView(.vertical) {
+            settingsContent
+        }
+        .frame(width: 570 * s, height: min(840 * s, max(320, (NSApp.keyWindow?.contentLayoutRect.height ?? 800) - 50)))
+    }
+
+    @ViewBuilder private var settingsContent: some View {
         @Bindable var tb = app.toolbarModel
         @Bindable var am = app
         let w = 340 * s   // width of the control column; Done aligns to its right edge
@@ -116,30 +122,29 @@ struct SettingsSheet: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
-                Toggle("Check for updates automatically", isOn: $autoUpdate)
-                if case .available(let version, let url) = app.updater.state {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Version \(version) is available").fontWeight(.semibold)
-                            Text("Installed: \(app.updater.installed)").foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 12)
-                        Button("Download") { NSWorkspace.shared.open(url) }
-                            .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
-                    }
-                    .padding(12 * s)
-                    .background(RoundedRectangle(cornerRadius: 8 * s).fill(Color.filetor.opacity(0.08)))
-                }
+                Toggle("Check for updates automatically", isOn: Binding(
+                    get: { app.updater.automaticallyChecks },
+                    set: { app.updater.setAutomaticChecks($0) }
+                ))
+                Toggle("Download updates automatically", isOn: Binding(
+                    get: { app.updater.automaticallyDownloads },
+                    set: { app.updater.setAutomaticDownloads($0) }
+                ))
+                .disabled(!app.updater.automaticallyChecks)
+                Text("Updates come from Doithoo/Filetor. Your settings are kept.")
+                    .foregroundStyle(.secondary)
                 HStack(spacing: 12) {
-                    Button("Check for updates") { Task { await app.updater.check() } }
+                    Button("Check for updates…") { app.updater.check() }
                         .buttonStyle(PathsButtonStyle(scale: s))
-                        .disabled(app.updater.checking)
-                    if app.updater.checking {
-                        ProgressView().controlSize(.small)
-                        Text("Checking…").foregroundStyle(.secondary)
-                    } else if !app.updater.isAvailable {
-                        Text(app.updater.message).foregroundStyle(.secondary)
-                    }
+                        .disabled(!app.updater.canCheck)
+                    Text(app.updater.message)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 300 * s, alignment: .leading)
+                }
+                if let date = app.updater.lastCheck {
+                    Text("Last checked: \(date.formatted(date: .abbreviated, time: .shortened))")
+                        .foregroundStyle(.secondary)
                 }
             }
             Divider()
@@ -160,7 +165,7 @@ struct SettingsSheet: View {
         .toggleStyle(PathsCheckboxStyle(scale: s))
         .font(.system(size: 13 * s))
         .padding(28)
-        .fixedSize()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: showHidden) { _, v in app.setHidden(v) }
     }
 }

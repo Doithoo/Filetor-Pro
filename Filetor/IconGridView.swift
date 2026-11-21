@@ -3,6 +3,7 @@ import SwiftUI
 /// Icon view: grid of large icons with names under them.
 struct IconGridView: View {
     let pane: PaneModel
+    let app: AppModel
     let scale: CGFloat
 
     var body: some View {
@@ -27,8 +28,10 @@ struct IconGridView: View {
                     .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.primary.opacity(0.08) : Color.clear))
                     .contentShape(Rectangle())
                     .draggable(item.url)
+                    .contextMenu { FileItemMenu(item: item, pane: pane, app: app) }
                     .onTapGesture(count: 2) { pane.open([item.url]) }
                     .onTapGesture {
+                        app.activate(pane)
                         if NSEvent.modifierFlags.contains(.command) {
                             if selected { pane.selection.remove(item.url) } else { pane.selection.insert(item.url) }
                         } else {

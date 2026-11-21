@@ -11,6 +11,12 @@ final class PaneModel: Identifiable {
         KeyPathComparator(\FileItem.name, comparator: .localizedStandard)
     ]
     var errorMessage: String?
+    var loading = false
+    var searchTruncated = false
+    var isVisible = false
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var loadGeneration = UUID()
+    var revision = 0
     var filter = "" { didSet { if searchSubfolders { restartSearch() } } }
     /// Search the filter text in all subfolders instead of only filtering the current folder.
     var searchSubfolders = UserDefaults.standard.bool(forKey: "searchSubfolders") {
@@ -32,7 +38,7 @@ final class PaneModel: Identifiable {
     var title: String { tagFilter ?? CloudLocation.title(for: currentURL) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     var searchActive: Bool { tagFilter == nil && searchSubfolders && !filter.isEmpty }
-    /// 0 = list, 1 = icons, 2 = columns (columns not built yet, shows the list)
+    /// 0 = list, 1 = icons, 2 = columns
     var viewMode = 0
     var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
 
@@ -67,6 +73,9 @@ final class PaneModel: Identifiable {
     /// Folders that are open in the list. Kept while moving between folders, cleared only by closing them.
     var expanded = Set<URL>()
     private var children: [URL: [FileItem]] = [:]
+    var loadingFolders = Set<URL>()
+    var expansionErrors: [URL: String] = [:]
+    @ObservationIgnored private var expansionTasks: [URL: Task<Void, Never>] = [:]
 
     /// The tree is only used in the plain list of a folder, not in search results, tag views or filtered lists.
     var treeActive: Bool { viewMode == 0 && tagFilter == nil && !searchActive && filter.isEmpty }
@@ -88,43 +97,101 @@ final class PaneModel: Identifiable {
         return out
     }
 
-    private func readChildren(_ dir: URL) -> [FileItem] {
-        guard let urls = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: FileItem.keys, options: showHidden ? [] : [.skipsHiddenFiles]
-        ) else { return [] }
-        return urls.map { FileItem(url: $0) }
+    nonisolated static func readDirectory(_ dir: URL, hidden: Bool) throws -> [FileItem] {
+        let urls = try FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: FileItem.keys, options: hidden ? [] : [.skipsHiddenFiles])
+        return try urls.map { url in
+            try Task.checkCancellation()
+            return FileItem(url: url)
+        }
     }
 
     func toggleExpanded(_ url: URL) {
+        let url = url.standardizedFileURL
         if expanded.contains(url) { collapse(url) } else { expand(url) }
     }
 
     func expand(_ url: URL) {
-        guard treeActive else { return }
-        children[url] = readChildren(url)
+        let url = url.standardizedFileURL
+        guard treeActive, !loadingFolders.contains(url), FileItem(url: url).expandable,
+              url.path.hasPrefix(currentURL.path == "/" ? "/" : currentURL.path + "/") else { return }
         expanded.insert(url)
+        loadingFolders.insert(url)
+        expansionErrors[url] = nil
+        let hidden = showHidden
+        let root = currentURL
+        expansionTasks[url]?.cancel()
+        expansionTasks[url] = Task { [weak self] in
+            let worker = Task.detached(priority: .userInitiated) { try Self.readDirectory(url, hidden: hidden) }
+            let result = await withTaskCancellationHandler { await worker.result } onCancel: { worker.cancel() }
+            guard let self, !Task.isCancelled, self.currentURL == root, self.expanded.contains(url) else { return }
+            self.loadingFolders.remove(url)
+            self.expansionTasks[url] = nil
+            switch result {
+            case .success(let items):
+                self.children[url] = items
+                TagStore.shared.remember(items.flatMap(\.tags))
+            case .failure(let error):
+                self.expanded.remove(url)
+                self.expansionErrors[url] = error.localizedDescription
+                self.errorMessage = "Could not expand \(url.lastPathComponent): \(error.localizedDescription)"
+            }
+        }
     }
 
     func collapse(_ url: URL) {
+        let url = url.standardizedFileURL
         let prefix = url.path + "/"
+        for key in Array(expansionTasks.keys) where key == url || key.path.hasPrefix(prefix) {
+            expansionTasks.removeValue(forKey: key)?.cancel()
+            loadingFolders.remove(key)
+        }
         expanded = expanded.filter { $0 != url && !$0.path.hasPrefix(prefix) }
         children = children.filter { $0.key != url && !$0.key.path.hasPrefix(prefix) }
         selection = selection.filter { !$0.path.hasPrefix(prefix) }
     }
 
-    /// Re-reads the content of the open folders that are inside the folder shown now.
-    private func rebuildChildren() {
-        let base = currentURL.path == "/" ? "/" : currentURL.path + "/"
-        var fresh: [URL: [FileItem]] = [:]
-        for url in expanded where url.path.hasPrefix(base) && FileManager.default.fileExists(atPath: url.path) {
-            fresh[url] = readChildren(url)
+    func collapseAll() {
+        expansionTasks.values.forEach { $0.cancel() }
+        expansionTasks.removeAll()
+        loadingFolders.removeAll()
+        expanded.removeAll()
+        children.removeAll()
+        selection = selection.filter { $0.deletingLastPathComponent() == currentURL }
+    }
+
+    func setVisible(_ value: Bool) {
+        guard value != isVisible else { return }
+        isVisible = value
+        if value {
+            reload(keepSelection: true); startWatching()
+            if searchActive { restartSearch() }
+            if tagFilter != nil { startTagQuery() }
         }
-        children = fresh
+        else { stop() }
+    }
+
+    func stop() {
+        isVisible = false
+        stopWatching()
+        loadTask?.cancel()
+        loadGeneration = UUID()
+        loading = false
+        searchTask?.cancel()
+        searching = false
+        sizeTask?.cancel()
+        tagTask?.cancel()
+        cancelExpansions()
+    }
+
+    private func cancelExpansions() {
+        expansionTasks.values.forEach { $0.cancel() }
+        expansionTasks.removeAll()
+        loadingFolders.removeAll()
     }
 
     init(url: URL? = nil) {
-        if let url { currentURL = url }
-        load()
+        if let url { currentURL = url.standardizedFileURL }
     }
 
     func navigate(to url: URL) {
@@ -165,7 +232,7 @@ final class PaneModel: Identifiable {
     func open(_ urls: Set<URL>) {
         for url in urls {
             let item = FileItem(url: url)
-            if item.isDirectory {
+            if item.isDirectory && !item.isPackage {
                 navigate(to: url)
                 return
             } else {
@@ -179,7 +246,12 @@ final class PaneModel: Identifiable {
         load()
     }
 
-    func load() { reload(keepSelection: false) }
+    func load() {
+        cancelExpansions()
+        sizeTask?.cancel()
+        expansionErrors.removeAll()
+        reload(keepSelection: false)
+    }
 
     /// Re-reads the folder after a change made outside the app, keeping the selection.
     private func refresh() { reload(keepSelection: true) }
@@ -207,25 +279,6 @@ final class PaneModel: Identifiable {
         if let f = tagFilter, savedSearchID == nil {
             let store = TagStore.shared
             tagResults.removeAll { item in map[item.url] != nil && !item.tags.contains { store.matches($0, f) } }
-        }
-        resyncSignature()
-    }
-
-    /// Takes the tag change as the new state, so the 2-second folder watcher does not reload the folder for it.
-    private func resyncSignature() {
-        let dir = currentURL
-        let hidden = showHidden
-        Task { [weak self] in
-            let sig = await Task.detached(priority: .utility) { () -> Int? in
-                guard let urls = try? FileManager.default.contentsOfDirectory(
-                    at: dir,
-                    includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .tagNamesKey],
-                    options: hidden ? [] : [.skipsHiddenFiles]
-                ) else { return nil }
-                return Self.signature(of: urls)
-            }.value
-            guard let self, self.currentURL == dir, let sig else { return }
-            self.lastSignature = sig
         }
     }
 
@@ -295,40 +348,52 @@ final class PaneModel: Identifiable {
     }
 
     private func reload(keepSelection: Bool) {
-        let previousSelection = selection
-        var knownSizes: [URL: Int64] = [:]
-        if keepSelection {
-            for item in items where item.sizeCalculated { knownSizes[item.url] = item.size }
-        } else {
-            selection.removeAll()
-        }
-        do {
-            let urls = try FileManager.default.contentsOfDirectory(
-                at: currentURL,
-                includingPropertiesForKeys: FileItem.keys,
-                options: showHidden ? [] : [.skipsHiddenFiles]
-            )
-            items = urls.map { FileItem(url: $0) }
-            rebuildChildren()
-            TagStore.shared.remember(items.flatMap(\.tags))
-            lastSignature = Self.signature(of: urls)
-            errorMessage = nil
-            if keepSelection {
-                for i in items.indices {
-                    if let size = knownSizes[items[i].url] {
-                        items[i].size = size
-                        items[i].sizeCalculated = true
-                    }
+        loadTask?.cancel()
+        let generation = UUID()
+        loadGeneration = generation
+        let root = currentURL
+        let hidden = showHidden
+        let base = root.path == "/" ? "/" : root.path + "/"
+        let openFolders = expanded.filter { $0.path.hasPrefix(base) }.sorted { $0.pathComponents.count < $1.pathComponents.count }
+        if !keepSelection { selection.removeAll(); items = []; children = [:] }
+        loading = true
+        errorMessage = nil
+        loadTask = Task { [weak self] in
+            let worker = Task.detached(priority: .userInitiated) {
+                let items = try Self.readDirectory(root, hidden: hidden)
+                var descendants: [URL: [FileItem]] = [:]
+                for url in openFolders {
+                    try Task.checkCancellation()
+                    if let list = try? Self.readDirectory(url, hidden: hidden) { descendants[url] = list }
                 }
-                let present = Set(items.map(\.url)).union(children.values.flatMap { $0.map(\.url) })
-                selection = previousSelection.filter { present.contains($0) }
+                return (items, descendants)
             }
-        } catch {
-            items = []
-            children = [:]
-            errorMessage = error.localizedDescription
+            let result = await withTaskCancellationHandler { await worker.result } onCancel: { worker.cancel() }
+            guard let self, !Task.isCancelled, self.loadGeneration == generation, self.currentURL == root else { return }
+            self.loading = false
+            switch result {
+            case .success(let (items, descendants)):
+                self.items = items
+                // Preserve expansions completed while the root was being refreshed.
+                let completedMeanwhile = self.children.filter { !openFolders.contains($0.key) && self.expanded.contains($0.key) }
+                self.children = descendants.filter { self.expanded.contains($0.key) }
+                    .merging(completedMeanwhile) { _, newer in newer }
+                for url in Array(self.expanded) where url.path.hasPrefix(base) && self.children[url] == nil && !self.loadingFolders.contains(url) {
+                    self.expand(url)
+                }
+                TagStore.shared.remember(items.flatMap(\.tags))
+                let present = Set(items.map(\.url)).union(self.children.values.flatMap { $0.map(\.url) })
+                if self.tagFilter == nil && !self.searchActive {
+                    self.selection = self.selection.intersection(present)
+                }
+                self.revision += 1
+                self.startFolderSizes()
+            case .failure(let error):
+                self.items = []
+                self.children = [:]
+                self.errorMessage = error.localizedDescription
+            }
         }
-        startFolderSizes()
         if !keepSelection { startWatching(); if searchActive { restartSearch() } }
     }
 
@@ -343,19 +408,21 @@ final class PaneModel: Identifiable {
         searchTask?.cancel()
         searchResults = []
         foldersScanned = 0
+        searchTruncated = false
         guard searchActive else { searching = false; return }
         searching = true
         let root = currentURL.standardizedFileURL
         let query = filter
         let hidden = showHidden
-        let stream = AsyncStream<SearchBatch> { cont in
-            let worker = Task.detached(priority: .userInitiated) {
-                Self.scan(root: root, query: query, hidden: hidden, into: cont)
-                cont.finish()
-            }
-            cont.onTermination = { _ in worker.cancel() }
-        }
         searchTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            let stream = AsyncStream<SearchBatch> { cont in
+                let worker = Task.detached(priority: .userInitiated) {
+                    Self.scan(root: root, query: query, hidden: hidden, into: cont)
+                    cont.finish()
+                }
+                cont.onTermination = { _ in worker.cancel() }
+            }
             for await batch in stream {
                 guard let self, !Task.isCancelled else { return }
                 let rootPath = root.path
@@ -366,6 +433,7 @@ final class PaneModel: Identifiable {
                     return item
                 })
                 self.foldersScanned = batch.folders
+                self.searchTruncated = batch.truncated
             }
             guard !Task.isCancelled else { return }
             self?.searching = false
@@ -395,50 +463,31 @@ final class PaneModel: Identifiable {
                 last = Date()
             }
         }
-        cont.yield(SearchBatch(urls: batch, folders: folders))
+        cont.yield(SearchBatch(urls: batch, folders: folders, truncated: found >= 5000))
     }
 
     // MARK: Watching the folder for changes made outside the app
 
-    @ObservationIgnored private var watchTask: Task<Void, Never>?
-    @ObservationIgnored private var lastSignature = 0
+    @ObservationIgnored private var watchID: UUID?
 
-    /// Checks the current folder every 2 seconds (only while the app is active) and reloads it when a name,
-    /// size, modified date or created date has changed.
-    private func startWatching() {
-        watchTask?.cancel()
-        let dir = currentURL
-        watchTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
-                guard let self, !Task.isCancelled, self.currentURL == dir else { return }
-                guard NSApplication.shared.isActive else { continue }
-                let hidden = self.showHidden
-                let sig = await Task.detached(priority: .utility) { () -> Int? in
-                    guard let urls = try? FileManager.default.contentsOfDirectory(
-                        at: dir,
-                        includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .tagNamesKey],
-                        options: hidden ? [] : [.skipsHiddenFiles]
-                    ) else { return nil }
-                    return Self.signature(of: urls)
-                }.value
-                guard !Task.isCancelled, self.currentURL == dir else { return }
-                if let sig, sig != self.lastSignature { self.refresh() }
-            }
-        }
+    private func stopWatching() {
+        if let watchID { DirectoryMonitor.shared.remove(watchID) }
+        watchID = nil
     }
 
-    nonisolated private static func signature(of urls: [URL]) -> Int {
-        var hasher = Hasher()
-        for url in urls.sorted(by: { $0.path < $1.path }) {
-            let v = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .tagNamesKey])
-            hasher.combine(url.path)
-            hasher.combine(v?.contentModificationDate)
-            hasher.combine(v?.fileSize)
-            hasher.combine(v?.creationDate)
-            hasher.combine(v?.tagNames)
+    private func startWatching() {
+        stopWatching()
+        guard isVisible else { return }
+        watchID = DirectoryMonitor.shared.observe(currentURL) { [weak self] paths in
+            guard let self, self.isVisible else { return }
+            // Ignore unrelated changes deep inside collapsed folders (especially Home/Library).
+            let visible = Set(([self.currentURL] + Array(self.expanded)).map { $0.resolvingSymlinksInPath().path })
+            guard paths.isEmpty || UserDefaults.standard.bool(forKey: "calculateFolderSizes") || paths.contains(where: {
+                let path = URL(fileURLWithPath: $0).resolvingSymlinksInPath().path
+                return visible.contains(path) || visible.contains((path as NSString).deletingLastPathComponent)
+            }) else { return }
+            self.reloadKeepingSelection()
         }
-        return hasher.finalize()
     }
 
     @ObservationIgnored private var sizeTask: Task<Void, Never>?
@@ -446,14 +495,15 @@ final class PaneModel: Identifiable {
     /// Calculates the total size of every folder in the background when "Calculate all folder sizes" is on.
     private func startFolderSizes() {
         sizeTask?.cancel()
-        guard UserDefaults.standard.bool(forKey: "calculateFolderSizes") else { return }
+        guard isVisible, UserDefaults.standard.bool(forKey: "calculateFolderSizes") else { return }
         let folders = items.filter(\.isDirectory).map(\.url)
         guard !folders.isEmpty else { return }
         let dir = currentURL
         sizeTask = Task { [weak self] in
             for url in folders {
                 if Task.isCancelled { return }
-                let size = await Task.detached(priority: .utility) { FileTools.size(of: url) }.value
+                let worker = Task.detached(priority: .utility) { FileTools.size(of: url) }
+                let size = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
                 if Task.isCancelled { return }
                 guard let self, self.currentURL == dir,
                       let i = self.items.firstIndex(where: { $0.url == url }) else { continue }
@@ -467,4 +517,5 @@ final class PaneModel: Identifiable {
 nonisolated struct SearchBatch: Sendable {
     var urls: [URL]
     var folders: Int
+    var truncated = false
 }

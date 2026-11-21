@@ -3,6 +3,7 @@ import SwiftUI
 /// Column view: each selected folder opens its contents in a new column to the right.
 struct ColumnsView: View {
     let pane: PaneModel
+    let app: AppModel
     let scale: CGFloat
     /// Folders opened to the right of the first column (the first column is the pane's current folder).
     @State private var chain: [URL] = []
@@ -15,7 +16,7 @@ struct ColumnsView: View {
             ScrollView(.horizontal) {
                 HStack(spacing: 0) {
                     ForEach(Array(roots.enumerated()), id: \.offset) { i, url in
-                        ColumnList(url: url, scale: scale, showHidden: pane.showHidden, selected: picked[i]) { item in
+                        ColumnList(url: url, pane: pane, app: app, scale: scale, showHidden: pane.showHidden, selected: picked[i]) { item in
                             choose(item, in: i)
                         } open: { item in
                             pane.open([item.url])
@@ -35,29 +36,29 @@ struct ColumnsView: View {
     }
 
     private func choose(_ item: FileItem, in column: Int) {
+        app.activate(pane)
         chain = Array(chain.prefix(column))
         picked = picked.filter { $0.key < column }
         picked[column] = item.url
-        if item.isDirectory { chain.append(item.url) }
+        if item.isDirectory && !item.isPackage { chain.append(item.url) }
         pane.selection = [item.url]
     }
 }
 
 private struct ColumnList: View {
     let url: URL
+    let pane: PaneModel
+    let app: AppModel
     let scale: CGFloat
     let showHidden: Bool
     let selected: URL?
     let onSelect: (FileItem) -> Void
     let open: (FileItem) -> Void
 
-    private var items: [FileItem] {
-        let opts: FileManager.DirectoryEnumerationOptions = showHidden ? [] : [.skipsHiddenFiles]
-        let urls = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: FileItem.keys, options: opts)) ?? []
-        let all = urls.map { FileItem(url: $0) }
-        let sorted = all.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        return sorted.filter { $0.isDirectory } + sorted.filter { !$0.isDirectory }
-    }
+    @State private var items: [FileItem] = []
+    @State private var error: String?
+    @State private var loading = true
+    private var refreshKey: String { "\(url.path)|\(showHidden)|\(pane.revision)" }
 
     var body: some View {
         ScrollView {
@@ -70,7 +71,7 @@ private struct ColumnList: View {
                             .frame(width: 17 * scale, height: 17 * scale)
                         Text(item.name).lineLimit(1)
                         Spacer(minLength: 0)
-                        if item.isDirectory {
+                        if item.isDirectory && !item.isPackage {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 10 * scale, weight: .semibold))
                                 .foregroundStyle(on ? Color.white : Color.primary.opacity(0.4))
@@ -83,9 +84,29 @@ private struct ColumnList: View {
                     .background(on ? Color.filetor : Color.clear)
                     .contentShape(Rectangle())
                     .draggable(item.url)
+                    .contextMenu { FileItemMenu(item: item, pane: pane, app: app) }
                     .onTapGesture(count: 2) { open(item) }
                     .onTapGesture { onSelect(item) }
                 }
+            }
+        }
+        .overlay {
+            if loading && items.isEmpty { ProgressView() }
+            else if let error { Text(error).font(.caption).padding() }
+        }
+        .task(id: refreshKey) {
+            loading = true
+            let root = url, hidden = showHidden
+            let worker = Task.detached(priority: .userInitiated) { try PaneModel.readDirectory(root, hidden: hidden) }
+            let result = await withTaskCancellationHandler { await worker.result } onCancel: { worker.cancel() }
+            guard !Task.isCancelled else { return }
+            loading = false
+            switch result {
+            case .success(let files):
+                let sorted = files.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+                items = sorted.filter(\.isDirectory) + sorted.filter { !$0.isDirectory }
+                error = nil
+            case .failure(let failure): items = []; error = failure.localizedDescription
             }
         }
     }
