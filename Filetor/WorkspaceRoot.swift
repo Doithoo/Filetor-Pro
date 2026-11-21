@@ -12,14 +12,15 @@ extension FocusedValues {
 }
 
 struct WorkspaceRoot: View {
-    @State private var app: AppModel
+    @StateObject private var workspace: WorkspaceOwner
     @Environment(\.openWindow) private var openWindow
 
     init(workspaceID: UUID) {
-        _app = State(initialValue: AppModel(workspaceID: workspaceID))
+        _workspace = StateObject(wrappedValue: WorkspaceOwner(workspaceID: workspaceID))
     }
 
     var body: some View {
+        let app = workspace.app
         ContentView(app: app)
             .focusedSceneValue(\.filetorWorkspace, app)
             .onAppear {
@@ -33,4 +34,12 @@ struct WorkspaceRoot: View {
                 app.stop()
             }
     }
+}
+
+/// StateObject defers construction until SwiftUI retains this window's owner.
+/// An eager State initializer can create discarded models which consume the
+/// first-window restoration and overwrite the most recent workspace.
+private final class WorkspaceOwner: ObservableObject {
+    let app: AppModel
+    init(workspaceID: UUID) { app = AppModel(workspaceID: workspaceID) }
 }

@@ -110,6 +110,30 @@ extension Regression {
 
         try await thumbnailTests(root)
         try await browsingSnapshots(app, folder: pathFolder)
+        try await workspaceOwnershipTest(folder: pathFolder)
+    }
+
+    static func workspaceOwnershipTest(folder: URL) async throws {
+        let id = UUID()
+        AppModel.windowLocations[id] = folder
+        defer { AppModel.windowLocations.removeValue(forKey: id) }
+        _ = WorkspaceRoot(workspaceID: id)
+        _ = WorkspaceRoot(workspaceID: id)
+        try check(AppModel.windowLocations[id] == folder, "discarded SwiftUI window values cannot consume pending restoration")
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 700),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let host = NSHostingView(rootView: WorkspaceRoot(workspaceID: id))
+        window.contentView = host
+        window.makeKeyAndOrderFront(nil)
+        defer { window.orderOut(nil); window.contentView = nil; window.close() }
+        try await until("retained workspace owner") { AppModel.windowLocations[id] == nil }
+        try check(AppModel.windowLocations[id] == nil, "retained SwiftUI window creates its workspace model")
+        AppModel.windowLocations[id] = folder
+        host.rootView = WorkspaceRoot(workspaceID: id)
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(200))
+        try check(AppModel.windowLocations[id] == folder, "rebuilding a retained window keeps the existing workspace owner")
     }
 
     static func thumbnailTests(_ root: URL) async throws {
