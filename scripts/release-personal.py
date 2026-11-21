@@ -125,8 +125,17 @@ def main():
     if not any(release["tag_name"] == tag for release in releases):
         run("gh", "release", "create", tag, "--repo", repo, "--target", revision, "--draft", "--title",
             f"Filetor Personal {CONFIG['version']}", "--notes-file", str(output / "release-notes.md"))
+    # The tags endpoint does not expose an unpublished draft. Resolve its ID
+    # from the authenticated release listing, including when retrying uploads.
+    drafts = json.loads(capture("gh", "api", f"repos/{repo}/releases?per_page=100"))
+    draft = next(release for release in drafts if release["tag_name"] == tag)
+    if not draft["draft"]:
+        raise RuntimeError("The release was published concurrently; do not overwrite its assets")
+    release_id = draft["id"]
+    run("gh", "api", f"repos/{repo}/releases/{release_id}", "--method", "PATCH", "--input", "-",
+        input=json.dumps({"target_commitish": revision}), text=True, capture_output=True)
     run("gh", "release", "upload", tag, "--repo", repo, "--clobber", str(archive), str(feed), str(output / "SHA256SUMS"))
-    uploaded = json.loads(capture("gh", "api", f"repos/{repo}/releases/tags/{tag}"))
+    uploaded = json.loads(capture("gh", "api", f"repos/{repo}/releases/{release_id}"))
     assets = {a["name"]: a for a in uploaded["assets"]}
     for path in [archive, feed, output / "SHA256SUMS"]:
         asset = assets.get(path.name)
