@@ -76,6 +76,41 @@ extension Regression {
         try await Task.sleep(for: .milliseconds(100))
         try check(!completed && left.currentURL == dir, "closing a dropdown prevents pending navigation")
         try await navigationUITests(app, root: dir, nested: nested, target: target)
+        try await navigationWorkspaceUITests(root)
+    }
+
+    static func navigationWorkspaceUITests(_ root: URL) async throws {
+        UserDefaults.standard.set(true, forKey: "folderAccessAsked")
+        UserDefaults.standard.set(false, forKey: "showSidebar")
+        let app = AppModel()
+        app.sidebarVisibility = .detailOnly
+        app.toolbarModel.entries = ["sidebar", "backfwd", "goTo", "flex", "hidden", "terminal", "trash", "move", "info", "copyPath", "customize", "view", "search"].map { ToolbarEntry(kind: $0) }
+        app.toolbarModel.showLabels = true
+        app.active.navigate(to: root)
+        let window = NSWindow(contentRect: NSRect(x: 150, y: 150, width: 1100, height: 700),
+                              styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        let host = NSHostingView(rootView: ContentView(app: app))
+        window.contentView = host
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        defer { app.showGoToFolder = false; window.orderOut(nil); window.contentView = nil; window.close(); app.stop() }
+        try await Task.sleep(for: .milliseconds(600))
+        host.layoutSubtreeIfNeeded()
+        if let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().appending(path: "navigation-workspace.png"))
+        }
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(with: type, location: NSPoint(x: 216, y: window.frame.height - 42), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                          windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
+            window.sendEvent(event)
+        }
+        try await Task.sleep(for: .milliseconds(400))
+        try check(app.showGoToFolder && NSApp.windows.contains { $0 !== window && $0.isVisible && String(describing: type(of: $0)).contains("Popover") },
+                  "Go To opens from the complete workspace with a customized toolbar")
     }
 
     static func navigationUITests(_ app: AppModel, root: URL, nested: URL, target: URL) async throws {

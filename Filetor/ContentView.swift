@@ -82,7 +82,9 @@ struct ContentView: View {
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.title)
         .toolbar(removing: .sidebarToggle)
-        .background(NativeToolbarRemover(trigger: "\(app.sidebarVisibility)"))
+        // Preserve the toolbar host while native popovers are open. Replacing
+        // NSToolbar during presentation immediately dismisses those popovers.
+        .toolbarVisibility(.hidden, for: .automatic)
         .background {
             // Keyboard shortcuts (the toolbar buttons are drawn by CustomToolbar).
             Group {
@@ -276,50 +278,6 @@ struct DualPaneView: View {
 }
 
 
-
-/// Removes the native NSToolbar (we draw our own), which also kills the automatic sidebar toggle bubble.
-struct NativeToolbarRemover: NSViewRepresentable {
-    let trigger: String
-
-    /// Removes the window's native toolbar and keeps removing it whenever SwiftUI or AppKit
-    /// brings it back (popovers, palette, sheets, focus changes), so the sidebar button never shows.
-    final class Watcher: NSView {
-        nonisolated(unsafe) private var observer: NSObjectProtocol?
-        nonisolated(unsafe) private var toolbarObservation: NSKeyValueObservation?
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            if let o = observer { NotificationCenter.default.removeObserver(o); observer = nil }
-            toolbarObservation = nil
-            guard let window else { return }
-            window.toolbar = nil
-            window.tabbingMode = .disallowed
-            // Remove a re-created toolbar immediately (same run loop pass), so the layout never shifts.
-            toolbarObservation = window.observe(\.toolbar, options: [.new]) { w, _ in
-                MainActor.assumeIsolated {
-                    if w.toolbar != nil { w.toolbar = nil }
-                }
-            }
-            observer = NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: window, queue: .main) { [weak window] _ in
-                MainActor.assumeIsolated {
-                    if window?.toolbar != nil { window?.toolbar = nil }
-                }
-            }
-        }
-
-        deinit {
-            if let o = observer { NotificationCenter.default.removeObserver(o) }
-        }
-    }
-
-    func makeNSView(context: Context) -> NSView { Watcher() }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async {
-            view.window?.toolbar = nil
-        }
-    }
-}
 
 /// The alerts live in their own modifier so the main view body stays quick to type-check.
 private struct AppAlerts: ViewModifier {

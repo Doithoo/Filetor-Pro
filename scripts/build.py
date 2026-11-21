@@ -40,7 +40,10 @@ command += [str(p) for p in sorted((root / "Filetor").glob("*.swift")) if not (t
 if testing:
     command += [str(p) for p in sorted((root / "Tests").glob("*Regression.swift"))]
     subprocess.run(command, check=True)
-    subprocess.run([str(out / "FiletorRegression")], check=True, timeout=180)
+    test_args = [arg for arg in sys.argv[1:] if arg != "--test"]
+    subprocess.run([str(out / "FiletorRegression")] + test_args, check=True, timeout=180)
+    if not test_args:
+        subprocess.run([str(out / "FiletorRegression"), "--navigation-scene"], check=True, timeout=60)
     sys.exit(0)
 subprocess.run(command, check=True)
 info = {

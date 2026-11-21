@@ -390,6 +390,11 @@ struct Regression {
 
     @MainActor static func main() {
         setbuf(stdout, nil)
+        if CommandLine.arguments.contains("--navigation-scene") {
+            NSApplication.shared.setActivationPolicy(.regular)
+            NavigationRegressionScene.main()
+            return
+        }
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
         app.delegate = delegate
@@ -408,7 +413,9 @@ struct Regression {
         }
         do {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
-            if CommandLine.arguments.contains("--navigation-only") {
+            if CommandLine.arguments.contains("--navigation-workspace-only") {
+                try await navigationWorkspaceUITests(root)
+            } else if CommandLine.arguments.contains("--navigation-only") {
                 try await navigationTests(root)
             } else {
                 try renameTests(root)
