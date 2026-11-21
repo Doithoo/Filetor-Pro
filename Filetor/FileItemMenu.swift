@@ -23,7 +23,7 @@ struct FileItemMenu: View {
         Button("Copy to…") { app.activate(pane); app.chooseFolderAndTransfer(targets, move: false) }
         Button("Move to…") { app.activate(pane); app.chooseFolderAndTransfer(targets, move: true) }
         Divider()
-        Button("Quick Look") { app.quickLook(targets) }
+        Button("Quick Look") { app.activate(pane); app.quickLook(targets) }
         Button("Get Info") { app.getInfo(targets) }
         Button("Compress") { app.activate(pane); app.compress(targets) }
         Button("Move to Trash") { app.activate(pane); app.trash(targets) }

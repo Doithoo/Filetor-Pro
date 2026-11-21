@@ -132,8 +132,6 @@ final class AppModel {
     var report: Report?
     /// Large Files panel.
     var largeFiles: LargeFiles?
-    /// Space on a folder or archive: list of what is inside.
-    var spacePreview: URL?
     var showFolderAccess = false
     var sync: SyncSession?
     var renameTarget: URL?
@@ -217,6 +215,7 @@ final class AppModel {
     // MARK: Session restore
 
     func stop() {
+        SystemQuickLook.shared.close(owner: self)
         saveSession()
         transfers.cancelAll()
         network.stop()
@@ -287,15 +286,20 @@ final class AppModel {
         transfers.start(items: items, move: false)
     }
 
-    func quickLook(_ urls: Set<URL>) {
-        guard !urls.isEmpty else { return }
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/qlmanage")
-        p.arguments = ["-p"] + urls.map(\.path).sorted()
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        try? p.run()
+    func quickLook(_ urls: Set<URL>, toggle: Bool = false) {
+        guard !urls.isEmpty, let window = NSApp.mainWindow ?? NSApp.keyWindow else { return }
+        let ordered = orderedPreviewURLs(for: urls)
+        if toggle { SystemQuickLook.shared.toggle(ordered, owner: self, window: window) }
+        else { SystemQuickLook.shared.show(ordered, owner: self, window: window) }
     }
+
+    func orderedPreviewURLs(for selected: Set<URL>) -> [URL] {
+        let visible = active.sortedItems.map(\.url).filter { selected.contains($0) }
+        // Column view can select a descendant outside the root list.
+        return visible + selected.subtracting(visible).sorted { $0.path < $1.path }
+    }
+
+    func refreshQuickLook() { SystemQuickLook.shared.update(orderedPreviewURLs(for: active.selection), owner: self) }
 
     func touch(_ urls: Set<URL>) {
         for url in FileOperationSafety.topLevel(Array(urls)) {

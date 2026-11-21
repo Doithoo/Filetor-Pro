@@ -68,6 +68,9 @@ struct InfoPanel: View {
                 }
                 Spacer()
             }
+            Button("Quick Look") { app.quickLook([url]) }
+                .buttonStyle(PathsButtonStyle(scale: s))
+                .help("Open the system preview with installed Quick Look extensions")
             VStack(alignment: .leading, spacing: 2) {
                 Text(url.lastPathComponent.isEmpty ? "/" : url.lastPathComponent)
                     .font(.system(size: 15 * s, weight: .semibold))

@@ -5,6 +5,7 @@ struct ColumnsView: View {
     let pane: PaneModel
     let app: AppModel
     let scale: CGFloat
+    @FocusState private var fileListFocused: Bool
     /// Folders opened to the right of the first column (the first column is the pane's current folder).
     @State private var chain: [URL] = []
     @State private var picked: [Int: URL] = [:]
@@ -31,11 +32,22 @@ struct ColumnsView: View {
                 withAnimation { proxy.scrollTo(n - 1, anchor: .trailing) }
             }
         }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($fileListFocused)
+        .onKeyPress(.space, phases: .down) { press in
+            guard press.modifiers.intersection([.command, .option, .control]).isEmpty,
+                  !pane.selection.isEmpty else { return .ignored }
+            app.activate(pane)
+            app.quickLook(pane.selection, toggle: true)
+            return .handled
+        }
         .background(Color(nsColor: .textBackgroundColor))
         .onChange(of: pane.currentURL) { _, _ in chain = []; picked = [:] }
     }
 
     private func choose(_ item: FileItem, in column: Int) {
+        fileListFocused = true
         app.activate(pane)
         chain = Array(chain.prefix(column))
         picked = picked.filter { $0.key < column }

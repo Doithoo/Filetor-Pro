@@ -5,6 +5,7 @@ struct IconGridView: View {
     let pane: PaneModel
     let app: AppModel
     let scale: CGFloat
+    @FocusState private var fileListFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -31,6 +32,7 @@ struct IconGridView: View {
                     .contextMenu { FileItemMenu(item: item, pane: pane, app: app) }
                     .onTapGesture(count: 2) { pane.open([item.url]) }
                     .onTapGesture {
+                        fileListFocused = true
                         app.activate(pane)
                         if NSEvent.modifierFlags.contains(.command) {
                             if selected { pane.selection.remove(item.url) } else { pane.selection.insert(item.url) }
@@ -41,6 +43,16 @@ struct IconGridView: View {
                 }
             }
             .padding(12)
+        }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($fileListFocused)
+        .onKeyPress(.space, phases: .down) { press in
+            guard press.modifiers.intersection([.command, .option, .control]).isEmpty,
+                  !pane.selection.isEmpty else { return .ignored }
+            app.activate(pane)
+            app.quickLook(pane.selection, toggle: true)
+            return .handled
         }
         .background(Color(nsColor: .textBackgroundColor))
         .onTapGesture { pane.selection = [] }

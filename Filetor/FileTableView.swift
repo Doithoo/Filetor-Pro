@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import Quartz
 
 /// AppKit file list: flat full-width stripes that run to the bottom, right-aligned Size column and header.
 struct FileTableView: NSViewRepresentable {
@@ -149,7 +148,7 @@ struct FileTableView: NSViewRepresentable {
 
     // MARK: Coordinator
 
-    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, NSTextFieldDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, NSTextFieldDelegate {
         var parent: FileTableView
         weak var table: NSTableView?
         var items: [FileItem] = []
@@ -289,15 +288,6 @@ struct FileTableView: NSViewRepresentable {
             parent.app.dropTransfer(urls, into: parent.pane.currentURL, move: false)
         }
 
-        /// The selected folder or archive that Space lists instead of showing a Quick Look icon.
-        func spacePreviewTarget() -> URL? {
-            let urls = previewURLs
-            guard urls.count == 1, let url = urls.first else { return nil }
-            if ArchiveKind.isArchive(url) { return url }
-            let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
-            return (v?.isDirectory ?? false) && !(v?.isPackage ?? false) ? url : nil
-        }
-
         func renameSelection() {
             let urls = Set(previewURLs)
             if !urls.isEmpty { parent.app.beginRename(urls) }
@@ -365,20 +355,6 @@ struct FileTableView: NSViewRepresentable {
         private var previewURLs: [URL] {
             guard let table else { return [] }
             return table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil }
-        }
-
-        func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURLs.count }
-
-        func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
-            let urls = previewURLs
-            return index < urls.count ? urls[index] as NSURL : nil
-        }
-
-        /// While Quick Look is open the arrow keys go to the panel. Pass them on, so they move to the next file.
-        func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
-            guard event.type == .keyDown, [123, 124, 125, 126].contains(event.keyCode), let table else { return false }
-            table.keyDown(with: event)
-            return true
         }
 
         /// Lets files be dragged out of the list (Drop Stack, Finder, other apps).
@@ -539,9 +515,7 @@ struct FileTableView: NSViewRepresentable {
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             parent.pane.selection = urls
             parent.app.activate(parent.pane)
-            if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
-                QLPreviewPanel.shared().reloadData()
-            }
+            parent.app.refreshQuickLook()
         }
 
         /// The column the list is sorted by keeps full contrast, the others are dimmed.
@@ -736,6 +710,7 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(.separator())
             }
             menu.addItem(item("Open") { [weak self] in self?.parent.pane.open(urls) })
+            menu.addItem(item("Quick Look") { [weak self] in self?.parent.app.quickLook(urls) })
             let apps = parent.app.openApps(for: urls)
             if !apps.isEmpty {
                 let with = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
@@ -924,33 +899,13 @@ final class QLTableView: NSTableView {
             return
         }
         if event.charactersIgnoringModifiers == " ", event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
-            // A second Space closes the folder or archive list.
-            if let app = qlSource?.parent.app, app.spacePreview != nil {
-                app.spacePreview = nil
-                return
-            }
-            if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
-                QLPreviewPanel.shared().orderOut(nil)
-            } else if let url = qlSource?.spacePreviewTarget() {
-                qlSource?.parent.app.spacePreview = url
-            } else if selectedRow >= 0 {
-                QLPreviewPanel.shared().makeKeyAndOrderFront(nil)
+            guard !event.isARepeat else { return }
+            if let source = qlSource {
+                source.parent.app.quickLook(Set(source.selectedURLs), toggle: true)
             }
             return
         }
         super.keyDown(with: event)
-    }
-
-    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
-
-    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = qlSource
-        panel.delegate = qlSource
-    }
-
-    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = nil
-        panel.delegate = nil
     }
 }
 

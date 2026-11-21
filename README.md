@@ -13,6 +13,8 @@ Filetor Pro is a maintained fork of [Filetor by David Praznik](https://github.co
 - Single or dual panes, list/icon/column views, breadcrumbs, favorites, mounted disks and network locations.
 - Finder tags, saved searches, subfolder search, Quick Look and an optional information panel.
 
+Press **Space** on a file or folder to open native macOS Quick Look in any view. The toolbar, context menu and information panel's **Quick Look** button use the same system preview, including enabled extensions such as Looq. Space or Escape closes it; list selection changes update the preview. The information panel itself shows metadata and a thumbnail. Preview formats and rendering depend on the extensions selected by macOS, just as in Finder.
+
 ## File tools
 
 Copy, move, rename, duplicate, Trash, batch rename, compress and extract archives. Transfers include progress, cancellation and conflict handling. File operations use a shared queue across windows, staged copying and recovery paths for failed replacements.
@@ -23,7 +25,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.3.1**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.3.2**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

@@ -2,9 +2,11 @@ import Foundation
 import AppKit
 import SwiftUI
 import Sparkle
+import Quartz
 
 @main
 struct Regression {
+    static let delegate = RegressionAppDelegate()
     static let fm = FileManager.default
     static var checks = 0
     static var recoveryItems: [URL] = []
@@ -256,6 +258,67 @@ struct Regression {
         table.keyDown(with: left)
         try await until("keyboard collapse") { table.numberOfRows == 3 }
         try check(!pane.expanded.contains(child), "native Left Arrow collapses selected folder")
+
+        window.makeFirstResponder(table)
+        let space = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                                    windowNumber: window.windowNumber, context: nil, characters: " ",
+                                    charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49)!
+        table.keyDown(with: space)
+        let preview = SystemQuickLook.shared
+        let panel = QLPreviewPanel.shared()!
+        try await until("folder Quick Look") { panel.isVisible && panel.currentController as AnyObject? === preview }
+        try check(panel.currentPreviewItem?.previewItemURL == child, "Space sends folders to the system preview panel")
+        try check(preview.previewPanel(panel, handle: space), "Space closes the system preview")
+        try await until("preview closes") { !panel.isVisible }
+
+        let archive = dir.appending(path: "Example.zip")
+        try check(FileTools.run("/usr/bin/ditto", ["-c", "-k", parent.path, archive.path]) == nil, "create native preview archive fixture")
+        try await until("archive appears") { pane.sortedItems.contains { $0.url == archive } && table.numberOfRows == pane.sortedItems.count }
+        let archiveRow = pane.sortedItems.firstIndex { $0.url == archive }!
+        table.selectRowIndexes(IndexSet(integer: archiveRow), byExtendingSelection: false)
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(table)
+        table.keyDown(with: space)
+        try await until("archive Quick Look") { panel.isVisible && panel.currentPreviewItem?.previewItemURL == archive }
+        try check(panel.currentController as AnyObject? === preview, "Space sends archives to the same system preview panel")
+
+        let parentRow = pane.sortedItems.firstIndex { $0.url == parent }!
+        table.selectRowIndexes(IndexSet(integer: parentRow), byExtendingSelection: false)
+        try check(panel.currentPreviewItem?.previewItemURL == parent, "system preview follows list selection")
+        let selectedBeforePreview = pane.selection
+        app.quickLook([dir])
+        try check(panel.currentPreviewItem?.previewItemURL == dir && pane.selection == selectedBeforePreview,
+                  "information panel can preview the current folder without changing file selection")
+
+        app.quickLook([archive, parent])
+        try check(preview.urls == pane.sortedItems.map(\.url).filter { $0 == archive || $0 == parent }
+                  && preview.numberOfPreviewItems(in: panel) == 2, "toolbar and context previews preserve display order and multiple items")
+        let leaf = child.appending(path: "Notes.txt")
+        app.quickLook([leaf])
+        try check(panel.currentPreviewItem?.previewItemURL == leaf, "column descendant files use native preview even outside the visible root list")
+
+        let other = AppModel()
+        let otherWindow = NSWindow(contentRect: NSRect(x: 180, y: 180, width: 600, height: 300),
+                                   styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        otherWindow.isReleasedWhenClosed = false
+        defer { other.stop(); otherWindow.close() }
+        otherWindow.makeKeyAndOrderFront(nil)
+        other.quickLook([archive])
+        try check(panel.currentController as AnyObject? === preview && panel.currentPreviewItem?.previewItemURL == archive
+                  && window.nextResponder !== preview, "another window can take preview ownership without leaving a responder attached")
+        app.refreshQuickLook()
+        preview.close(owner: app)
+        try check(panel.currentPreviewItem?.previewItemURL == archive && panel.isVisible,
+                  "inactive windows cannot replace or close another window's preview")
+        other.active.selection = []
+        other.refreshQuickLook()
+        try await until("empty selection closes preview") { !panel.isVisible }
+        try check(preview.urls.isEmpty && otherWindow.nextResponder !== preview,
+                  "clearing selection closes preview and restores the responder chain")
+        other.quickLook([parent])
+        other.stop()
+        try await until("closing workspace closes preview") { !panel.isVisible }
+        try check(preview.urls.isEmpty, "closing the owning workspace releases its preview")
     }
 
     static func updateTests(_ root: URL) async throws {
@@ -322,9 +385,15 @@ struct Regression {
         }
     }
 
-    @MainActor static func main() async {
+    @MainActor static func main() {
         setbuf(stdout, nil)
-        _ = NSApplication.shared
+        let app = NSApplication.shared
+        app.setActivationPolicy(.regular)
+        app.delegate = delegate
+        app.run()
+    }
+
+    @MainActor static func runTests() async {
         let root = fm.temporaryDirectory.appending(path: "FiletorRegression-\(UUID().uuidString)")
         defer {
             try? fm.removeItem(at: root)
@@ -346,4 +415,16 @@ struct Regression {
             exit(1)
         }
     }
+}
+
+final class RegressionAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.activate(ignoringOtherApps: true)
+        Task {
+            await Regression.runTests()
+            NSApp.terminate(nil)
+        }
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }

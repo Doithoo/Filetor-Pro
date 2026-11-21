@@ -127,9 +127,6 @@ struct ContentView: View {
         .floatingPanel(isPresented: Binding(get: { model.report != nil }, set: { if !$0 { model.report = nil } })) {
             ReportPanel(app: app)
         }
-        .floatingPanel(isPresented: Binding(get: { model.spacePreview != nil }, set: { if !$0 { model.spacePreview = nil } })) {
-            if let url = model.spacePreview { SpacePreviewPanel(app: app, url: url).id(url) }
-        }
         .floatingPanel(isPresented: Binding(get: { model.largeFiles != nil }, set: { if !$0 { model.largeFiles = nil } })) {
             LargeFilesPanel(app: app)
         }
@@ -140,6 +137,9 @@ struct ContentView: View {
             CustomizeSheet(app: app)
         }
         .onChange(of: showSidebar) { _, v in app.sidebarVisibility = v ? .all : .detailOnly }
+        .onChange(of: pane.selection) { _, _ in app.refreshQuickLook() }
+        .onChange(of: pane.id) { _, _ in app.refreshQuickLook() }
+        .onChange(of: pane.currentURL) { _, _ in app.refreshQuickLook() }
         .onChange(of: app.sidebarVisibility) { _, v in showSidebar = (v != .detailOnly) }
         .onChange(of: app.dual) { _, dual in
             if !dual { app.activeIndex = 0 }
