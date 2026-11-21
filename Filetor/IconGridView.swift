@@ -6,17 +6,22 @@ struct IconGridView: View {
     let app: AppModel
     let scale: CGFloat
     @FocusState private var fileListFocused: Bool
+    @AppStorage("gridIconSize") private var gridIconSize = 52.0
+    @AppStorage("showExtensions") private var showExtensions = true
+    @AppStorage("iconPreviews") private var previews = false
+    @AppStorage("foldersFirst") private var foldersFirst = true
+    private var iconSide: CGFloat { CGFloat(min(max(gridIconSize, 32), 128)) * scale }
 
     var body: some View {
+        let _ = foldersFirst
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96 * scale), spacing: 6)], spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: max(96 * scale, iconSide + 32)), spacing: 6)], spacing: 10) {
                 ForEach(pane.sortedItems) { item in
                     let selected = pane.selection.contains(item.url)
                     VStack(spacing: 4) {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
-                            .resizable()
-                            .frame(width: 52 * scale, height: 52 * scale)
-                        Text(item.name)
+                        FileIcon(item: item, side: iconSide, previews: previews)
+                            .frame(width: iconSide, height: iconSide)
+                        Text(item.displayName(showExtension: showExtensions))
                             .font(.system(size: 12 * scale))
                             .multilineTextAlignment(.center)
                             .lineLimit(2)

@@ -88,8 +88,16 @@ final class AppModel {
     var filterBarFocus = 0
 
     func activateSearch() {
-        if searchFieldVisible { focusSearch += 1 }
-        else { showFilterBar = true; filterBarFocus += 1 }
+        showPalette = false
+        showGoToFolder = false
+        showSearchPopup = true
+    }
+    var showSearchPopup = false
+    var showGoToFolder = false
+    func activateGoToFolder() {
+        showPalette = false
+        showSearchPopup = false
+        showGoToFolder = true
     }
     var showPalette = false
     var showConnect = false
@@ -540,9 +548,14 @@ final class AppModel {
             return
         }
         guard let url = urls.first else { return }
-        renameText = url.lastPathComponent
+        let item = FileItem(url: url)
+        let showExtension = UserDefaults.standard.object(forKey: "showExtensions") as? Bool ?? true
+        renameText = item.displayName(showExtension: showExtension)
+        renameHidesExtension = renameText != item.name
         renameTarget = url
     }
+
+    private(set) var renameHidesExtension = false
 
     /// Renames in two steps through temporary names, so swaps and shifted numbering never collide.
     private static func moveViaTemps(_ moves: [(from: URL, to: URL)]) throws {
@@ -574,7 +587,9 @@ final class AppModel {
     func commitRename() {
         guard let url = renameTarget else { return }
         renameTarget = nil
-        let name = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let edited = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = FileNamePresentation.preservingExtension(edited, original: url.lastPathComponent, hidden: renameHidesExtension)
+        renameHidesExtension = false
         guard !name.isEmpty, name != url.lastPathComponent else { return }
         guard !name.contains("/") else { alert = "A name cannot contain \"/\"."; return }
         let dest = url.deletingLastPathComponent().appending(path: name)

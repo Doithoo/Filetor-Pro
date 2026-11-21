@@ -67,10 +67,13 @@ private struct ColumnList: View {
     let onSelect: (FileItem) -> Void
     let open: (FileItem) -> Void
 
+    @AppStorage("showExtensions") private var showExtensions = true
+    @AppStorage("iconPreviews") private var previews = false
+    @AppStorage("foldersFirst") private var foldersFirst = true
     @State private var items: [FileItem] = []
     @State private var error: String?
     @State private var loading = true
-    private var refreshKey: String { "\(url.path)|\(showHidden)|\(pane.revision)" }
+    private var refreshKey: String { "\(url.path)|\(showHidden)|\(pane.revision)|\(foldersFirst)" }
 
     var body: some View {
         ScrollView {
@@ -78,10 +81,9 @@ private struct ColumnList: View {
                 ForEach(items) { item in
                     let on = selected == item.url
                     HStack(spacing: 6 * scale) {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
-                            .resizable()
+                        FileIcon(item: item, side: 17 * scale, previews: previews)
                             .frame(width: 17 * scale, height: 17 * scale)
-                        Text(item.name).lineLimit(1)
+                        Text(item.displayName(showExtension: showExtensions)).lineLimit(1)
                         Spacer(minLength: 0)
                         if item.isDirectory && !item.isPackage {
                             Image(systemName: "chevron.right")
@@ -116,7 +118,7 @@ private struct ColumnList: View {
             switch result {
             case .success(let files):
                 let sorted = files.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-                items = sorted.filter(\.isDirectory) + sorted.filter { !$0.isDirectory }
+                items = foldersFirst ? sorted.filter(\.isDirectory) + sorted.filter { !$0.isDirectory } : sorted
                 error = nil
             case .failure(let failure): items = []; error = failure.localizedDescription
             }

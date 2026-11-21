@@ -409,6 +409,7 @@ struct Regression {
             try await managerTests(root)
             try await nativeUITests(root)
             try await updateTests(root)
+            try await browsingTests(root)
             print("\nAll \(checks) regression checks passed.")
         } catch {
             fputs("\(error.localizedDescription)\n", stderr)

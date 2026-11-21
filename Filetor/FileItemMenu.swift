@@ -24,6 +24,10 @@ struct FileItemMenu: View {
         Button("Move to…") { app.activate(pane); app.chooseFolderAndTransfer(targets, move: true) }
         Divider()
         Button("Quick Look") { app.activate(pane); app.quickLook(targets) }
+        if targets.contains(where: { FileTools.isImage($0) }) {
+            Button("Convert Image…") { app.activate(pane); app.convertURLs = targets.filter { FileTools.isImage($0) } }
+        }
+        Button("Touch — Set Modified Date to Now") { app.activate(pane); app.touch(targets) }
         Button("Get Info") { app.getInfo(targets) }
         Button("Compress") { app.activate(pane); app.compress(targets) }
         Button("Move to Trash") { app.activate(pane); app.trash(targets) }

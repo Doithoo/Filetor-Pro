@@ -6,6 +6,10 @@ struct FileListView: View {
 
     @AppStorage("textSize") private var textSize = 1
     @AppStorage("compactRows") private var compactRows = false
+    @AppStorage("listRowHeight") private var rowHeight = 25.0
+    @AppStorage("showExtensions") private var showExtensions = true
+    @AppStorage("iconPreviews") private var previews = false
+    @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("striped") private var striped = true
     @AppStorage("statusBar") private var statusBar = true
     var isActive = false
@@ -13,11 +17,24 @@ struct FileListView: View {
     private var scale: CGFloat { UIScale.value(textSize) }
 
     var body: some View {
+        let _ = foldersFirst
         VStack(spacing: 0) {
             BreadcrumbBar(pane: pane, app: app)
             Divider()
             if app.showFilterBar && pane === app.active && !app.searchFieldVisible {
                 FilterBar(pane: pane, app: app, scale: scale)
+                Divider()
+            }
+            if pane.hasSearchFilters, pane.tagFilter == nil {
+                HStack(spacing: 8) {
+                    Text(([pane.filter, pane.criteria.summary].filter { !$0.isEmpty }).joined(separator: " · "))
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 4)
+                    Text(pane.searchSubfolders ? "Subfolders" : "This folder").foregroundStyle(.secondary)
+                    Button("Edit…") { app.activate(pane); app.activateSearch() }
+                    Button("Clear") { pane.clearSearch() }
+                }
+                .font(.caption).padding(8)
                 Divider()
             }
             table
@@ -46,7 +63,7 @@ struct FileListView: View {
     private var table: some View {
         if pane.viewMode == 1 {
             IconGridView(pane: pane, app: app, scale: scale)
-        } else if pane.viewMode == 2 {
+        } else if pane.viewMode == 2 && !pane.hasSearchFilters && pane.tagFilter == nil {
             ColumnsView(pane: pane, app: app, scale: scale)
         } else {
             listTable
@@ -62,7 +79,9 @@ struct FileListView: View {
             scale: scale,
             striped: striped,
             compact: compactRows,
-            showFolder: pane.searchActive || pane.tagFilter != nil
+            showFolder: pane.searchActive || pane.tagFilter != nil,
+            rowSize: UserDefaults.standard.object(forKey: "listRowHeight") == nil ? nil : DisplayPreferences.rowHeight(rowHeight),
+            showExtensions: showExtensions, previews: previews
         )
         .overlay {
             if pane.loading && pane.items.isEmpty {

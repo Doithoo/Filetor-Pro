@@ -146,6 +146,20 @@ struct BreadcrumbBar: View {
             .onChange(of: pane.currentURL) { _, _ in align(proxy) }
             }
         }
+        .padding(.trailing, 34)
+        .overlay(alignment: .trailing) {
+            Button {
+                app.activate(pane)
+                app.activateGoToFolder()
+            } label: {
+                Image(systemName: "folder.badge.magnifyingglass")
+                    .padding(8)
+                    .background(Color(nsColor: .windowBackgroundColor))
+            }
+            .buttonStyle(.plain)
+            .help("Go to Folder… (⇧⌘G)")
+            .accessibilityLabel("Go to Folder")
+        }
         .frame(height: 44 * s)
     }
 }

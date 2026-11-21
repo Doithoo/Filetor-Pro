@@ -17,6 +17,9 @@ final class PaneModel: Identifiable {
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadGeneration = UUID()
     var revision = 0
+    var criteria = SearchCriteria() { didSet { if searchSubfolders { restartSearch() } } }
+    var hasSearchFilters: Bool { !filter.isEmpty || !criteria.isEmpty }
+    @ObservationIgnored private var pendingSelection: URL?
     var filter = "" { didSet { if searchSubfolders { restartSearch() } } }
     /// Search the filter text in all subfolders instead of only filtering the current folder.
     var searchSubfolders = UserDefaults.standard.bool(forKey: "searchSubfolders") {
@@ -37,7 +40,7 @@ final class PaneModel: Identifiable {
     @ObservationIgnored private var tagTask: Task<Void, Never>?
     var title: String { tagFilter ?? CloudLocation.title(for: currentURL) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
-    var searchActive: Bool { tagFilter == nil && searchSubfolders && !filter.isEmpty }
+    var searchActive: Bool { tagFilter == nil && searchSubfolders && hasSearchFilters }
     /// 0 = list, 1 = icons, 2 = columns
     var viewMode = 0
     var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
@@ -55,7 +58,7 @@ final class PaneModel: Identifiable {
             visible = filter.isEmpty ? tagResults : tagResults.filter { $0.name.localizedCaseInsensitiveContains(filter) }
         } else {
             visible = searchActive ? searchResults
-                : filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+                : hasSearchFilters ? items.filter { criteria.matches($0, name: filter) } : items
         }
         let top = ordered(visible)
         return treeActive && !expanded.isEmpty ? flatten(top) : top
@@ -78,7 +81,7 @@ final class PaneModel: Identifiable {
     @ObservationIgnored private var expansionTasks: [URL: Task<Void, Never>] = [:]
 
     /// The tree is only used in the plain list of a folder, not in search results, tag views or filtered lists.
-    var treeActive: Bool { viewMode == 0 && tagFilter == nil && !searchActive && filter.isEmpty }
+    var treeActive: Bool { viewMode == 0 && tagFilter == nil && !searchActive && !hasSearchFilters }
 
     /// How deep a row is below the folder that is shown (0 = directly inside it).
     func level(of url: URL) -> Int {
@@ -195,6 +198,7 @@ final class PaneModel: Identifiable {
     }
 
     func navigate(to url: URL) {
+        pendingSelection = nil
         let target = url.standardizedFileURL
         if tagFilter != nil {
             clearTag()
@@ -204,8 +208,33 @@ final class PaneModel: Identifiable {
         backStack.append(currentURL)
         forwardStack.removeAll()
         currentURL = target
-        filter = ""
+        clearSearch()
         load()
+    }
+
+    func navigateSelecting(_ url: URL) {
+        clearSearch()
+        clearTag()
+        let revealHidden = !showHidden && url.lastPathComponent.hasPrefix(".")
+        let sameFolder = currentURL == url.deletingLastPathComponent().standardizedFileURL
+        if revealHidden { showHidden = true }
+        navigate(to: url.deletingLastPathComponent())
+        if revealHidden && sameFolder { load() }
+        if !loading, items.contains(where: { $0.url == url.standardizedFileURL }) {
+            selection = [url.standardizedFileURL]
+        } else {
+            if !loading { load() }
+            pendingSelection = url.standardizedFileURL
+        }
+    }
+
+    func clearSearch() {
+        pendingSelection = nil
+        filter = ""
+        criteria = SearchCriteria()
+        stopSearch()
+        searchResults = []
+        selection.removeAll()
     }
 
     func goBack() {
@@ -213,6 +242,7 @@ final class PaneModel: Identifiable {
         clearTag()
         forwardStack.append(currentURL)
         currentURL = prev
+        clearSearch()
         load()
     }
 
@@ -221,6 +251,7 @@ final class PaneModel: Identifiable {
         clearTag()
         backStack.append(currentURL)
         currentURL = next
+        clearSearch()
         load()
     }
 
@@ -260,6 +291,7 @@ final class PaneModel: Identifiable {
     func reloadKeepingSelection() {
         reload(keepSelection: true)
         if tagFilter != nil { startTagQuery() }
+        if searchActive { restartSearch() }
     }
 
     // MARK: Tags
@@ -288,6 +320,7 @@ final class PaneModel: Identifiable {
         tagResults = []
         selection.removeAll()
         filter = ""
+        criteria = SearchCriteria()
         startTagQuery()
     }
 
@@ -299,6 +332,7 @@ final class PaneModel: Identifiable {
         tagResults = []
         selection.removeAll()
         filter = ""
+        criteria = SearchCriteria()
         startTagQuery()
     }
 
@@ -386,6 +420,10 @@ final class PaneModel: Identifiable {
                 if self.tagFilter == nil && !self.searchActive {
                     self.selection = self.selection.intersection(present)
                 }
+                if let pending = self.pendingSelection, pending.deletingLastPathComponent() == root {
+                    self.selection = present.contains(pending) ? [pending] : []
+                    self.pendingSelection = nil
+                }
                 self.revision += 1
                 self.startFolderSizes()
             case .failure(let error):
@@ -412,13 +450,13 @@ final class PaneModel: Identifiable {
         guard searchActive else { searching = false; return }
         searching = true
         let root = currentURL.standardizedFileURL
-        let query = filter
+        let query = filter, criteria = criteria
         let hidden = showHidden
         searchTask = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
             let stream = AsyncStream<SearchBatch> { cont in
                 let worker = Task.detached(priority: .userInitiated) {
-                    Self.scan(root: root, query: query, hidden: hidden, into: cont)
+                    Self.scan(root: root, query: query, criteria: criteria, hidden: hidden, into: cont)
                     cont.finish()
                 }
                 cont.onTermination = { _ in worker.cancel() }
@@ -440,19 +478,23 @@ final class PaneModel: Identifiable {
         }
     }
 
-    nonisolated private static func scan(root: URL, query: String, hidden: Bool, into cont: AsyncStream<SearchBatch>.Continuation) {
+    nonisolated private static func scan(root: URL, query: String, criteria: SearchCriteria, hidden: Bool, into cont: AsyncStream<SearchBatch>.Continuation) {
         var options: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
         if !hidden { options.insert(.skipsHiddenFiles) }
         guard let en = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: [.isDirectoryKey], options: options) else { return }
+            at: root, includingPropertiesForKeys: [.isDirectoryKey, .isPackageKey, .fileSizeKey, .contentModificationDateKey], options: options) else { return }
+        let now = Date()
         var batch: [URL] = []
         var folders = 0
         var found = 0
         var last = Date()
         while let url = en.nextObject() as? URL {
             if Task.isCancelled { return }
-            if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { folders += 1 }
-            if url.lastPathComponent.localizedCaseInsensitiveContains(query) {
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey, .fileSizeKey, .contentModificationDateKey])
+            let directory = values?.isDirectory == true && values?.isPackage != true
+            if directory { folders += 1 }
+            if criteria.matches(url: url, directory: directory, size: values?.fileSize.map(Int64.init),
+                                modified: values?.contentModificationDate, name: query, now: now) {
                 batch.append(url)
                 found += 1
                 if found >= 5000 { break }
@@ -482,7 +524,7 @@ final class PaneModel: Identifiable {
             guard let self, self.isVisible else { return }
             // Ignore unrelated changes deep inside collapsed folders (especially Home/Library).
             let visible = Set(([self.currentURL] + Array(self.expanded)).map { $0.resolvingSymlinksInPath().path })
-            guard paths.isEmpty || UserDefaults.standard.bool(forKey: "calculateFolderSizes") || paths.contains(where: {
+            guard self.searchActive || paths.isEmpty || UserDefaults.standard.bool(forKey: "calculateFolderSizes") || paths.contains(where: {
                 let path = URL(fileURLWithPath: $0).resolvingSymlinksInPath().path
                 return visible.contains(path) || visible.contains((path as NSString).deletingLastPathComponent)
             }) else { return }

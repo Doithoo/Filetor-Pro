@@ -3,6 +3,7 @@ import SwiftUI
 @main struct FiletorApp: App {
     @NSApplicationDelegateAdaptor(FiletorApplicationDelegate.self) private var applicationDelegate
     init() {
+        DisplayPreferences.migrate()
         // Filetor has its own tabs; the system tab bar would draw over the toolbar.
         NSWindow.allowsAutomaticWindowTabbing = false
     }
@@ -85,6 +86,8 @@ private struct WorkspaceCommands: Commands {
                     .disabled(app.active.expanded.isEmpty)
                 Button("Search") { app.activateSearch() }
                     .keyboardShortcut("f", modifiers: .command)
+                Button("Go to Folder…") { app.activateGoToFolder() }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
                 Button("Customize Toolbar…") { app.showCustomize = true }
                 Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
             }

@@ -21,6 +21,7 @@ enum Shortcuts {
             ("Reload", "⌥ ⌘ R"),
             ("Show or Hide Hidden Files", "⇧ ⌘ ."),
             ("Search", "⌘ F"),
+            ("Go to Folder", "⇧ ⌘ G"),
         ]),
         ShortcutGroup(title: "Files", entries: [
             ("New Folder", "⇧ ⌘ N"),

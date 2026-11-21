@@ -38,7 +38,7 @@ if (webp / "lib/libwebp.a").exists():
     command += ["-I", str(out / "Modules"), "-Xcc", "-I" + str(webp / "include"), str(webp / "lib/libwebp.a"), str(webp / "lib/libsharpyuv.a")]
 command += [str(p) for p in sorted((root / "Filetor").glob("*.swift")) if not (testing and p.name == "MyApp.swift")]
 if testing:
-    command += [str(root / "Tests/Regression.swift")]
+    command += [str(p) for p in sorted((root / "Tests").glob("*Regression.swift"))]
     subprocess.run(command, check=True)
     subprocess.run([str(out / "FiletorRegression")], check=True, timeout=180)
     sys.exit(0)

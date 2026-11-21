@@ -12,6 +12,9 @@ Filetor Pro is developed independently by Doithoo, building on [Filetor by David
 - **A customizable toolbar** with your choice of tools, order and labels.
 - Single or dual panes, list/icon/column views, breadcrumbs, favorites, mounted disks and network locations.
 - Finder tags, saved searches, subfolder search, Quick Look and an optional information panel.
+- **Local search** with `⌘F`: combine name, kind, extension, modification date and size, in the current folder or its subfolders.
+- **Path completion** with `⇧⌘G`: browse matching folders and files, use Tab to complete a path, or open a file's containing folder with the file selected.
+- Categorized settings with independent list row height and grid icon size, safe extension hiding, and optional native file thumbnails (off by default).
 
 Press **Space** on a file or folder to open native macOS Quick Look in any view. The toolbar, context menu and information panel's **Quick Look** button use the same system preview, including enabled extensions such as Looq. Space or Escape closes it; list selection changes update the preview. The information panel itself shows metadata and a thumbnail. Preview formats and rendering depend on the extensions selected by macOS, just as in Finder.
 
@@ -25,7 +28,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.3.3**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.4.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

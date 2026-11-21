@@ -86,7 +86,7 @@ struct CustomToolbar: View {
             let base = geo.size.width - 28 - transfersWidth
             let first = split(available: base)
             let parts = first.hidden.isEmpty ? first : split(available: base - 40 * s)
-            let hiddenButtons = parts.hidden.filter { $0.kind != "flex" && $0.kind != "space" && $0.kind != "title" && $0.kind != "search" && $0.kind != "view" }
+            let hiddenButtons = parts.hidden.filter { !["flex", "space", "title"].contains($0.kind) }
 
             HStack(alignment: .center, spacing: 6) {
                 if model.entries.isEmpty {
@@ -97,7 +97,7 @@ struct CustomToolbar: View {
                 ForEach(parts.visible) { entry in
                     entryView(entry)
                 }
-                if !parts.hidden.isEmpty {
+                if !hiddenButtons.isEmpty {
                     if !parts.visible.contains(where: { $0.kind == "flex" }) { Spacer(minLength: 0) }
                     Menu {
                         ForEach(hiddenButtons) { entry in
@@ -139,6 +139,14 @@ struct CustomToolbar: View {
         if entry.kind == "backfwd" {
             Button("Back") { app.active.goBack() }.disabled(!app.active.canGoBack)
             Button("Forward") { app.active.goForward() }.disabled(!app.active.canGoForward)
+        } else if entry.kind == "search" {
+            Button("Search…") { app.activateSearch() }
+        } else if entry.kind == "view" {
+            Menu("View") {
+                Button("As List") { app.active.viewMode = 0 }
+                Button("As Icons") { app.active.viewMode = 1 }
+                Button("As Columns") { app.active.viewMode = 2 }
+            }
         } else if let def = ToolCatalog.def(entry.kind) {
             Button(def.title) { def.run(app) }
                 .disabled(isDisabled(def))

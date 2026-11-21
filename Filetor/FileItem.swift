@@ -22,6 +22,10 @@ nonisolated struct FileItem: Identifiable, Hashable, Sendable {
 
     var id: URL { url }
 
+    func displayName(showExtension: Bool) -> String {
+        FileNamePresentation.display(name, directory: isDirectory, package: isPackage, showExtension: showExtension)
+    }
+
     /// A folder whose content can be opened in place in the list.
     var expandable: Bool { isDirectory && !isPackage && !isSymbolicLink }
 

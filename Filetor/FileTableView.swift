@@ -12,6 +12,11 @@ struct FileTableView: NSViewRepresentable {
     let striped: Bool
     let compact: Bool
     var showFolder = false
+    var rowSize: CGFloat? = nil
+    var showExtensions = true
+    var previews = false
+    private var effectiveRowHeight: CGFloat { rowSize ?? (compact ? 20 : 25) }
+    private var iconSide: CGFloat { DisplayPreferences.iconSize(rowHeight: effectiveRowHeight) * scale }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -97,7 +102,7 @@ struct FileTableView: NSViewRepresentable {
         c.parent = self
         guard let table = c.table else { return }
 
-        let settings = [scale, striped ? 1 : 0, compact ? 1 : 0]
+        let settings: [CGFloat] = [scale, striped ? 1 : 0, effectiveRowHeight, showExtensions ? 1 : 0, previews ? 1 : 0]
         let settingsChanged = settings != c.lastSettings
         let itemsChanged = items != c.items
         let treeState = pane.expanded.symmetricDifference(pane.loadingFolders)
@@ -109,7 +114,7 @@ struct FileTableView: NSViewRepresentable {
         c.items = items
 
         table.usesAlternatingRowBackgroundColors = striped
-        table.rowHeight = (compact ? 20 : 25) * scale
+        table.rowHeight = effectiveRowHeight * scale
 
         c.syncing = true
         if let first = sortOrder.first {
@@ -298,6 +303,7 @@ struct FileTableView: NSViewRepresentable {
         var renaming = false
         var needsReload = false
         private var renameOriginal = ""
+        private var renameShown = ""
 
         func beginInlineRename(_ url: URL) {
             guard !renaming, let table,
@@ -308,6 +314,7 @@ struct FileTableView: NSViewRepresentable {
                   let field = cell.textField else { return }
             renaming = true
             renameOriginal = items[row].name
+            renameShown = items[row].displayName(showExtension: parent.showExtensions)
             field.isEditable = true
             field.isSelectable = true
             field.isBezeled = true
@@ -317,9 +324,11 @@ struct FileTableView: NSViewRepresentable {
             field.textColor = .textColor
             (field.cell as? NSTextFieldCell)?.backgroundStyle = .normal
             field.delegate = self
-            field.stringValue = renameOriginal
+            field.stringValue = parent.app.renameText
             table.window?.makeFirstResponder(field)
-            if let editor = field.currentEditor() {
+            if parent.app.renameHidesExtension {
+                field.currentEditor()?.selectedRange = NSRange(location: 0, length: (field.stringValue as NSString).length)
+            } else if let editor = field.currentEditor() {
                 let name = renameOriginal as NSString
                 let ext = name.pathExtension
                 let keepAll = items[row].isDirectory || ext.isEmpty || name.length == ext.count + 1
@@ -336,7 +345,7 @@ struct FileTableView: NSViewRepresentable {
             field.isSelectable = false
             field.isBezeled = false
             field.drawsBackground = false
-            field.stringValue = renameOriginal
+            field.stringValue = renameShown
             table?.window?.makeFirstResponder(table)
             if cancelled {
                 parent.app.renameTarget = nil
@@ -380,12 +389,12 @@ struct FileTableView: NSViewRepresentable {
 
             switch id.rawValue {
             case "name":
-                let icon = NSImageView()
-                icon.image = NSWorkspace.shared.icon(forFile: item.url.path)
+                let icon = FileThumbnailView()
+                icon.configure(item, side: parent.iconSide, previews: parent.previews)
                 icon.translatesAutoresizingMaskIntoConstraints = false
                 cell.addSubview(icon)
                 cell.imageView = icon
-                text.stringValue = item.name
+                text.stringValue = item.displayName(showExtension: parent.showExtensions)
                 // In the plain list, folders open in place: a small arrow in front of the icon, one step in per level.
                 var iconLeading: CGFloat = 8
                 if parent.pane.treeActive {
@@ -433,8 +442,8 @@ struct FileTableView: NSViewRepresentable {
                 NSLayoutConstraint.activate([
                     icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: iconLeading),
                     icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                    icon.widthAnchor.constraint(equalToConstant: 17 * s),
-                    icon.heightAnchor.constraint(equalToConstant: 17 * s),
+                    icon.widthAnchor.constraint(equalToConstant: parent.iconSide),
+                    icon.heightAnchor.constraint(equalToConstant: parent.iconSide),
                     text.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
                     text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
                     text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
@@ -745,15 +754,9 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(.separator())
                 menu.addItem(item("Rotate Left") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })
                 menu.addItem(item("Rotate Right") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 90) })
-                let conv = NSMenuItem(title: "Convert Image", action: nil, keyEquivalent: "")
-                let sub = NSMenu()
-                var formats = [("PNG", "png", "png"), ("JPEG", "jpeg", "jpg"), ("HEIC", "heic", "heic"), ("TIFF", "tiff", "tiff")]
-                if FileTools.canWriteWebP { formats.append(("WebP", "webp", "webp")) }
-                for (title, fmt, ext) in formats {
-                    sub.addItem(item(title) { [weak self] in self?.parent.app.convertImages(urls, format: fmt, ext: ext) })
-                }
-                conv.submenu = sub
-                menu.addItem(conv)
+                menu.addItem(item("Convert Image…") { [weak self] in
+                    self?.parent.app.convertURLs = urls.filter { FileTools.isImage($0) }
+                })
                 menu.addItem(item("Optimize…") { [weak self] in self?.parent.app.optimizeImages(urls) })
                 menu.addItem(item("Strip Metadata") { [weak self] in self?.parent.app.stripMetadata(urls) })
             }
@@ -763,6 +766,7 @@ struct FileTableView: NSViewRepresentable {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(paths, forType: .string)
             })
+            menu.addItem(item("Touch — Set Modified Date to Now") { [weak self] in self?.parent.app.touch(urls) })
             menu.addItem(item("Get Info") { [weak self] in self?.parent.app.getInfo(urls) })
             let shareItems = urls.sorted { $0.path < $1.path }
             let shareMenu = NSMenu()
