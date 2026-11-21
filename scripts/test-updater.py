@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise Sparkle's real download/verify/install/relaunch path in disposable apps."""
+import argparse
 import functools
 import http.server
 import importlib.util
@@ -21,8 +22,29 @@ spec.loader.exec_module(release)
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--keep-fixtures", action="store_true",
+                        help="Keep temporary fixture files after a successful run for inspection")
+    args = parser.parse_args()
     dependency = sparkle()
     root = Path(tempfile.mkdtemp(prefix="updater-fixtures-", dir=ROOT / ".build"))
+    try:
+        run_tests(root, dependency)
+    except BaseException:
+        print("Updater fixtures retained for diagnosis:", root, flush=True)
+        raise
+    if args.keep_fixtures:
+        print("Updater fixtures retained:", root, flush=True)
+    else:
+        shutil.rmtree(root)
+        print("Temporary updater fixtures removed.", flush=True)
+
+
+def run_tests(root, dependency):
+    report = ROOT / ".build/reports/updater.json"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    # A failed run must not leave a previous successful summary looking current.
+    report.unlink(missing_ok=True)
     sdk = "/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
     executable = root / "UpdateProbe"
     subprocess.run(["xcrun", "swiftc", "-swift-version", "5", "-default-isolation", "MainActor", "-sdk", sdk,
@@ -122,7 +144,7 @@ def main():
                     assert "UPDATE_ERROR:" in text, text
                     assert plistlib.loads((app / "Contents/Info.plist").read_bytes())["CFBundleVersion"] == "1"
                 print("PASS:", mode, flush=True)
-                results.append({"case": mode, "passed": True, "log": str(log)})
+                results.append({"case": mode, "passed": True, "log": log.read_text()})
             finally:
                 if process.poll() is None:
                     try: process.wait(timeout=3)
@@ -134,10 +156,11 @@ def main():
                     subprocess.run([register, "-u", str(installed)], capture_output=True)
                 shutil.rmtree(case / "installed", ignore_errors=True)
                 shutil.rmtree(candidate, ignore_errors=True)
-        (root / "results.json").write_text(json.dumps(results, indent=2))
-        print("Updater integration results:", root / "results.json", flush=True)
+        report.write_text(json.dumps(results, indent=2) + "\n")
+        print("Updater integration results:", report, flush=True)
     finally:
         server.shutdown()
+        server.server_close()
 
 
 if __name__ == "__main__":

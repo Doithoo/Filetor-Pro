@@ -46,6 +46,8 @@ open ".build/pro/Filetor Pro.app"
 
 See the [development and verification guide](docs/DEVELOPMENT.md) for prerequisites and current limitations, and the [release workflow](docs/UPDATES.md) for publishing signed updates. The source includes the application icon; a clean build does not require an existing installation.
 
+The [repository layout and cleanup guide](docs/DEVELOPMENT.md#项目目录与清理) explains which files belong in source control and where generated files and local backups should live.
+
 Versions use `MAJOR.MINOR.PATCH`, starting with `0.3.0` under the Filetor Pro name. Each release also increments its numeric build. The independent repository is **Doithoo/Filetor-Pro**. Version `0.3.3` uses its new update address; older versions reach it through GitHub's redirect from `Doithoo/Filetor`. The internal bundle identifier and update signing key remain stable so existing installations retain settings and can keep updating.
 
 ## Privacy, attribution and feedback

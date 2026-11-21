@@ -5,9 +5,11 @@
 xcuserdata/
 *.xcuserstate
 DerivedData/
+
+# Generated builds, dependency caches, reports and release artifacts
 build/
 .build/
+
+# Python bytecode
 __pycache__/
 *.pyc
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/

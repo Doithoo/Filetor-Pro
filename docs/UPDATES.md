@@ -37,7 +37,7 @@ The release preparation command uses `scripts/build.py`, which embeds the full v
 
 ## Branding and continuity
 
-Product name and executable are defined in `scripts/release-config.json`. The native interface uses `Filetor/ProductInfo.swift`; keep Xcode product settings aligned. Published releases are titled `Filetor Pro <version>` and contain `Filetor-Pro-<version>-arm64.zip`. Historical release tags and notes are retained unchanged. The old `build-personal.py` and `release-personal.py` entry points remain compatibility wrappers.
+Product name and executable are defined in `scripts/release-config.json`. The native interface uses `Filetor/ProductInfo.swift`; keep Xcode product settings aligned. Published releases are titled `Filetor Pro <version>` and contain `Filetor-Pro-<version>-arm64.zip`. Historical release tags and notes are retained unchanged. Use `scripts/build.py` and `scripts/release.py`; the obsolete personal-build wrappers have been removed.
 
 Version `0.3.0` / build `3` follows `0.2.0-personal.2` / build `2`. Sparkle compares numeric builds, so the branding change does not interrupt upgrading.
 

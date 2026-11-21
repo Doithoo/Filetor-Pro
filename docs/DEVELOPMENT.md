@@ -27,6 +27,33 @@ open ".build/pro/Filetor Pro.app"
 
 Filetor Pro 使用固定 Bundle ID `com.doithoo.Filetor.personal`，设置和原版隔离。更新源固定为自己的 `Doithoo/Filetor-Pro` Release，不检查上游发布。首次构建会下载 SHA-256 固定的 Sparkle 2.10.1，后续使用已校验的本地缓存。应用采用本地临时签名，更新包及更新清单另有 Ed25519 签名。本机构建不代表完成了其他 macOS 版本、Intel 或网络卷兼容性验证。
 
+## 项目目录与清理
+
+| 路径 | 用途 |
+| --- | --- |
+| `Filetor/` | Swift 源码、应用配置和可编辑图标资源 |
+| `Filetor.xcodeproj/` | Xcode 项目、共享工作区与依赖锁文件 |
+| `Resources/` | 命令行构建所需的打包资源及来源说明 |
+| `Tests/` | Swift 回归测试与更新测试应用 |
+| `scripts/` | 当前构建、测试、签名与发布工具 |
+| `docs/` | 开发、发布说明；`releases/` 保留历次版本记录 |
+| `.build/pro/` | 当前应用构建、编译缓存及回归截图，可重新生成 |
+| `.build/dependencies/` | 校验过的依赖缓存，删除后下次构建重新下载 |
+| `.build/reports/` | 本地验证报告，不提交 Git |
+| `.build/releases/` | 签名发布包、清单与校验记录，单独保留 |
+
+根目录保留入口文档、许可证及项目配置。源码暂时保持现有布局：命令行构建会读取 `Filetor/` 下的 Swift 文件；将来按功能拆分子目录时，需要同时调整源码发现逻辑并验证 Xcode 与命令行构建。
+
+日常整理遵循以下规则：
+
+- 临时日志、截图和排查脚本放在 `.build/`；正式文档截图放在 `docs/images/`，仅保留文档实际引用的版本，需要时再创建目录。历史截图可从 Git 历史找回。
+- 更新集成测试成功后自动清除临时应用、压缩包和测试目录，将七项结果及日志保存在 `.build/reports/updater.json`。失败或中断时保留临时目录并输出路径，方便排查；需要保留成功运行的诊断文件时使用 `python3 scripts/test-updater.py --keep-fixtures`。测试应用本身仍会注销并移除。
+- 不运行构建或测试时，可删除 `.build/pro/` 和 Python 的 `__pycache__/` 来清理可再生产物；后续构建会重新生成。通常保留当前编译缓存，避免下一次构建变慢。不要直接把整个 `.build/` 当作缓存删除，其中可能仍有待发布的签名包或失败测试证据。
+- 工具栏等偏好备份、安装回滚资料、仓库迁移备份存放在仓库外的 `~/Library/Application Support/Filetor Pro/Development Archives/`，按日期归档并附路径索引；不放进源码目录、不提交 Git。发布私钥继续由登录钥匙串管理。
+- 保留许可证、原作者署名、图标源文件、`Package.resolved` 和历史发布说明。这些都是项目资料，不是构建垃圾。
+
+当前入口统一为 `build.py`、`test-updater.py` 和 `release.py`，不再保留旧的 personal 构建别名。仅整理文档、开发脚本或本机产物时不递增应用版本，也不重新安装应用；产品行为变化才进入正常发布流程。
+
 ## 自动更新
 
 设置中的 **Check for updates…** 会检查自己的仓库，发现新版后可直接下载、安装并重启。**Automatically check for and install updates** 一个开关同时控制自动检查和后台下载，下载完成后退出应用即可安装。旧版按原“自动检查”开关迁移，原来关闭的保持关闭；手动检查入口始终保留。文件操作仍在运行时不会直接重启。工具栏、侧栏、列宽及工作区保存在同一设置身份下，更新不会重置。
