@@ -2,7 +2,7 @@
 
 A lightweight, native file manager for macOS, maintained by **Doithoo**. Built with SwiftUI and AppKit, with independent windows, tabs, a dual-pane workspace and inline folder expansion.
 
-Filetor Pro is a maintained fork of [Filetor by David Praznik](https://github.com/davidpraznik/Filetor). It preserves the original project's native approach and MIT license while developing its own releases and improvements.
+Filetor Pro is developed independently by Doithoo, building on [Filetor by David Praznik](https://github.com/davidpraznik/Filetor). It preserves the original project's native approach, commit history, MIT license and author attribution while maintaining its own roadmap and releases.
 
 ## Everyday browsing
 
@@ -52,6 +52,6 @@ Versions use `MAJOR.MINOR.PATCH`, starting with `0.3.0` under the Filetor Pro na
 
 File operations run locally. Update checks and downloads contact GitHub; the updater does not upload file contents or send Sparkle system profiles. Network file access and external applications run only as requested by the user.
 
-Please report Filetor Pro issues in [this fork's issue tracker](https://github.com/Doithoo/Filetor/issues).
+Please report Filetor Pro issues in [this repository's issue tracker](https://github.com/Doithoo/Filetor/issues).
 
 Original Filetor and its icon: **David Praznik**. Filetor Pro modifications: **Doithoo**. Source is provided under the [MIT license](LICENSE). Sparkle and optional libwebp retain their respective bundled licenses.
