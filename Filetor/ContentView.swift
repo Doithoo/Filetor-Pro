@@ -48,7 +48,7 @@ struct ContentView: View {
                         InfoPanel(app: app)
                     }
                 }
-                    .alert("Filetor", isPresented: Binding(
+                    .alert(ProductInfo.name, isPresented: Binding(
                         get: { app.alert != nil },
                         set: { if !$0 { app.alert = nil } }
                     )) {

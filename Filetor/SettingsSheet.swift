@@ -23,12 +23,9 @@ struct SettingsSheet: View {
 
     private var s: CGFloat { UIScale.value(textSize) }
 
-    /// "Filetor 0.1.1 · © 2026 David Praznik", read from the app's Info (Xcode target > Info).
-    private var aboutLine: String {
-        let info = Bundle.main.infoDictionary ?? [:]
-        let version = info["CFBundleShortVersionString"] as? String ?? "?"
-        let copyright = info["NSHumanReadableCopyright"] as? String ?? ""
-        return "Filetor \(version)" + (copyright.isEmpty ? "" : " · \(copyright)")
+    private var aboutLine: String { "\(ProductInfo.name) \(ProductInfo.version)" }
+    private var copyright: String {
+        Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String ?? ""
     }
 
     var body: some View {
@@ -131,7 +128,7 @@ struct SettingsSheet: View {
                     set: { app.updater.setAutomaticDownloads($0) }
                 ))
                 .disabled(!app.updater.automaticallyChecks)
-                Text("Updates come from Doithoo/Filetor. Your settings are kept.")
+                Text("Updates come from the Filetor Pro release channel. Your settings are kept.")
                     .foregroundStyle(.secondary)
                 HStack(spacing: 12) {
                     Button("Check for updates…") { app.updater.check() }
@@ -154,7 +151,8 @@ struct SettingsSheet: View {
             }
             Divider()
             VStack(alignment: .leading, spacing: 9 * s) {
-                Text(aboutLine).fontWeight(.light)
+                Text(aboutLine).fontWeight(.semibold)
+                if !copyright.isEmpty { Text(copyright).foregroundStyle(.secondary) }
                 HStack {
                     Link("github.com/\(UpdateChecker.repo)", destination: URL(string: "https://github.com/\(UpdateChecker.repo)")!)
                     Spacer(minLength: 14)

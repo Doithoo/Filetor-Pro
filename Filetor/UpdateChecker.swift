@@ -66,7 +66,7 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
         controller?.checkForUpdates(nil)
     }
 
-    // Keep this personal channel fixed even if a stale defaults value names another feed.
+    // Keep this release channel fixed even if a stale defaults value names another feed.
     func feedURLString(for updater: SPUUpdater) -> String? { Self.feedURL }
 
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
@@ -125,9 +125,9 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
 
     var message: String {
         switch state {
-        case .idle: return "Updates from your personal fork."
+        case .idle: return "Updates from the Filetor Pro release channel."
         case .checking: return "Checking for updates…"
-        case .upToDate: return "Filetor Personal is up to date."
+        case .upToDate: return "\(ProductInfo.name) is up to date."
         case .available(let version): return "Version \(version) is available."
         case .downloading: return "Downloading and verifying the update…"
         case .installing: return "Preparing to install and restart…"

@@ -8,7 +8,7 @@ import SwiftUI
     }
 
     var body: some Scene {
-        WindowGroup("Filetor Personal", id: "workspace", for: UUID.self) { $workspaceID in
+        WindowGroup(ProductInfo.name, id: "workspace", for: UUID.self) { $workspaceID in
             WorkspaceRoot(workspaceID: workspaceID)
         } defaultValue: {
             UUID()
@@ -44,7 +44,7 @@ private struct WorkspaceCommands: Commands {
         }
         if let app = focusedWorkspace {
             CommandGroup(replacing: .appInfo) {
-                Button("About Filetor") {
+                Button("About \(ProductInfo.name)") {
                     let link = "https://github.com/\(UpdateChecker.repo)"
                     let credits = NSMutableAttributedString(
                         string: "github.com/\(UpdateChecker.repo)",
@@ -172,8 +172,8 @@ final class FiletorApplicationDelegate: NSObject, NSApplicationDelegate {
         guard !AppModel.hasActiveFileOperations else {
             let alert = NSAlert()
             alert.messageText = "File operations are still running"
-            alert.informativeText = "Finish or cancel the file operations before quitting or restarting Filetor."
-            alert.addButton(withTitle: "Keep Filetor Open")
+            alert.informativeText = "Finish or cancel the file operations before quitting or restarting \(ProductInfo.name)."
+            alert.addButton(withTitle: "Keep \(ProductInfo.name) Open")
             alert.runModal()
             return .terminateCancel
         }

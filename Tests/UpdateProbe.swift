@@ -30,6 +30,7 @@ final class ProbeDriver: NSObject, NSApplicationDelegate, SPUUserDriver, SPUUpda
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        log("LAUNCHED: \(Bundle.main.executableURL!.lastPathComponent)")
         if info["CFBundleVersion"] as? String == "2" {
             log(UserDefaults.standard.string(forKey: "toolbar.fixture") == "customized toolbar survives update" ? "INSTALLED_PREFERENCES_PRESERVED" : "PREFERENCES_LOST")
             NSApp.terminate(nil)

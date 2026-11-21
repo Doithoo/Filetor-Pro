@@ -220,7 +220,7 @@ struct Regression {
         app.activeIndex = 0
         let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 940, height: 420), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.title = "Filetor Personal — Folder Expansion Test"
+        window.title = "Filetor Pro — Folder Expansion Test"
         let host = NSHostingView(rootView: FileListView(pane: pane, app: app, isActive: true))
         window.contentView = host
         window.makeKeyAndOrderFront(nil)

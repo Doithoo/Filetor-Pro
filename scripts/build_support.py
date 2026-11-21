@@ -8,8 +8,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = json.loads((ROOT / "scripts/release-config.json").read_text())
+# Keep this identity stable: existing toolbar settings and updates depend on it.
 BUNDLE_ID = "com.doithoo.Filetor.personal"
 FEED_URL = f"https://github.com/{CONFIG['repository']}/releases/latest/download/appcast.xml"
+
+PRODUCT_NAME = CONFIG["product_name"]
+EXECUTABLE = CONFIG["executable"]
+BUILD_DIR = ROOT / ".build/pro"
+APP_PATH = BUILD_DIR / f"{PRODUCT_NAME}.app"
 
 
 def sparkle():
