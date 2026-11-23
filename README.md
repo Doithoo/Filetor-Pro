@@ -18,7 +18,7 @@ Filetor Pro is developed independently by Doithoo, building on [Filetor by David
 - **Go To toolbar button**: browse folders, sidebar favorites and recent locations in a native popover. Click a folder name to open it or its arrow to browse deeper; each breadcrumb also has a subfolder dropdown. Path entry, `⇧⌘G` and Tab completion remain available.
 - Categorized settings with independent list row height and grid icon size, safe extension hiding, and optional native file thumbnails (off by default).
 
-Press **Space** on a file or folder to open native macOS Quick Look in any view. The toolbar and context menu use the same system preview, including enabled extensions such as Looq. Space or Escape closes it; list selection changes update the preview. The information panel itself shows metadata and a thumbnail. Preview formats and rendering depend on the extensions selected by macOS, just as in Finder.
+Press **Space** on a folder for the built-in native preview: expand subfolders, inspect name/size/type/modified time, toggle hidden items, refresh, or open the folder in the current pane. Folder preview needs no Looq or other extension. Space or Escape closes it; selection changes update the preview. Mixed selections have previous/next controls and use system Quick Look for files. Packages and symbolic links retain system preview. Each folder loads only when expanded; large directories show an explicit preview limit. Other file formats still depend on macOS and its enabled extensions. This release does not install a Finder preview extension.
 
 ## File tools
 
@@ -30,7 +30,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.6.4**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.7.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

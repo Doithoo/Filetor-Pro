@@ -1,13 +1,15 @@
 import AppKit
 import Quartz
 
-/// All preview entry points use the system panel, including installed preview extensions.
+/// Folder selections use the built-in browser; other files retain system Quick Look.
 final class SystemQuickLook: NSResponder, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     static let shared = SystemQuickLook()
     private(set) var urls: [URL] = []
     private weak var owner: AnyObject?
     private weak var sourceWindow: NSWindow?
     private weak var sourceResponder: NSResponder?
+    private(set) var folderPreview: FolderPreviewController?
+    private(set) var usesFolderPreview = false
 
     func show(_ urls: [URL], owner: AnyObject, window: NSWindow) {
         guard !urls.isEmpty else { return }
@@ -20,6 +22,37 @@ final class SystemQuickLook: NSResponder, QLPreviewPanelDataSource, QLPreviewPan
         self.owner = owner
         self.urls = urls
         sourceResponder = window.firstResponder
+        window.makeKeyAndOrderFront(nil)
+        present()
+    }
+
+    private func present() {
+        guard let window = sourceWindow else { return }
+        // A mixed selection stays in one panel, with system previews for its files.
+        let showFolders = urls.contains { FileItem(url: $0).expandable }
+        if showFolders {
+            if QLPreviewPanel.sharedPreviewPanelExists() {
+                let panel = QLPreviewPanel.shared()!
+                if panel.currentController as AnyObject? === self { panel.orderOut(nil) }
+                usesFolderPreview = true
+                panel.updateController()
+            }
+            usesFolderPreview = true
+            if folderPreview == nil {
+                let controller = FolderPreviewController()
+                controller.closePreview = { [weak self] in self?.close() }
+                controller.openFolder = { [weak self] url in
+                    guard let self, let app = self.owner as? AppModel else { return }
+                    self.close()
+                    app.active.navigate(to: url)
+                }
+                folderPreview = controller
+            }
+            folderPreview?.show(urls, relativeTo: window, showHidden: (owner as? AppModel)?.active.showHidden ?? false)
+            return
+        }
+        folderPreview?.hide()
+        usesFolderPreview = false
         window.makeKeyAndOrderFront(nil)
         let panel = QLPreviewPanel.shared()!
         panel.updateController()
@@ -35,7 +68,7 @@ final class SystemQuickLook: NSResponder, QLPreviewPanelDataSource, QLPreviewPan
     }
 
     var isVisible: Bool {
-        QLPreviewPanel.sharedPreviewPanelExists() && QLPreviewPanel.shared().isVisible
+        folderPreview?.panel.isVisible == true || (QLPreviewPanel.sharedPreviewPanelExists() && QLPreviewPanel.shared().isVisible)
     }
 
     func update(_ urls: [URL], owner: AnyObject) {
@@ -44,10 +77,7 @@ final class SystemQuickLook: NSResponder, QLPreviewPanelDataSource, QLPreviewPan
         guard self.urls != urls else { return }
         guard !urls.isEmpty else { close(); return }
         self.urls = urls
-        let panel = QLPreviewPanel.shared()!
-        guard panel.currentController as AnyObject? === self else { return }
-        panel.reloadData()
-        panel.currentPreviewItemIndex = 0
+        present()
     }
 
     func close(owner: AnyObject) {
@@ -55,9 +85,16 @@ final class SystemQuickLook: NSResponder, QLPreviewPanelDataSource, QLPreviewPan
     }
 
     func close() {
+        let restoreFocus = folderPreview?.panel.isKeyWindow == true
+        folderPreview?.hide()
+        usesFolderPreview = false
         if QLPreviewPanel.sharedPreviewPanelExists(),
            QLPreviewPanel.shared().currentController as AnyObject? === self {
             QLPreviewPanel.shared().orderOut(nil)
+        }
+        if restoreFocus, let window = sourceWindow {
+            window.makeKeyAndOrderFront(nil)
+            window.makeFirstResponder(sourceResponder)
         }
         detachSourceWindow()
         owner = nil
@@ -72,7 +109,7 @@ final class SystemQuickLook: NSResponder, QLPreviewPanelDataSource, QLPreviewPan
         sourceResponder = nil
     }
 
-    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { !urls.isEmpty && owner != nil }
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { !usesFolderPreview && !urls.isEmpty && owner != nil }
 
     override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
         panel.dataSource = self

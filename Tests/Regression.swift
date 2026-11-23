@@ -269,10 +269,12 @@ struct Regression {
         table.keyDown(with: space)
         let preview = SystemQuickLook.shared
         let panel = QLPreviewPanel.shared()!
-        try await until("folder Quick Look") { panel.isVisible && panel.currentController as AnyObject? === preview }
-        try check(panel.currentPreviewItem?.previewItemURL == child, "Space sends folders to the system preview panel")
-        try check(preview.previewPanel(panel, handle: space), "Space closes the system preview")
-        try await until("preview closes") { !panel.isVisible }
+        try await until("built-in folder preview") { preview.folderPreview?.panel.isVisible == true }
+        try check(preview.folderPreview?.currentURL == child && !panel.isVisible,
+                  "Space previews folders without the system panel or a third-party extension")
+        preview.folderPreview?.panel.sendEvent(space)
+        try check(!preview.isVisible, "Space closes the built-in folder preview")
+        try await until("preview closes") { !preview.isVisible }
 
         let archive = dir.appending(path: "Example.zip")
         try check(FileTools.run("/usr/bin/ditto", ["-c", "-k", parent.path, archive.path]) == nil, "create native preview archive fixture")
@@ -287,15 +289,16 @@ struct Regression {
 
         let parentRow = pane.sortedItems.firstIndex { $0.url == parent }!
         table.selectRowIndexes(IndexSet(integer: parentRow), byExtendingSelection: false)
-        try check(panel.currentPreviewItem?.previewItemURL == parent, "system preview follows list selection")
+        try await until("file preview transitions to folder") { preview.folderPreview?.panel.isVisible == true && !panel.isVisible }
+        try check(preview.folderPreview?.currentURL == parent && !panel.isVisible, "preview follows selection from files to built-in folders")
         let selectedBeforePreview = pane.selection
         app.quickLook([dir])
-        try check(panel.currentPreviewItem?.previewItemURL == dir && pane.selection == selectedBeforePreview,
+        try check(preview.folderPreview?.currentURL == dir && pane.selection == selectedBeforePreview,
                   "explicit folder preview does not change file selection")
 
         app.quickLook([archive, parent])
         try check(preview.urls == pane.sortedItems.map(\.url).filter { $0 == archive || $0 == parent }
-                  && preview.numberOfPreviewItems(in: panel) == 2, "toolbar and context previews preserve display order and multiple items")
+                  && preview.folderPreview?.urls.count == 2, "toolbar and context previews preserve display order and multiple items")
         let leaf = child.appending(path: "Notes.txt")
         app.quickLook([leaf])
         try check(panel.currentPreviewItem?.previewItemURL == leaf, "column descendant files use native preview even outside the visible root list")
@@ -320,7 +323,7 @@ struct Regression {
                   "clearing selection closes preview and restores the responder chain")
         other.quickLook([parent])
         other.stop()
-        try await until("closing workspace closes preview") { !panel.isVisible }
+        try await until("closing workspace closes preview") { !preview.isVisible }
         try check(preview.urls.isEmpty, "closing the owning workspace releases its preview")
     }
 
@@ -417,6 +420,9 @@ struct Regression {
                 try await navigationWorkspaceUITests(root)
             } else if CommandLine.arguments.contains("--trash-only") {
                 try await trashDeletionTests(root)
+            } else if CommandLine.arguments.contains("--folder-preview-only") {
+                try await folderPreviewTests(root)
+                try await nativeUITests(root)
             } else if CommandLine.arguments.contains("--sidebar-toolbar-only") {
                 try await sidebarToolbarTests(root)
             } else if CommandLine.arguments.contains("--navigation-only") {
@@ -428,6 +434,7 @@ struct Regression {
                 try await paneTests(root)
                 try await managerTests(root)
                 try await nativeUITests(root)
+                try await folderPreviewTests(root)
                 try await updateTests(root)
                 try await browsingTests(root)
                 try await navigationTests(root)
