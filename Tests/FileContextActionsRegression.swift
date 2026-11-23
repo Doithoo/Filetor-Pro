@@ -106,6 +106,13 @@ extension Regression {
         let redoError = await step.redo()
         try check(redoError == nil && FileTools.exists(created), "new document redo restores the same file")
 
+        let package = try folder(destination, "Example.app")
+        let packageContents = try folder(package, "Contents")
+        let info = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "com.filetor.fixture", "CFBundlePackageType": "APPL"], format: .xml, options: 0)
+        try info.write(to: packageContents.appendingPathComponent("Info.plist"))
+        right.reloadKeepingSelection()
+        try await until("package fixture appears") { !right.loading && right.items.contains { $0.url == package } }
+
         let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 700, height: 420), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         let host = NSHostingView(rootView: PaneContainer(app: app, index: 1))
@@ -129,5 +136,57 @@ extension Regression {
         coordinator.populateContextMenu(menu, row: 0)
         try check(["Cut", "Copy", "Paste", "Rename…"].allSatisfy { menu.item(withTitle: $0) != nil }, "file context menu exposes Cut Copy Paste alongside Rename")
         try check(menu.item(withTitle: "Expand Folder") == nil && menu.item(withTitle: "Collapse Folder") == nil, "context menu keeps redundant expansion actions removed")
+
+        guard let regularRow = coordinator.items.firstIndex(where: { $0.url == existing }) else {
+            throw FileOperationSafety.failure("Missing regular file row")
+        }
+        coordinator.populateContextMenu(menu, row: regularRow)
+        try check(menu.item(withTitle: "Show Package Contents") == nil, "ordinary file context menus do not offer package browsing")
+        guard let moveItem = menu.item(withTitle: "Move to…") else { throw FileOperationSafety.failure("Missing Move to menu item") }
+        var chooserVerified = false
+        var ticks = 0
+        let timer = Timer(timeInterval: 0.1, repeats: true) { timer in
+            MainActor.assumeIsolated {
+                ticks += 1
+                if let panel = NSApp.modalWindow as? NSOpenPanel {
+                    chooserVerified = panel.prompt == "Move" && panel.canChooseDirectories && !panel.canChooseFiles
+                        && !panel.allowsMultipleSelection && !panel.treatsFilePackagesAsDirectories
+                        && panel.directoryURL.map { FileOperationSafety.sameItem($0, destination) } == true
+                        && app.activeIndex == 1
+                    panel.cancel(nil)
+                    timer.invalidate()
+                } else if ticks > 50 {
+                    NSApp.abortModal()
+                    timer.invalidate()
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .modalPanel)
+        app.activeIndex = 0
+        NSApp.sendAction(moveItem.action!, to: moveItem.target, from: moveItem)
+        timer.invalidate()
+        try check(chooserVerified && contents(existing) == "existing text" && !app.transfers.hasActive,
+                  "native Move to opens the clicked pane's folder chooser and cancellation leaves files untouched")
+
+        guard let packageRow = coordinator.items.firstIndex(where: { $0.url == package }) else {
+            throw FileOperationSafety.failure("Missing package row")
+        }
+        table.selectRowIndexes(IndexSet([regularRow, packageRow]), byExtendingSelection: false)
+        coordinator.populateContextMenu(menu, row: packageRow)
+        try check(menu.item(withTitle: "Show Package Contents") == nil, "mixed multiselection does not ambiguously open one package")
+        table.selectRowIndexes(IndexSet(integer: packageRow), byExtendingSelection: false)
+        coordinator.populateContextMenu(menu, row: packageRow)
+        guard let show = menu.item(withTitle: "Show Package Contents") else { throw FileOperationSafety.failure("Missing Show Package Contents") }
+        app.activeIndex = 0
+        NSApp.sendAction(show.action!, to: show.target, from: show)
+        try await until("show package contents") { right.currentURL == package && !right.loading }
+        try check(right.items.contains { $0.url == packageContents } && left.currentURL == source && app.activeIndex == 1,
+                  "Show Package Contents browses the bundle inside only the clicked pane")
+        right.goBack()
+        try await until("return from package") { right.currentURL == destination && !right.loading }
+        try check(right.currentURL == destination && !FileItem(url: package).expandable,
+                  "package browsing supports Back while packages remain atomic in ordinary lists")
+        right.showPackageContents(existing)
+        try check(right.currentURL == destination, "package action ignores a target that is not a package directory")
     }
 }

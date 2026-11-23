@@ -749,6 +749,13 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(.separator())
             }
             menu.addItem(item("Open") { [weak self] in self?.parent.pane.open(urls) })
+            if urls.count == 1, let url = urls.first, FileItem(url: url).canShowPackageContents {
+                menu.addItem(item("Show Package Contents") { [weak self] in
+                    guard let self else { return }
+                    self.parent.app.activate(self.parent.pane)
+                    self.parent.pane.showPackageContents(url)
+                })
+            }
             menu.addItem(item("Quick Look") { [weak self] in self?.parent.app.quickLook(urls) })
             let apps = parent.app.openApps(for: urls)
             do {
@@ -776,6 +783,11 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(paste)
             menu.addItem(.separator())
             menu.addItem(item("Rename…") { [weak self] in self?.parent.app.beginRename(urls) })
+            menu.addItem(item("Move to…") { [weak self] in
+                guard let self else { return }
+                self.parent.app.activate(self.parent.pane)
+                self.parent.app.chooseFolderAndTransfer(urls, move: true)
+            })
             menu.addItem(item("Copy to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: false) })
             menu.addItem(item("Move to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: true) })
             menu.addItem(.separator())

@@ -29,6 +29,8 @@ nonisolated struct FileItem: Identifiable, Hashable, Sendable {
     /// A folder whose content can be opened in place in the list.
     var expandable: Bool { isDirectory && !isPackage && !isSymbolicLink }
 
+    var canShowPackageContents: Bool { isDirectory && isPackage }
+
     /// Tag names as one text, used for sorting the Tags column.
     var tagsText: String { tags.joined(separator: " ") }
 

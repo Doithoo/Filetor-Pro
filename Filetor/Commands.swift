@@ -129,6 +129,8 @@ extension AppModel {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false
         panel.prompt = move ? "Move" : "Copy"
         panel.message = move ? "Choose the folder to move the selection to" : "Choose the folder to copy the selection to"
         panel.directoryURL = active.currentURL

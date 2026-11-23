@@ -263,6 +263,12 @@ final class PaneModel: Identifiable {
         navigate(to: currentURL.deletingLastPathComponent())
     }
 
+    /// Explicitly browse a package while ordinary Open keeps launching it.
+    func showPackageContents(_ url: URL) {
+        guard FileItem(url: url).canShowPackageContents else { return }
+        navigate(to: url)
+    }
+
     func open(_ urls: Set<URL>) {
         for url in urls {
             let item = FileItem(url: url)

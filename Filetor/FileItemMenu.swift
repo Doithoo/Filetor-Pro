@@ -9,6 +9,9 @@ struct FileItemMenu: View {
 
     var body: some View {
         Button("Open") { app.activate(pane); pane.open(targets) }
+        if targets.count == 1 && item.canShowPackageContents {
+            Button("Show Package Contents") { app.activate(pane); pane.showPackageContents(item.url) }
+        }
         OpenWithContextMenu(urls: targets, app: app)
         if item.isDirectory && !item.isPackage {
             Button("Open in New Tab") { app.activate(pane); app.activeGroup.newTab(at: item.url) }
