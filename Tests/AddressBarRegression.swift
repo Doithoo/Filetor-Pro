@@ -49,7 +49,7 @@ extension Regression {
         app.activeIndex = 0
         try await openEditor()
         try check(app.active === right && field()?.stringValue == root.path + "/",
-                  "right address button activates its pane and shows an absolute path")
+                  "right path blank area activates its pane and shows an absolute path")
         let selection = try editor().selectedRange()
         try check(selection.location == 0 && selection.length == (root.path + "/" as NSString).length,
                   "opening the address field selects the full path for copying or replacement")
@@ -135,6 +135,26 @@ extension Regression {
         click(750, 450)
         try await until("clicking table closes address") { field() == nil }
         try check(right.currentURL.path == "/", "clicking outside dismisses address suggestions without navigating")
+
+        // A fully occupied, narrow path bar must retain a visible-space target
+        // without putting a gesture over the folder and dropdown buttons.
+        let deep = try folder(target, "Very long folder name with spaces and 中文路径")
+        right.navigate(to: deep)
+        window.setContentSize(NSSize(width: 800, height: 700))
+        try await Task.sleep(for: .milliseconds(350))
+        try snapshot("path-bar-without-pencil-narrow")
+        app.activeIndex = 0
+        click(window.frame.width - 50, 132)
+        try await until("long path blank area edits") { field()?.currentEditor() != nil }
+        try check(app.active === right && field()?.stringValue == deep.path + "/",
+                  "long paths retain a blank editing target in a narrow inactive pane")
+        key(53, "\u{1b}")
+        try await until("long path edit cancels") { field() == nil }
+        try check(right.currentURL == deep && left.currentURL == root,
+                  "canceling a long path edit preserves both pane locations")
+        window.setContentSize(NSSize(width: 1100, height: 700))
         right.navigate(to: root)
+        try await Task.sleep(for: .milliseconds(300))
+        try snapshot("path-bar-without-pencil")
     }
 }

@@ -109,12 +109,8 @@ struct BreadcrumbBar: View {
                     .id(pane.currentURL)
             } else {
                 breadcrumbs
-                Button(action: editPath) {
-                    Image(systemName: "pencil").frame(width: 28 * s, height: 30 * s)
-                }
-                .buttonStyle(.borderless)
-                .help("Edit or copy the full path")
-                .accessibilityLabel("Edit path")
+                // Keep an editing target even when a long path fills the scroll view.
+                pathEditingArea(width: 28 * s)
             }
             Button {
                 editing = false
@@ -139,6 +135,17 @@ struct BreadcrumbBar: View {
         .onChange(of: app.active.id) { _, _ in if app.active !== pane { editing = false } }
         .onChange(of: app.showGoToFolder) { _, open in if open { editing = false } }
         .onChange(of: app.showSearchPopup) { _, open in if open { editing = false } }
+    }
+
+    private func pathEditingArea(width: CGFloat) -> some View {
+        Button(action: editPath) {
+            Color.clear
+                .frame(width: width, height: 44 * s)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Click to edit the full path")
+        .accessibilityLabel("Edit path")
     }
 
     private var breadcrumbs: some View {
@@ -193,11 +200,7 @@ struct BreadcrumbBar: View {
             .onChange(of: pane.currentURL) { _, _ in align(proxy) }
             .overlay(alignment: .trailing) {
                 // Only unused space edits the address; folder buttons keep their own actions.
-                Color.clear
-                    .frame(width: max(0, viewWidth - contentWidth))
-                    .contentShape(Rectangle())
-                    .onTapGesture { editPath() }
-                    .help("Click to edit the full path")
+                pathEditingArea(width: max(0, viewWidth - contentWidth))
             }
         }
     }
