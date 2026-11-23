@@ -278,19 +278,17 @@ struct FileTableView: NSViewRepresentable {
 
         // MARK: Copy / paste files (⌘C, ⌘V) and Return to rename
 
-        func copySelection() {
+        func copySelection(cut: Bool = false) {
             let urls = previewURLs
             guard !urls.isEmpty else { return }
-            let pb = NSPasteboard.general
-            pb.clearContents()
-            pb.writeObjects(urls as [NSURL])
+            parent.app.activate(parent.pane)
+            FileClipboard.shared.write(Set(urls), cut: cut)
         }
 
         func pasteHere() {
-            let urls = NSPasteboard.general.readObjects(forClasses: [NSURL.self],
-                                                        options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-            guard !urls.isEmpty else { return }
-            parent.app.dropTransfer(urls, into: parent.pane.currentURL, move: false)
+            parent.app.activate(parent.pane)
+            guard !parent.pane.searchActive, parent.pane.tagFilter == nil else { return }
+            FileClipboard.shared.paste(into: parent.pane.currentURL, app: parent.app)
         }
 
         func renameSelection() {
@@ -701,15 +699,48 @@ struct FileTableView: NSViewRepresentable {
                 }
                 return
             }
-            let row = table.clickedRow
+            populateContextMenu(menu, row: table.clickedRow)
+        }
+
+        func populateContextMenu(_ menu: NSMenu, row: Int) {
+            guard let table else { return }
+            menu.removeAllItems()
+            menu.autoenablesItems = false
+            let app = parent.app, pane = parent.pane
+            app.activate(pane)
+            let destination = pane.currentURL
+            let canCreate = !pane.searchActive && pane.tagFilter == nil && FileCreation.canCreate(in: destination)
             if row >= 0, row < items.count, !table.selectedRowIndexes.contains(row) {
                 table.selectRowIndexes([row], byExtendingSelection: false)
             }
             if row < 0 {
-                menu.addItem(item("New Folder") { [weak self] in self?.parent.app.newFolder() })
-                menu.addItem(item("New Project Folder…") { [weak self] in self?.parent.app.projectDialog = true })
+                table.deselectAll(nil)
+                let folder = item("New Folder") { app.newFolder(in: pane, directory: destination) }
+                folder.isEnabled = canCreate
+                menu.addItem(folder)
+                let file = NSMenuItem(title: "New File", action: nil, keyEquivalent: "")
+                let types = NSMenu()
+                for kind in NewFileKind.allCases {
+                    types.addItem(item(kind.title) { app.newFile(kind, in: pane, directory: destination) })
+                }
+                file.submenu = types
+                file.isEnabled = canCreate
+                menu.addItem(file)
+                let project = item("New Project Folder…") { app.activate(pane); app.projectDialog = true }
+                project.isEnabled = canCreate
+                menu.addItem(project)
+                menu.addItem(.separator())
+                let paste = item("Paste") { FileClipboard.shared.paste(into: destination, app: app) }
+                paste.isEnabled = canCreate && FileClipboard.shared.canPaste
+                menu.addItem(paste)
+                menu.addItem(.separator())
+                let select = item("Select All") { [weak table] in table?.selectAll(nil) }
+                select.isEnabled = !items.isEmpty
+                menu.addItem(select)
+                menu.addItem(item("Refresh") { pane.reloadKeepingSelection() })
                 return
             }
+            guard items.indices.contains(row) else { return }
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             parent.app.activate(parent.pane)
             if urls.count == 1, let url = urls.first, items.first(where: { $0.url == url })?.expandable == true {
@@ -737,6 +768,12 @@ struct FileTableView: NSViewRepresentable {
                 with.submenu = sub
                 menu.addItem(with)
             }
+            menu.addItem(.separator())
+            menu.addItem(item("Cut") { FileClipboard.shared.write(urls, cut: true) })
+            menu.addItem(item("Copy") { FileClipboard.shared.write(urls) })
+            let paste = item("Paste") { FileClipboard.shared.paste(into: destination, app: app) }
+            paste.isEnabled = canCreate && FileClipboard.shared.canPaste
+            menu.addItem(paste)
             menu.addItem(.separator())
             menu.addItem(item("Rename…") { [weak self] in self?.parent.app.beginRename(urls) })
             menu.addItem(item("Copy to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: false) })
@@ -881,6 +918,7 @@ final class QLTableView: NSTableView {
     weak var qlSource: FileTableView.Coordinator?
 
     @objc func copy(_ sender: Any?) { qlSource?.copySelection() }
+    @objc func cut(_ sender: Any?) { qlSource?.copySelection(cut: true) }
     @objc func paste(_ sender: Any?) { qlSource?.pasteHere() }
 
     // Lets the Services submenu of the context menu act on the selected files.

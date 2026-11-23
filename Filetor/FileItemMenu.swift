@@ -15,11 +15,15 @@ struct FileItemMenu: View {
             Button("Open in New Window") { app.openWindow?(item.url) }
         }
         Divider()
-        Button("Rename…") { app.activate(pane); app.beginRename(targets) }
-        Button("Copy") {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.writeObjects(Array(targets) as [NSURL])
+        Button("Cut") { app.activate(pane); FileClipboard.shared.write(targets, cut: true) }
+        Button("Copy") { app.activate(pane); FileClipboard.shared.write(targets) }
+        Button("Paste") {
+            app.activate(pane)
+            FileClipboard.shared.paste(into: item.url.deletingLastPathComponent(), app: app)
         }
+        .disabled(!FileClipboard.shared.canPaste || !FileCreation.canCreate(in: item.url.deletingLastPathComponent()))
+        Divider()
+        Button("Rename…") { app.activate(pane); app.beginRename(targets) }
         Button("Duplicate") { app.activate(pane); app.duplicate(targets) }
         Button("Copy to…") { app.activate(pane); app.chooseFolderAndTransfer(targets, move: false) }
         Button("Move to…") { app.activate(pane); app.chooseFolderAndTransfer(targets, move: true) }
@@ -35,5 +39,30 @@ struct FileItemMenu: View {
             Button("Move to Trash") { app.activate(pane); app.trash(targets) }
         }
         Button("Delete Immediately…", role: .destructive) { app.activate(pane); app.deleteImmediately(targets) }
+    }
+}
+
+struct FolderBackgroundMenu: View {
+    let pane: PaneModel
+    let app: AppModel
+    let directory: URL
+    private var canCreate: Bool {
+        !pane.searchActive && pane.tagFilter == nil && FileCreation.canCreate(in: directory)
+    }
+
+    var body: some View {
+        Button("New Folder") { app.newFolder(in: pane, directory: directory) }.disabled(!canCreate)
+        Menu("New File") {
+            ForEach(NewFileKind.allCases) { kind in
+                Button(kind.title) { app.newFile(kind, in: pane, directory: directory) }
+            }
+        }.disabled(!canCreate)
+        Divider()
+        Button("Paste") {
+            app.activate(pane)
+            FileClipboard.shared.paste(into: directory, app: app)
+        }.disabled(!canCreate || !FileClipboard.shared.canPaste)
+        Divider()
+        Button("Refresh") { app.activate(pane); pane.reloadKeepingSelection() }
     }
 }

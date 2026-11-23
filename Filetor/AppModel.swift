@@ -280,18 +280,17 @@ final class AppModel {
 
     func openSelection() { active.open(active.selection) }
 
-    func newFile() {
-        let pane = active
-        let url = FileTools.unique(pane.currentURL.appending(path: "untitled"))
-        if FileManager.default.createFile(atPath: url.path, contents: nil) {
+    func newFile(_ kind: NewFileKind = .text, in targetPane: PaneModel? = nil, directory: URL? = nil) {
+        let pane = targetPane ?? active
+        activate(pane)
+        do {
+            let url = try FileCreation.create(kind, in: directory ?? pane.currentURL)
             let steps = Self.createdSteps(url)
             pushUndo("New File", undo: steps.undo, redo: steps.redo)
             pane.load()
             pane.selection = [url]
             beginRename([url])
-        } else {
-            alert = "Could not create the file."
-        }
+        } catch { alert = error.localizedDescription }
     }
 
     func duplicate(_ urls: Set<URL>) {
@@ -421,16 +420,19 @@ final class AppModel {
         return groups.firstIndex { $0.current.currentURL.standardizedFileURL.path == parent } ?? activeIndex
     }
 
-    func newFolder() {
-        let pane = active
+    func newFolder(in targetPane: PaneModel? = nil, directory: URL? = nil) {
+        let pane = targetPane ?? active
+        activate(pane)
+        let destination = directory ?? pane.currentURL
+        guard FileCreation.canCreate(in: destination) else { return }
         var name = "Untitled Folder"
         var n = 2
-        while FileManager.default.fileExists(atPath: pane.currentURL.appending(path: name).path) {
+        while FileOperationSafety.exists(destination.appending(path: name)) {
             name = "Untitled Folder \(n)"
             n += 1
         }
         do {
-            let folderURL = pane.currentURL.appending(path: name)
+            let folderURL = destination.appending(path: name)
             try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: false)
             let steps = Self.createdSteps(folderURL)
             pushUndo("New Folder", undo: steps.undo, redo: steps.redo)

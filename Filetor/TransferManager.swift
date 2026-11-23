@@ -44,7 +44,8 @@ final class TransferManager {
         return active.map(\.fraction).reduce(0, +) / Double(active.count)
     }
 
-    func start(items: [(src: URL, dstDir: URL)], move: Bool, conflict: ConflictChoice? = nil, batch: UUID? = nil) {
+    func start(items: [(src: URL, dstDir: URL)], move: Bool, conflict: ConflictChoice? = nil, batch: UUID? = nil,
+               completion: (([TransferRecord]) -> Void)? = nil) {
         guard !items.isEmpty else { return }
         let verb = move ? "Moving" : "Copying"
         let title = items.count == 1 ? "\(verb) \(items[0].src.lastPathComponent)" : "\(verb) \(items.count) items"
@@ -63,6 +64,7 @@ final class TransferManager {
                 if acquired { TransferScheduler.shared.release(job.id) }
                 jobs.removeAll { $0.id == job.id }
                 if batch != nil { onCompleted?(move, [], batch) }
+                completion?([])
                 return
             }
             // Poll shared progress while the engine works in the background.
@@ -84,6 +86,7 @@ final class TransferManager {
             job.isFinished = true
             onFinished?()
             if !engine.records.isEmpty || batch != nil { onCompleted?(move, engine.records, batch) }
+            completion?(engine.records)
             if !failures.isEmpty {
                 onError?(failures.joined(separator: "\n"))
             }

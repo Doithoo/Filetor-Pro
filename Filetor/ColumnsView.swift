@@ -104,6 +104,7 @@ private struct ColumnList: View {
                 }
             }
         }
+        .contextMenu { FolderBackgroundMenu(pane: pane, app: app, directory: url) }
         .overlay {
             if loading && items.isEmpty { ProgressView() }
             else if let error { Text(error).font(.caption).padding() }

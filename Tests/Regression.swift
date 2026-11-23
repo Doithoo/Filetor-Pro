@@ -420,7 +420,9 @@ struct Regression {
         }
         do {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
-            if CommandLine.arguments.contains("--navigation-workspace-only") {
+            if CommandLine.arguments.contains("--file-context-only") {
+                try await fileContextActionsTests(root)
+            } else if CommandLine.arguments.contains("--navigation-workspace-only") {
                 try await navigationWorkspaceUITests(root)
             } else if CommandLine.arguments.contains("--trash-only") {
                 try await trashDeletionTests(root)
@@ -445,6 +447,7 @@ struct Regression {
                 try await archiveActionsTests(root)
                 try await paneTests(root)
                 try await managerTests(root)
+                try await fileContextActionsTests(root)
                 try await nativeUITests(root)
                 try await folderPreviewTests(root)
                 try await enhancedPreviewTests(root)

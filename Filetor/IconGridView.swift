@@ -60,6 +60,7 @@ struct IconGridView: View {
             return .handled
         }
         .background(Color(nsColor: .textBackgroundColor))
+        .contextMenu { FolderBackgroundMenu(pane: pane, app: app, directory: pane.currentURL) }
         .onTapGesture { pane.selection = [] }
     }
 }

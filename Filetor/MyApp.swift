@@ -104,6 +104,12 @@ private struct WorkspaceCommands: Commands {
                 Divider()
                 Button("New Folder") { app.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
+                Menu("New File") {
+                    ForEach(NewFileKind.allCases) { kind in
+                        Button(kind.title) { app.newFile(kind) }
+                    }
+                }
+                .disabled(app.active.searchActive || app.active.tagFilter != nil || !FileCreation.canCreate(in: app.active.currentURL))
                 Button("New Project Folder…") { app.projectDialog = true }
                 Button("Rename…") { app.beginRename(app.active.selection) }
                     .keyboardShortcut(.f2, modifiers: [])
