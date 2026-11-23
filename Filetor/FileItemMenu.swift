@@ -30,6 +30,9 @@ struct FileItemMenu: View {
         Button("Touch — Set Modified Date to Now") { app.activate(pane); app.touch(targets) }
         Button("Get Info") { app.getInfo(targets) }
         Button("Compress") { app.activate(pane); app.compress(targets) }
-        Button("Move to Trash") { app.activate(pane); app.trash(targets) }
+        if !targets.allSatisfy({ TrashLocation.contains($0) }) {
+            Button("Move to Trash") { app.activate(pane); app.trash(targets) }
+        }
+        Button("Delete Immediately…", role: .destructive) { app.activate(pane); app.deleteImmediately(targets) }
     }
 }

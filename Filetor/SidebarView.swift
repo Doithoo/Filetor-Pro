@@ -239,6 +239,8 @@ struct SidebarView: View {
             Button("Open Trash") { app.openTrash(at: trashURL) }
             Button("Open in New Tab") { app.activeGroup.newTab(at: trashURL) }
             Button("Open in New Window") { app.openWindow?(trashURL) }
+            Divider()
+            EmptyTrashButton(root: trashURL, app: app, revision: app.active.revision)
             let disks = devices.filter { $0.url.path != "/" }
             if !disks.isEmpty {
                 Menu("Trash on Disk") {

@@ -15,13 +15,15 @@ enum TrashLocation {
             && parts[4] == String(getuid())
     }
 
-    nonisolated static func contains(_ url: URL) -> Bool {
+    nonisolated static func contains(_ url: URL) -> Bool { root(containing: url) != nil }
+
+    nonisolated static func root(containing url: URL) -> URL? {
         var current = url.standardizedFileURL
         while current.path != "/" {
-            if isRoot(current) { return true }
+            if isRoot(current) { return current }
             current.deleteLastPathComponent()
         }
-        return false
+        return nil
     }
 
     nonisolated static func url(on volume: URL) throws -> URL {

@@ -280,7 +280,7 @@ struct DualPaneView: View {
 
 
 /// The alerts live in their own modifier so the main view body stays quick to type-check.
-private struct AppAlerts: ViewModifier {
+struct AppAlerts: ViewModifier {
     let app: AppModel
 
     func body(content: Content) -> some View {
@@ -290,12 +290,24 @@ private struct AppAlerts: ViewModifier {
             set: { if !$0 { app.pendingDelete = nil } }
         )) {
             Button("Delete", role: .destructive) { app.confirmDelete() }
-            Button("Cancel", role: .cancel) { app.pendingDelete = nil }
+            Button("Cancel", role: .cancel) { app.pendingDelete = nil }.keyboardShortcut(.defaultAction)
         } message: {
             let urls = app.pendingDelete ?? []
             Text(urls.count == 1
                  ? "\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this."
                  : "\(urls.count) items will be deleted right away. You can't undo this.")
+        }
+        .alert(app.pendingTrashDeletion?.title ?? "Empty Trash?", isPresented: Binding(
+            get: { app.pendingTrashDeletion != nil },
+            set: { if !$0 { app.pendingTrashDeletion = nil } }
+        )) {
+            Button(app.pendingTrashDeletion?.emptying == true ? "Empty Trash" : "Delete Permanently", role: .destructive) {
+                app.confirmTrashDeletion()
+            }
+            Button("Cancel", role: .cancel) { app.pendingTrashDeletion = nil }
+                .keyboardShortcut(.defaultAction)
+        } message: {
+            Text(app.pendingTrashDeletion?.message ?? "")
         }
     }
 }

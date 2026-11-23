@@ -810,7 +810,9 @@ struct FileTableView: NSViewRepresentable {
                 })
             }
             menu.addItem(.separator())
-            menu.addItem(item("Move to Trash") { [weak self] in self?.parent.app.trash(urls) })
+            if !urls.allSatisfy({ TrashLocation.contains($0) }) {
+                menu.addItem(item("Move to Trash") { [weak self] in self?.parent.app.trash(urls) })
+            }
             menu.addItem(item("Delete Immediately…") { [weak self] in self?.parent.app.deleteImmediately(Set(urls)) })
         }
 

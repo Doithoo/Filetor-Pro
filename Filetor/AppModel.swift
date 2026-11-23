@@ -128,6 +128,9 @@ final class AppModel {
     var alert: String?
     /// Items waiting for the "Delete Immediately?" confirmation.
     var pendingDelete: [URL]?
+    var pendingTrashDeletion: TrashDeletion?
+    var preparingTrashDeletion = false
+    var trashDeletionJob: TransferJob?
     /// Images in the Optimize dialog.
     var optimizeURLs: [URL]?
     /// New Project Folder dialog.
@@ -514,6 +517,11 @@ final class AppModel {
     /// Asks first, then deletes without the Trash. This cannot be undone.
     func deleteImmediately(_ urls: Set<URL>) {
         guard !urls.isEmpty else { return }
+        if let first = urls.first, let root = TrashLocation.root(containing: first),
+           urls.allSatisfy({ TrashLocation.root(containing: $0) == root }) {
+            requestTrashDeletion(root: root, selection: urls)
+            return
+        }
         pendingDelete = FileOperationSafety.topLevel(Array(urls))
     }
 

@@ -22,10 +22,17 @@ struct FileListView: View {
             BreadcrumbBar(pane: pane, app: app)
                 .zIndex(1)
             Divider()
-            if TrashLocation.contains(pane.currentURL) {
+            if let trashRoot = TrashLocation.root(containing: pane.currentURL) {
                 HStack(spacing: 8) {
                     Image(systemName: "trash")
-                    Text("Trash on this disk").lineLimit(1)
+                    if let job = app.trashDeletionJob {
+                        ProgressView(value: job.fraction).frame(width: 50)
+                        Text(job.currentName).lineLimit(1)
+                        Button("Stop") { app.transfers.cancel(job) }
+                            .help("Stop before the next item; completed deletions cannot be undone")
+                    } else {
+                        Text(app.preparingTrashDeletion ? "Preparing…" : "Trash on this disk").lineLimit(1)
+                    }
                     Spacer(minLength: 0)
                     Button("Move Out…") {
                         app.activate(pane)
@@ -33,6 +40,7 @@ struct FileListView: View {
                     }
                     .disabled(pane.selection.isEmpty)
                     .help("Move selected items out of Trash to a folder you choose")
+                    EmptyTrashButton(root: trashRoot, app: app, revision: pane.revision)
                 }
                 .font(.caption).foregroundStyle(.secondary).padding(8)
                 Divider()
