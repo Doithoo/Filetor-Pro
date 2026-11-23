@@ -116,6 +116,9 @@ struct SidebarView: View {
     }
 
     @State private var tick = 0
+    @State private var trashHasItems = false
+    @State private var trashWatch: UUID?
+    @State private var trashRevision = 0
 
     private var devices: [Place] {
         _ = tick
@@ -235,12 +238,32 @@ struct SidebarView: View {
         .toolbarHelp("Open this Mac’s Trash in the selected pane. Right-click for other disks.")
         .accessibilityLabel("Trash")
         .accessibilityIdentifier("sidebar-trash")
+        .task(id: "\(trashURL.path):\(trashRevision):\(app.active.revision)") {
+            let root = trashURL
+            let hasItems = await Task.detached(priority: .utility) {
+                (try? FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty == false) ?? false
+            }.value
+            if !Task.isCancelled { trashHasItems = hasItems }
+        }
+        .onAppear {
+            if trashWatch == nil {
+                trashWatch = DirectoryMonitor.shared.observe(trashURL) { _ in trashRevision += 1 }
+            }
+        }
+        .onDisappear {
+            if let trashWatch { DirectoryMonitor.shared.remove(trashWatch) }
+            trashWatch = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            trashRevision += 1
+        }
         .contextMenu {
             Button("Open Trash") { app.openTrash(at: trashURL) }
             Button("Open in New Tab") { app.activeGroup.newTab(at: trashURL) }
             Button("Open in New Window") { app.openWindow?(trashURL) }
             Divider()
-            EmptyTrashButton(root: trashURL, app: app, revision: app.active.revision)
+            Button("Empty Trash…") { app.requestTrashDeletion(root: trashURL) }
+                .disabled(!trashHasItems || app.preparingTrashDeletion || app.trashDeletionJob != nil)
             let disks = devices.filter { $0.url.path != "/" }
             if !disks.isEmpty {
                 Menu("Trash on Disk") {
