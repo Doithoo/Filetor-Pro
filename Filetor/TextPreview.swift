@@ -184,7 +184,7 @@ enum TextPreviewStyle {
             result.append(block)
             codeLines.removeAll()
         }
-        for original in source.components(separatedBy: .newlines) {
+        for original in source.split(omittingEmptySubsequences: false, whereSeparator: { $0.isNewline }).map(String.init) {
             let trimmed = original.trimmingCharacters(in: .whitespaces)
             if let marker = fence {
                 if trimmed.hasPrefix(marker) { flushCode(); fence = nil }

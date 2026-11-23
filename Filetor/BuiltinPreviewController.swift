@@ -340,7 +340,8 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
             switch result {
             case .success(let document):
                 self.textPreview?.show(document, language: kind == .json ? "json" : url.pathExtension.lowercased())
-                var summary = document.notice ?? "\(document.source.components(separatedBy: .newlines).count) lines · Read only"
+                let lineCount = document.source.reduce(1) { $0 + ($1.isNewline ? 1 : 0) }
+                var summary = document.notice ?? "\(lineCount) lines · Read only"
                 if document.truncated { summary += " · Limited preview (1 MB / 160,000 characters / 10,000 lines)" }
                 self.status.stringValue = summary
                 self.status.toolTip = summary

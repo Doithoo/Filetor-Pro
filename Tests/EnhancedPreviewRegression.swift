@@ -119,6 +119,8 @@ extension Regression {
         let formattedMarkdown = TextPreviewStyle.markdown(contents(markdown))
         try check(formattedMarkdown.string.hasPrefix("Filetor Pro\n") && !formattedMarkdown.string.contains("**Native**"),
                   "Markdown renders headings and inline emphasis")
+        try check(TextPreviewStyle.markdown("# Title\r\nParagraph").string == "Title\nParagraph\n",
+                  "Windows Markdown line endings do not introduce extra blank paragraphs")
         var hasActiveResources = false
         formattedMarkdown.enumerateAttributes(in: NSRange(location: 0, length: formattedMarkdown.length)) { attrs, _, _ in
             if attrs[.attachment] != nil || attrs[.link] != nil { hasActiveResources = true }
