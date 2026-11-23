@@ -713,7 +713,6 @@ struct FileTableView: NSViewRepresentable {
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             parent.app.activate(parent.pane)
             if urls.count == 1, let url = urls.first, items.first(where: { $0.url == url })?.expandable == true {
-                menu.addItem(item(parent.pane.expanded.contains(url) ? "Collapse Folder" : "Expand Folder") { [weak self] in self?.parent.pane.toggleExpanded(url) })
                 menu.addItem(item("Open in New Tab") { [weak self] in self?.parent.app.activeGroup.newTab(at: url) })
                 menu.addItem(item("Open in New Window") { [weak self] in self?.parent.app.openWindow?(url) })
                 menu.addItem(.separator())
