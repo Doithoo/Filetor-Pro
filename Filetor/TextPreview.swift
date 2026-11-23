@@ -59,8 +59,9 @@ nonisolated enum TextPreviewReader {
             source = decoded
         }
         if source.count > characterLimit { source = String(source.prefix(characterLimit)); truncated = true }
-        let sourceLines = source.split(separator: "\n", maxSplits: lineLimit, omittingEmptySubsequences: false)
-        if sourceLines.count > lineLimit { source = sourceLines.prefix(lineLimit).joined(separator: "\n"); truncated = true }
+        let sourceLines = limitedLines(source)
+        source = sourceLines.text
+        truncated = truncated || sourceLines.limited
         var formatted = source
         if !truncated && kind == .json {
             do {
@@ -75,10 +76,20 @@ nonisolated enum TextPreviewReader {
             } catch { notice = "Invalid property list · Showing source" }
         }
         if formatted.count > characterLimit { formatted = String(formatted.prefix(characterLimit)); truncated = true }
-        let formattedLines = formatted.split(separator: "\n", maxSplits: lineLimit, omittingEmptySubsequences: false)
-        if formattedLines.count > lineLimit { formatted = formattedLines.prefix(lineLimit).joined(separator: "\n"); truncated = true }
+        let formattedLines = limitedLines(formatted)
+        formatted = formattedLines.text
+        truncated = truncated || formattedLines.limited
         guard !cancelled() else { throw CancellationError() }
         return .init(source: source, formatted: formatted, kind: kind, encoding: encoding, notice: notice, truncated: truncated)
+    }
+
+    private static func limitedLines(_ text: String) -> (text: String, limited: Bool) {
+        var lines = 1
+        for index in text.indices where text[index].isNewline {
+            if lines >= lineLimit { return (String(text[..<index]), true) }
+            lines += 1
+        }
+        return (text, false)
     }
 
     /// Re-indent tokens without rewriting numbers, escapes, key order or duplicate keys.

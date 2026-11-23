@@ -290,6 +290,9 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
     }
 
     private func showReadError(_ error: Error) {
+        textPreview = nil
+        zipRoot = nil
+        outline.reloadData()
         status.stringValue = "Could not preview file · Refresh to retry"
         let message = NSTextField(wrappingLabelWithString: error.localizedDescription)
         message.textColor = .secondaryLabelColor

@@ -94,6 +94,12 @@ extension Regression {
         let manyLinesDocument = try TextPreviewReader.read(manyLines, kind: .markdown)
         try check(manyLinesDocument.truncated && manyLinesDocument.source.components(separatedBy: "\n").count <= TextPreviewReader.lineLimit,
                   "large line counts cannot create an unbounded native document layout")
+        for newline in ["\r", "\r\n", "\u{2028}"] {
+            try String(repeating: "text" + newline, count: 12_000).write(to: manyLines, atomically: true, encoding: .utf8)
+            let doc = try TextPreviewReader.read(manyLines, kind: .markdown)
+            try check(doc.truncated && doc.source.filter(\.isNewline).count < TextPreviewReader.lineLimit,
+                      "legacy and Unicode line endings respect the preview line limit")
+        }
         let plist = root.appending(path: "Settings.plist")
         try PropertyListSerialization.data(fromPropertyList: ["name": "Filetor Pro", "enabled": true], format: .binary, options: 0).write(to: plist)
         try check(try TextPreviewReader.read(plist, kind: .plist).formatted.contains("<true/>"), "binary property lists render as readable XML")
