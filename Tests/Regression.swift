@@ -291,7 +291,7 @@ struct Regression {
         let selectedBeforePreview = pane.selection
         app.quickLook([dir])
         try check(panel.currentPreviewItem?.previewItemURL == dir && pane.selection == selectedBeforePreview,
-                  "information panel can preview the current folder without changing file selection")
+                  "explicit folder preview does not change file selection")
 
         app.quickLook([archive, parent])
         try check(preview.urls == pane.sortedItems.map(\.url).filter { $0 == archive || $0 == parent }

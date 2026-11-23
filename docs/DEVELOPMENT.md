@@ -77,7 +77,7 @@ Filetor Pro 使用固定 Bundle ID `com.doithoo.Filetor.personal`，设置和原
 
 ## 轻量化与体验
 
-空格、工具栏、右键及信息面板的 Quick Look 按钮统一通过 `SystemQuickLook` 调用系统 `QLPreviewPanel`，遵循 responder chain 接管和释放预览。文件夹与压缩包不再拦截为自带列表；macOS 可加载已启用的 Looq 等预览扩展。图标与列视图也支持空格。信息侧栏保留缩略图和元数据，完整扩展预览在原生预览窗口打开。
+空格、工具栏和右键菜单的 Quick Look 入口统一通过 `SystemQuickLook` 调用系统 `QLPreviewPanel`，遵循 responder chain 接管和释放预览。文件夹与压缩包不再拦截为自带列表；macOS 可加载已启用的 Looq 等预览扩展。图标与列视图也支持空格。信息侧栏仅显示缩略图和元数据，不再提供重复的 Quick Look 按钮；完整扩展预览在原生预览窗口打开。
 
 目录及展开内容后台读取，切换路径后丢弃过期结果。只有可见标签页订阅递归文件事件；隐藏或关闭标签页时取消搜索、展开及目录大小任务。多个窗口显示同一目录时共享监听。列视图读取也转到后台，图标和列视图增加常用文件右键操作。
 
