@@ -30,7 +30,7 @@ open ".build/pro/Filetor Pro.app"
 
 该脚本针对本机 Command Line Tools 和 macOS 26+，默认使用已安装的 26.5 SDK，以避开本机 27.x CLT 缺少 SwiftUI 编译插件的问题；可通过 `SDKROOT` 指定 SDK。需要支持默认 MainActor 隔离的 Swift 编译器。已有 Homebrew 静态 libwebp 时会链接它；否则使用系统可用的图像格式。应用图标来自仓库内的 `Resources/FiletorPro.icns`，保留原作者署名；构建不依赖已安装的应用。
 
-Filetor Pro 使用固定 Bundle ID `com.doithoo.Filetor.personal`，设置和原版隔离。更新源固定为自己的 `Doithoo/Filetor-Pro` Release，不检查上游发布。首次构建会下载 SHA-256 固定的 Sparkle 2.10.1，后续使用已校验的本地缓存。应用采用本地临时签名，更新包及更新清单另有 Ed25519 签名。本机构建不代表完成了其他 macOS 版本、Intel 或网络卷兼容性验证。
+Filetor Pro 使用固定 Bundle ID `com.doithoo.Filetor.personal`，设置和原版隔离。更新源固定为自己的 `Doithoo/Filetor-Pro` Release，不检查上游发布。首次构建会下载 SHA-256 固定的 Sparkle 2.10.1，后续使用已校验的本地缓存。0.6.2 起应用采用固定本机证书签名，更新包及更新清单另有 Ed25519 签名。本机构建不代表完成了其他 macOS 版本、Intel 或网络卷兼容性验证。
 
 ## Xcode 开发环境
 
