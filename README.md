@@ -30,7 +30,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.6.1**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.6.2**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 
@@ -38,7 +38,7 @@ Existing `0.2.0-personal.2` users can choose **Check for Updates…** in the app
 
 Settings has one **Automatically check for and install updates** switch. When enabled, updates download in the background and install when you quit. The manual check can install and restart immediately. Updates are downloaded, verified, installed and relaunched by Sparkle; relaunch waits for active file operations. Only Filetor Pro releases from **Doithoo/Filetor-Pro** are offered. Committing code alone does not publish an update: each release must be built, signed and published.
 
-The app currently uses ad hoc code signing, without Developer ID signing or notarization. A first installation may need approval under **System Settings → Privacy & Security → Open Anyway**. Full Disk Access is optional and may need to be granted again after an update. The update archive and feed are separately protected by Ed25519 signatures.
+Starting with 0.6.2, releases use a persistent local code signing certificate, without Developer ID signing or notarization. A first installation may need approval under **System Settings → Privacy & Security → Open Anyway**. The first migration from the old ad hoc signature requires removing the old Full Disk Access entry and granting access to the current installed copy once. Subsequent releases are required to preserve the same certificate-bound code identity; privacy grants are still controlled by macOS. The update archive and feed are separately protected by Ed25519 signatures.
 
 ## Development
 
@@ -48,6 +48,8 @@ python3 scripts/test-updater.py
 python3 scripts/build.py
 open ".build/pro/Filetor Pro.app"
 ```
+
+Release builds require the maintainer’s signing identity in Keychain. Contributors can explicitly use `FILETOR_ADHOC_BUILD=1 python3 scripts/build.py` for a local development build; these builds cannot be published by the release script.
 
 See the [development and verification guide](docs/DEVELOPMENT.md) for prerequisites and current limitations, and the [release workflow](docs/UPDATES.md) for publishing signed updates. The source includes the application icon; a clean build does not require an existing installation.
 

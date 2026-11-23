@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Full Disk Access: the one permission that stops macOS asking for each protected folder separately.
+/// Privacy grants belong to the running code identity, not just the displayed app name.
 enum FolderAccess {
     /// The system TCC database can only be opened by an app that has Full Disk Access.
     static var hasFullDiskAccess: Bool {
@@ -14,7 +14,7 @@ enum FolderAccess {
 
     private static let hadKey = "hadFullDiskAccess"
 
-    /// `lost`: The app had the access before, but macOS no longer applies it (a new build has a new signature).
+    /// `lost`: A previous probe succeeded, but access no longer applies to this running process.
     static var status: Status {
         if hasFullDiskAccess {
             UserDefaults.standard.set(true, forKey: hadKey)
@@ -26,6 +26,56 @@ enum FolderAccess {
     static func openPrivacySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    static func revealCurrentApplication() {
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+    }
+
+    static var trashAccessExplanation: String {
+        if hasFullDiskAccess {
+            return "macOS denied access to this Trash folder even though the Full Disk Access probe succeeded. Check this disk’s availability and folder permissions, then retry."
+        }
+        return "macOS is not applying Full Disk Access to this running copy. If Filetor Pro is already enabled in System Settings, remove that entry and add the current app again, then quit and reopen it. Reveal Current App locates the exact copy to add."
+    }
+
+    /// Written by the actual GUI process, so diagnosis does not confuse a
+    /// terminal's permissions with the installed application's privacy grants.
+    /// Records no filenames, folder contents, or private TCC database contents.
+    static func recordDiagnostics() {
+        let fullDiskAccess = hasFullDiskAccess
+        let trash = TrashLocation.home
+        Task {
+            let result = await Task.detached(priority: .utility) {
+                Result { _ = try FileManager.default.contentsOfDirectory(at: trash, includingPropertiesForKeys: nil) }
+            }.value
+            var report: [String: Any] = [
+                "checkedAt": ISO8601DateFormatter().string(from: Date()),
+                "applicationPath": Bundle.main.bundleURL.path,
+                "version": ProductInfo.version,
+                "pid": ProcessInfo.processInfo.processIdentifier,
+                "fullDiskAccessProbe": fullDiskAccess
+            ]
+            switch result {
+            case .success: report["homeTrashReadable"] = true
+            case .failure(let error):
+                let ns = error as NSError
+                report["homeTrashReadable"] = false
+                report["errorDomain"] = ns.domain
+                report["errorCode"] = ns.code
+                if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError {
+                    report["underlyingDomain"] = underlying.domain
+                    report["underlyingCode"] = underlying.code
+                }
+            }
+            let directory = FileManager.default.homeDirectoryForCurrentUser
+                .appending(path: "Library/Application Support/Filetor Pro/Diagnostics")
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+                    .write(to: directory.appending(path: "folder-access.json"), options: .atomic)
+            } catch { /* Diagnostics must not interrupt browsing. */ }
         }
     }
 
@@ -65,14 +115,20 @@ struct FolderAccessBox: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if status != .on {
-                Button("Open Privacy Settings") { FolderAccess.openPrivacySettings() }
-                    .buttonStyle(PathsButtonStyle(scale: s))
-                    .padding(.top, 4 * s)
+                HStack {
+                    Button("Open Privacy Settings") { FolderAccess.openPrivacySettings() }
+                    Button("Reveal Current App") { FolderAccess.revealCurrentApplication() }
+                }
+                .buttonStyle(PathsButtonStyle(scale: s))
+                .padding(.top, 4 * s)
             }
         }
         .padding(12 * s)
         .background(RoundedRectangle(cornerRadius: 8 * s).strokeBorder(Color.primary.opacity(0.12)))
         .onAppear { status = FolderAccess.status }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            status = FolderAccess.status
+        }
     }
 
     private var title: String {
@@ -85,17 +141,17 @@ struct FolderAccessBox: View {
 
     private var detail: String {
         switch status {
-        case .on: return "\(ProductInfo.name) can open all folders without asking."
-        case .lost: return "\(ProductInfo.name) had Full Disk Access, but macOS drops it after an update."
-        case .off: return "Full Disk Access stops the prompts for Desktop, Documents, Downloads, external and network disks."
+        case .on: return "\(ProductInfo.name) passed the Full Disk Access probe. File permissions and disk availability still apply."
+        case .lost: return "\(ProductInfo.name) previously had access, but macOS is not applying it to this running copy. Older temporary signatures can leave a stale enabled entry."
+        case .off: return "Full Disk Access allows access to privacy-protected locations, including Trash. It does not override file permissions."
         }
     }
 
     private var action: String? {
         switch status {
         case .on: return nil
-        case .lost: return "Open Privacy Settings, remove \(ProductInfo.name) from the list, drag \(ProductInfo.applicationFilename) in again and restart \(ProductInfo.name)."
-        case .off: return "Open Privacy Settings, drag \(ProductInfo.applicationFilename) into the list and restart \(ProductInfo.name)."
+        case .lost: return "Open Privacy Settings, remove \(ProductInfo.name) from the list, use Reveal Current App to add this exact copy again and restart \(ProductInfo.name)."
+        case .off: return "Open Privacy Settings, add this exact copy using Reveal Current App and restart \(ProductInfo.name)."
         }
     }
 }
@@ -109,8 +165,10 @@ struct FolderAccessPrompt: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12 * s) {
             Text("Allow access to your folders").font(.system(size: 22 * s))
-            Text("macOS asks for permission every time \(ProductInfo.name) opens Desktop, Documents, Downloads, an external disk or a network disk.")
-            Text("To stop the prompts, add \(ProductInfo.name) to **Full Disk Access**: click Open Privacy Settings, drag \(ProductInfo.applicationFilename) into the list and restart \(ProductInfo.name).")
+            Text("macOS may request permission when \(ProductInfo.name) opens Desktop, Documents, Downloads, an external disk or a network disk.")
+            Text("To stop the prompts, add \(ProductInfo.name) to **Full Disk Access**: click Open Privacy Settings, add this exact copy using Reveal Current App and restart \(ProductInfo.name).")
+            Button("Reveal Current App") { FolderAccess.revealCurrentApplication() }
+                .buttonStyle(PathsButtonStyle(scale: s))
             Text("Your files stay on your Mac. Update checks contact GitHub; file contents are not uploaded. You can change folder access later in Settings.")
                 .foregroundStyle(.secondary)
             HStack(spacing: 12) {

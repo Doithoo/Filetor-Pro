@@ -79,12 +79,18 @@ Xcode 的 Debug 构建与已安装应用使用相同 Bundle ID；运行时会读
 日常整理遵循以下规则：
 
 - 临时日志、截图和排查脚本放在 `.build/`；正式文档截图放在 `docs/images/`，仅保留文档实际引用的版本，需要时再创建目录。历史截图可从 Git 历史找回。
-- 更新集成测试成功后自动清除临时应用、压缩包和测试目录，将七项结果及日志保存在 `.build/reports/updater.json`。失败或中断时保留临时目录并输出路径，方便排查；需要保留成功运行的诊断文件时使用 `python3 scripts/test-updater.py --keep-fixtures`。测试应用本身仍会注销并移除。
+- 更新集成测试成功后自动清除临时应用、压缩包和测试目录，将八项结果及日志保存在 `.build/reports/updater.json`。失败或中断时保留临时目录并输出路径，方便排查；需要保留成功运行的诊断文件时使用 `python3 scripts/test-updater.py --keep-fixtures`。测试应用本身仍会注销并移除。
 - 不运行构建或测试时，可删除 `.build/pro/` 和 Python 的 `__pycache__/` 来清理可再生产物；后续构建会重新生成。通常保留当前编译缓存，避免下一次构建变慢。不要直接把整个 `.build/` 当作缓存删除，其中可能仍有待发布的签名包或失败测试证据。
 - 工具栏等偏好备份、安装回滚资料、仓库迁移备份存放在仓库外的 `~/Library/Application Support/Filetor Pro/Development Archives/`，按日期归档并附路径索引；不放进源码目录、不提交 Git。发布私钥继续由登录钥匙串管理。
 - 保留许可证、原作者署名、图标源文件、`Package.resolved` 和历史发布说明。这些都是项目资料，不是构建垃圾。
 
 当前入口统一为 `build.py`、`test-updater.py` 和 `release.py`，不再保留旧的 personal 构建别名。仅整理文档、开发脚本或本机产物时不递增应用版本，也不重新安装应用；产品行为变化才进入正常发布流程。
+
+## 权限与签名
+
+0.6.2 起安装包使用固定的本机证书身份，发布脚本与 Xcode 工程统一固定证书指纹，禁止发布流程退回临时签名。首次从旧签名迁移需要移除系统设置中旧的完整磁盘访问条目，再通过 Reveal Current App 定位当前安装包重新添加一次。授权由 macOS 管理，不能通过复制偏好设置继承，也不修改 TCC 数据库。固定身份的跨版本验证与实际授权保留验证分别记录，不将签名测试当作已验证权限。
+
+权限提示区分授权探测失败和具体目录仍被拒绝；从系统设置返回时刷新状态并重试失败的废纸篓。实际应用进程会在 `~/Library/Application Support/Filetor Pro/Diagnostics/folder-access.json` 保存最小诊断，不保存任何废纸篓文件名或内容。发布与证书说明见 [UPDATES.md](UPDATES.md)。
 
 ## 自动更新
 

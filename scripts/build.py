@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import shutil
 import subprocess
+import code_signing
 from build_support import APP_PATH, BUILD_DIR, BUNDLE_ID, CONFIG, EXECUTABLE, FEED_URL, PRODUCT_NAME, sparkle
 
 root = Path(__file__).resolve().parents[1]
@@ -72,6 +73,10 @@ framework = frameworks / "Sparkle.framework"
 if framework.exists():
     shutil.rmtree(framework)
 subprocess.run(["ditto", str(sparkle_dir / "Sparkle.framework"), str(framework)], check=True)
-subprocess.run(["codesign", "--force", "--sign", "-", str(app)], check=True)
-subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+if os.environ.get("FILETOR_ADHOC_BUILD") == "1":
+    # Explicit opt-in for contributors without this product's private key.
+    subprocess.run(["codesign", "--force", "--sign", "-", str(app)], check=True)
+    subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+else:
+    code_signing.sign(app)
 print(app)

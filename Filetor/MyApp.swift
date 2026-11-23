@@ -170,6 +170,11 @@ private struct WorkspaceCommands: Commands {
 final class FiletorApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UpdateChecker.shared.start()
+        FolderAccess.recordDiagnostics()
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        FolderAccess.recordDiagnostics()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Prepare and publish signed Filetor Pro releases to Doithoo/Filetor-Pro."""
 import argparse
+import os
+import code_signing
 from datetime import datetime, timezone
 from email.utils import format_datetime
 import hashlib
@@ -61,6 +63,8 @@ def main():
         raise RuntimeError("This release channel currently targets Apple Silicon")
     if capture("git", "status", "--porcelain"):
         raise RuntimeError("Commit the intended changes before preparing or publishing a release")
+    if os.environ.get("FILETOR_ADHOC_BUILD") == "1":
+        raise RuntimeError("Releases require the persistent code signing identity")
     revision = capture("git", "rev-parse", "HEAD")
     output = ROOT / ".build/releases" / CONFIG["version"]
     tag = "v" + CONFIG["version"]
@@ -75,9 +79,11 @@ def main():
     if public_key != CONFIG["public_ed_key"]:
         raise RuntimeError("The local signing key does not match this release channel")
     if not args.publish:
+        run(sys.executable, "scripts/test-signing.py")
         run(sys.executable, "scripts/build.py", "--test")
         run(sys.executable, "scripts/build.py")
         app = APP_PATH
+        designated = code_signing.verify(app)
         info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
         assert info["CFBundleName"] == PRODUCT_NAME
         assert info["CFBundleDisplayName"] == PRODUCT_NAME
@@ -98,12 +104,14 @@ def main():
         hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in [archive, feed, output / "release-notes.md"]}
         (output / "SHA256SUMS").write_text("".join(f"{digest}  {name}\n" for name, digest in hashes.items()))
         manifest.write_text(json.dumps({"commit": revision, "version": CONFIG["version"], "build": CONFIG["build"],
-                                        "archive_signature": signature, "files": hashes}, indent=2) + "\n")
+                                        "designated_requirement": designated, "archive_signature": signature, "files": hashes}, indent=2) + "\n")
         print(f"Prepared and verified {output}. Publish with: python3 scripts/release.py --publish")
         return
     prepared = json.loads(manifest.read_text())
     if prepared["commit"] != revision or prepared["version"] != CONFIG["version"]:
         raise RuntimeError("Prepared release does not match HEAD; prepare it again")
+    if prepared.get("designated_requirement") != code_signing.requirement():
+        raise RuntimeError("Prepared release code identity does not match the configured certificate")
     for name, expected in prepared["files"].items():
         if hashlib.sha256((output / name).read_bytes()).hexdigest() != expected:
             raise RuntimeError(f"Prepared release asset changed: {name}")

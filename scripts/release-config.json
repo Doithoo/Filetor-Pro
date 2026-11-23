@@ -2,11 +2,12 @@
   "repository": "Doithoo/Filetor-Pro",
   "product_name": "Filetor Pro",
   "executable": "FiletorPro",
-  "version": "0.6.1",
-  "build": 15,
+  "version": "0.6.2",
+  "build": 16,
   "minimum_system_version": "26.0",
   "sparkle_version": "2.10.1",
   "sparkle_sha256": "1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27",
   "signing_account": "com.doithoo.Filetor.personal",
-  "public_ed_key": "VybQ8H4xDI/IlwlKr78BXozNvcQfsvFauiljwT9l5zU="
+  "public_ed_key": "VybQ8H4xDI/IlwlKr78BXozNvcQfsvFauiljwT9l5zU=",
+  "code_signing_certificate_sha1": "C1216FCC0EB6DD823CDBEEDF3B8527DE4026205C"
 }

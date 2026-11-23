@@ -31,6 +31,11 @@ struct WorkspaceRoot: View {
                     openWindow(id: "workspace", value: id)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                for group in app.groups where group.current.trashAccessDenied {
+                    group.current.load()
+                }
+            }
             .onDisappear {
                 app.stop()
             }

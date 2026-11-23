@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise Sparkle's real download/verify/install/relaunch path in disposable apps."""
 import argparse
+import code_signing
 import functools
 import http.server
 import importlib.util
@@ -61,7 +62,7 @@ def run_tests(root, dependency):
     account = CONFIG["signing_account"]
     results = []
     try:
-        for mode in ["valid", "renamed", "automatic", "tampered_archive", "tampered_feed", "no_update", "unreachable"]:
+        for mode in ["valid", "signature_migration", "renamed", "automatic", "tampered_archive", "tampered_feed", "no_update", "unreachable"]:
             case = root / mode
             case.mkdir()
             bundle_id = "com.doithoo.Filetor.UpdateProbe." + uuid.uuid4().hex
@@ -90,7 +91,10 @@ def run_tests(root, dependency):
                         "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True}}
                 with (bundle / "Contents/Info.plist").open("wb") as f:
                     plistlib.dump(info, f)
-                subprocess.run(["codesign", "--force", "--sign", "-", str(bundle)], check=True, capture_output=True)
+                if mode == "signature_migration" and build == "1":
+                    subprocess.run(["codesign", "--force", "--sign", "-", str(bundle)], check=True, capture_output=True)
+                else:
+                    code_signing.sign(bundle, bundle_id)
             archive = case / "update.zip"
             subprocess.run(["ditto", "-c", "-k", "--keepParent", "--norsrc", "--noextattr", str(candidate), str(archive)], check=True)
             signature = subprocess.check_output([sign, "--account", account, "-p", str(archive)], text=True).strip()
@@ -121,7 +125,7 @@ def run_tests(root, dependency):
                     time.sleep(0.2)
                 else:
                     raise RuntimeError(f"{mode} timed out: {text}")
-                if mode in ["valid", "renamed", "automatic"]:
+                if mode in ["valid", "signature_migration", "renamed", "automatic"]:
                     if mode == "automatic":
                         assert "COMBINED_SETTINGS_VERIFIED" in text, text
                         assert "INSTALL_ON_QUIT" in text, text
@@ -129,6 +133,7 @@ def run_tests(root, dependency):
                     assert "INSTALLED_PREFERENCES_PRESERVED" in text, text
                     installed = list((case / "installed").glob("*.app"))
                     assert len(installed) == 1, installed
+                    code_signing.verify(installed[0], bundle_id)
                     info = plistlib.loads((installed[0] / "Contents/Info.plist").read_bytes())
                     assert info["CFBundleVersion"] == "2"
                     assert info["CFBundleIdentifier"] == bundle_id

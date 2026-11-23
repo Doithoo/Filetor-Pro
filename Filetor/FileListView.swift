@@ -62,11 +62,12 @@ struct FileListView: View {
                             Label(pane.trashAccessDenied ? "Allow access to Trash" : "Cannot open folder", systemImage: "lock")
                         } description: {
                             Text(pane.trashAccessDenied
-                                 ? "macOS denied access to Trash. Enable Full Disk Access for Filetor Pro in System Settings, then restart the app."
+                                 ? FolderAccess.trashAccessExplanation
                                  : message)
                         } actions: {
                             if pane.trashAccessDenied {
                                 Button("Open Privacy Settings") { FolderAccess.openPrivacySettings() }
+                                Button("Reveal Current App") { FolderAccess.revealCurrentApplication() }
                             }
                             Button("Retry") { pane.load() }
                         }
