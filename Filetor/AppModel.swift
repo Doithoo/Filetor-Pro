@@ -332,29 +332,9 @@ final class AppModel {
         NSSharingService(named: .sendViaAirDrop)?.perform(withItems: Array(urls))
     }
 
-    func compress(_ urls: Set<URL>) {
-        let dir = active.currentURL
-        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
-        backgroundWrites += 1
-        Task {
-            defer { backgroundWrites -= 1 }
-            let err = await Task.detached { FileTools.compress(list, in: dir) }.value
-            refresh()
-            if let err { alert = err }
-        }
-    }
+    func compress(_ urls: Set<URL>) { startArchiveOperation(urls, extracting: false) }
 
-    func decompress(_ urls: Set<URL>) {
-        let dir = active.currentURL
-        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
-        backgroundWrites += 1
-        Task {
-            defer { backgroundWrites -= 1 }
-            let err = await Task.detached { FileTools.decompress(list, in: dir) }.value
-            refresh()
-            if let err { alert = err }
-        }
-    }
+    func decompress(_ urls: Set<URL>) { startArchiveOperation(urls, extracting: true) }
 
     /// Opens Finder's Get Info window for the selection through the system "Show Info in Finder" service.
     func getInfo(_ urls: Set<URL>) {

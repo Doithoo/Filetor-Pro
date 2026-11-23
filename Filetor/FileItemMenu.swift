@@ -9,6 +9,7 @@ struct FileItemMenu: View {
 
     var body: some View {
         Button("Open") { app.activate(pane); pane.open(targets) }
+        OpenWithContextMenu(urls: targets, app: app)
         if item.isDirectory && !item.isPackage {
             Button("Open in New Tab") { app.activate(pane); app.activeGroup.newTab(at: item.url) }
             Button("Open in New Window") { app.openWindow?(item.url) }
@@ -29,7 +30,7 @@ struct FileItemMenu: View {
         }
         Button("Touch — Set Modified Date to Now") { app.activate(pane); app.touch(targets) }
         Button("Get Info") { app.getInfo(targets) }
-        Button("Compress") { app.activate(pane); app.compress(targets) }
+        ArchiveContextActions(urls: targets, app: app, pane: pane)
         if !targets.allSatisfy({ TrashLocation.contains($0) }) {
             Button("Move to Trash") { app.activate(pane); app.trash(targets) }
         }

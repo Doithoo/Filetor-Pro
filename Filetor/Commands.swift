@@ -142,7 +142,9 @@ extension AppModel {
     }
 
     func open(_ urls: Set<URL>, with appURL: URL) {
-        NSWorkspace.shared.open(Array(urls), withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+        NSWorkspace.shared.open(Array(urls), withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+            if let error { Task { @MainActor in self?.alert = error.localizedDescription } }
+        }
     }
 
     func findDuplicates() {

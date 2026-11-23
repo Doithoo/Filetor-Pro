@@ -26,13 +26,17 @@ Mixed selections share one preview window. Space or Escape closes it, and changi
 
 Copy, move, rename, duplicate, Trash, batch rename, compress and extract archives. Transfers include progress, cancellation and conflict handling. File operations use a shared queue across windows, staged copying and recovery paths for failed replacements.
 
+**Compress to ZIP** and **Extract Archive** are available consistently in list, icon and column context menus. Built-in extraction handles ZIP, TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, TAR.XZ/TXZ, and individual GZIP/BZIP2 streams. Results go into a new folder in the active pane, existing names are kept, and originals are retained. Archive jobs use the shared operations queue with activity and cancellation; failed or cancelled items do not leave partially extracted result folders.
+
+When Keka is installed with its macOS Services, the menus also offer **Compress using Keka** and **Extract using Keka** for supported selections. These actions hand files to Keka, using its own format, destination and source-deletion preferences; Filetor does not report the handoff as completed extraction. Keka remains optional. **Open With → Other…** can select another application even without a Finder extension. Raw XZ, 7z, RAR, password-protected and split archives currently require an external tool; they are not advertised as built-in extraction support.
+
 Image conversion and optimization, metadata removal, duplicate finding, folder comparison, synchronization and project-folder templates are also available. `⌘K` opens the action palette; `⌥⌘K` shows keyboard shortcuts.
 
 The app keeps its native interface and small footprint: no Electron runtime, embedded browser or always-running update service.
 
 ## Install and update
 
-Current release: **Filetor Pro 0.8.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.9.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

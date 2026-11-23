@@ -424,6 +424,9 @@ struct Regression {
                 try await navigationWorkspaceUITests(root)
             } else if CommandLine.arguments.contains("--trash-only") {
                 try await trashDeletionTests(root)
+            } else if CommandLine.arguments.contains("--archive-actions-only") {
+                try archiveTests(root)
+                try await archiveActionsTests(root)
             } else if CommandLine.arguments.contains("--enhanced-preview-only") {
                 try await enhancedPreviewTests(root)
                 try await folderPreviewTests(root)
@@ -439,6 +442,7 @@ struct Regression {
                 try renameTests(root)
                 try await transferTests(root)
                 try archiveTests(root)
+                try await archiveActionsTests(root)
                 try await paneTests(root)
                 try await managerTests(root)
                 try await nativeUITests(root)

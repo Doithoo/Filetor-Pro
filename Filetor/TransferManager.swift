@@ -10,6 +10,7 @@ final class TransferJob: Identifiable {
     var currentName = ""
     var isFinished = false
     var cancellable = true
+    var indeterminate = false
 
     init(title: String) { self.title = title }
 }
@@ -170,7 +171,8 @@ struct TransferList: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(job.title).font(.callout)
                     HStack {
-                        ProgressView(value: job.fraction)
+                        if job.indeterminate { ProgressView().controlSize(.small) }
+                        else { ProgressView(value: job.fraction) }
                         if job.cancellable && !job.isFinished {
                           Button { manager.cancel(job) } label: {
                             Image(systemName: "xmark.circle.fill")

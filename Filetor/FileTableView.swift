@@ -721,7 +721,7 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(item("Open") { [weak self] in self?.parent.pane.open(urls) })
             menu.addItem(item("Quick Look") { [weak self] in self?.parent.app.quickLook(urls) })
             let apps = parent.app.openApps(for: urls)
-            if !apps.isEmpty {
+            do {
                 let with = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
                 let sub = NSMenu()
                 for appURL in apps {
@@ -733,6 +733,8 @@ struct FileTableView: NSViewRepresentable {
                     mi.image = icon
                     sub.addItem(mi)
                 }
+                if !apps.isEmpty { sub.addItem(.separator()) }
+                sub.addItem(item("Other…") { [weak self] in self?.parent.app.chooseApplication(for: urls) })
                 with.submenu = sub
                 menu.addItem(with)
             }
@@ -743,9 +745,13 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(.separator())
             menu.addItem(tagsItem(urls))
             menu.addItem(.separator())
-            menu.addItem(item("Compress") { [weak self] in self?.parent.app.compress(urls) })
-            if urls.contains(where: { FileTools.isArchive($0) }) {
-                menu.addItem(item("Decompress") { [weak self] in self?.parent.app.decompress(urls) })
+            for action in ArchiveMenuAction.available(for: urls) {
+                let entry = item(action.title) { [weak self] in
+                    guard let self else { return }
+                    action.perform(urls, app: self.parent.app)
+                }
+                entry.toolTip = action.help
+                menu.addItem(entry)
             }
             if urls.count == 1, let only = urls.first, items.first(where: { $0.url == only })?.isDirectory == true {
                 menu.addItem(item("Archive Project…") { [weak self] in self?.parent.app.archiveFolder = only })

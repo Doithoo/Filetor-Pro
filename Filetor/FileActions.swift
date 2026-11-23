@@ -44,55 +44,16 @@ nonisolated enum FileTools {
     }
 
     static func compress(_ urls: [URL], in dir: URL) -> String? {
-        let urls = FileOperationSafety.topLevel(urls)
-        guard let first = urls.first else { return nil }
-        if urls.count == 1 {
-            let dest = unique(dir.appending(path: first.lastPathComponent + ".zip"))
-            let error = run("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", first.path, dest.path])
-            if error != nil { try? FileManager.default.removeItem(at: dest) }
-            return error
-        }
-        let dest = unique(dir.appending(path: "Archive.zip"))
-        // Keep paths relative to the common parent, including tree/search selections.
-        var root = first.deletingLastPathComponent().standardizedFileURL
-        while !urls.allSatisfy({
-            let parent = $0.deletingLastPathComponent().standardizedFileURL.path
-            return parent == root.path || parent.hasPrefix(root.path == "/" ? "/" : root.path + "/")
-        }) {
-            let next = root.deletingLastPathComponent()
-            if next == root { break }
-            root = next
-        }
-        let prefix = root.path == "/" ? "/" : root.path + "/"
-        let paths = urls.map { "./" + String($0.standardizedFileURL.path.dropFirst(prefix.count)) }
-        let error = run("/usr/bin/zip", ["-r", "-y", dest.path, "--"] + paths, cwd: root)
-        if error != nil { try? FileManager.default.removeItem(at: dest) }
-        return error
+        let result = ArchiveOperations.compress(urls, in: dir, control: TransferControl())
+        return result.failures.isEmpty ? nil : result.failures.joined(separator: "\n")
     }
 
-    static let archiveExtensions: Set<String> = ["zip", "tar", "gz", "tgz", "bz2", "tbz", "tbz2", "xz", "txz"]
-
-    static func isArchive(_ url: URL) -> Bool {
-        archiveExtensions.contains(url.pathExtension.lowercased())
-    }
+    static func isArchive(_ url: URL) -> Bool { ArchiveOperations.canExtract(url) }
 
     static func decompress(_ urls: [URL], in dir: URL) -> String? {
-        let urls = urls.filter(isArchive)
-        if urls.isEmpty { return "Select one or more archives (zip, tar, gz, bz2, xz)." }
-        var errors: [String] = []
-        for url in urls {
-            let dest = unique(dir.appending(path: url.deletingPathExtension().lastPathComponent))
-            do { try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: false) }
-            catch { errors.append("\(url.lastPathComponent): \(error.localizedDescription)"); continue }
-            let err: String?
-            if url.pathExtension.lowercased() == "zip" {
-                err = run("/usr/bin/ditto", ["-x", "-k", url.path, dest.path])
-            } else {
-                err = run("/usr/bin/tar", ["-xf", url.path, "-C", dest.path])
-            }
-            if let err { errors.append("\(url.lastPathComponent): \(err)") }
-        }
-        return errors.isEmpty ? nil : errors.joined(separator: "\n")
+        guard !urls.isEmpty else { return "Select one or more archives." }
+        let result = ArchiveOperations.extract(urls, in: dir, control: TransferControl())
+        return result.failures.isEmpty ? nil : result.failures.joined(separator: "\n")
     }
 
     // MARK: Images (through the built-in sips tool)

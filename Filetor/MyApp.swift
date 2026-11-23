@@ -130,10 +130,10 @@ private struct WorkspaceCommands: Commands {
                 Button("Get Info") { app.getInfo(app.active.selection) }
                     .keyboardShortcut("i", modifiers: .command)
                     .disabled(app.active.selection.isEmpty)
-                Button("Compress") { app.compress(app.active.selection) }
+                Button("Compress to ZIP") { app.compress(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)
-                Button("Decompress") { app.decompress(app.active.selection) }
-                    .disabled(app.active.selection.isEmpty)
+                Button("Extract Archive") { app.decompress(app.active.selection) }
+                    .disabled(app.active.selection.isEmpty || !app.active.selection.allSatisfy(FileTools.isArchive))
                 Divider()
                 Button("Rotate Left") { app.rotateImages(app.active.selection, degrees: 270) }
                     .disabled(app.active.selection.isEmpty)

@@ -13,7 +13,7 @@ struct AppCommand: Identifiable {
 @MainActor enum CommandCatalog {
     @MainActor private static func hasSelection(_ app: AppModel) -> Bool { !app.active.selection.isEmpty }
     @MainActor private static func hasImage(_ app: AppModel) -> Bool { app.active.selection.contains { FileTools.isImage($0) } }
-    @MainActor private static func hasArchive(_ app: AppModel) -> Bool { app.active.selection.contains { FileTools.isArchive($0) } }
+    @MainActor private static func hasArchive(_ app: AppModel) -> Bool { !app.active.selection.isEmpty && app.active.selection.allSatisfy { FileTools.isArchive($0) } }
 
     static let all: [AppCommand] = [
         AppCommand(id: "newFolder", title: "New Folder", keys: "⇧ ⌘ N") { $0.newFolder() },
@@ -35,8 +35,8 @@ struct AppCommand: Identifiable {
         AppCommand(id: "copyOther", title: "Copy to Other Pane", keys: "F5", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: false) },
         AppCommand(id: "moveOther", title: "Move to Other Pane", keys: "F6", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: true) },
         AppCommand(id: "info", title: "Get Info", keys: "⌘ I", isEnabled: hasSelection) { $0.getInfo($0.active.selection) },
-        AppCommand(id: "compress", title: "Compress", isEnabled: hasSelection) { $0.compress($0.active.selection) },
-        AppCommand(id: "decompress", title: "Decompress", isEnabled: hasArchive) { $0.decompress($0.active.selection) },
+        AppCommand(id: "compress", title: "Compress to ZIP", isEnabled: hasSelection) { $0.compress($0.active.selection) },
+        AppCommand(id: "decompress", title: "Extract Archive", isEnabled: hasArchive) { $0.decompress($0.active.selection) },
         AppCommand(id: "rotL", title: "Rotate Left", isEnabled: hasImage) { $0.rotateImages($0.active.selection, degrees: 270) },
         AppCommand(id: "rotR", title: "Rotate Right", isEnabled: hasImage) { $0.rotateImages($0.active.selection, degrees: 90) },
         AppCommand(id: "toPNG", title: "Convert Image to PNG", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "png", ext: "png") },

@@ -42,8 +42,8 @@ enum Shortcuts {
         ShortcutGroup(title: "Tools", entries: [
             ("Get Info", "⌘ I"),
             ("Share (right-click)", "—"),
-            ("Compress", "—"),
-            ("Decompress", "—"),
+            ("Compress to ZIP", "—"),
+            ("Extract Archive", "—"),
             ("Rotate Left", "—"),
             ("Rotate Right", "—"),
             ("Convert Image", "—"),
