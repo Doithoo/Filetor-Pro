@@ -1,26 +1,37 @@
 import AppKit
 import Quartz
 
-/// An application-owned panel, independent of installed Quick Look extensions for folders.
-final class FolderPreviewPanel: NSPanel {
+/// An application-owned panel for built-in previews, with a system fallback for other files.
+final class BuiltinPreviewPanel: NSPanel {
     var dismissPreview: (() -> Void)?
+    var findInPreview: (() -> Bool)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "f", findInPreview?() == true { return true }
+        return super.performKeyEquivalent(with: event)
+    }
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown,
            event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
-           event.keyCode == 53 || event.charactersIgnoringModifiers == " " {
+           event.keyCode == 53 || (event.charactersIgnoringModifiers == " " && !isEditingFindField) {
             dismissPreview?()
             return
         }
         super.sendEvent(event)
     }
+
+    private var isEditingFindField: Bool {
+        (firstResponder as? NSTextView)?.isEditable == true
+    }
 }
 
-final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDataSource, NSOutlineViewDelegate {
+final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDataSource, NSOutlineViewDelegate {
     let model = FolderPreviewModel()
-    let panel = FolderPreviewPanel(contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
+    let panel = BuiltinPreviewPanel(contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
                                   styleMask: [.titled, .closable, .resizable, .utilityWindow], backing: .buffered, defer: false)
     let outline = NSOutlineView()
     private let scroll = NSScrollView()
@@ -31,6 +42,12 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
     private let icon = NSImageView()
     private let content = NSView()
     private var filePreview: QLPreviewView?
+    private(set) var textPreview: TextPreviewView?
+    private(set) var zipRoot: ZipPreviewNode?
+    private(set) var previewKind: BuiltinPreviewKind = .system
+    private(set) var loading = false
+    private var readOperation: Operation?
+    private var readGeneration = UUID()
     private(set) var urls: [URL] = []
     private(set) var currentIndex = 0
     var currentURL: URL? { urls.indices.contains(currentIndex) ? urls[currentIndex] : nil }
@@ -52,7 +69,12 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
         panel.title = "Folder Preview"
         panel.delegate = self
         panel.dismissPreview = { [weak self] in self?.closePreview?() }
-        panel.setAccessibilityIdentifier("filetor-folder-preview")
+        panel.findInPreview = { [weak self] in
+            guard let text = self?.textPreview else { return false }
+            text.findText()
+            return true
+        }
+        panel.setAccessibilityIdentifier("filetor-builtin-preview")
 
         previous = button("chevron.left", "Previous selected item", #selector(previousItem))
         next = button("chevron.right", "Next selected item", #selector(nextItem))
@@ -160,11 +182,16 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
     }
 
     func hide() {
+        cancelRead()
         model.stop()
         filePreview?.previewItem = nil
         filePreview?.close()
         filePreview?.removeFromSuperview()
         filePreview = nil
+        textPreview = nil
+        zipRoot = nil
+        outline.reloadData()
+        content.subviews.forEach { $0.removeFromSuperview() }
         urls = []
         currentIndex = 0
         panel.orderOut(nil)
@@ -203,14 +230,18 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
 
     private func renderCurrent() {
         guard let url = currentURL else { return }
+        cancelRead()
         model.stop()
+        zipRoot = nil
+        textPreview = nil
         filePreview?.previewItem = nil
         filePreview?.close()
         filePreview = nil
         content.subviews.forEach { $0.removeFromSuperview() }
         let item = FileItem(url: url)
-        let folder = item.expandable
-        panel.title = folder ? "Folder Preview — \(item.name)" : "Quick Look — \(item.name)"
+        previewKind = BuiltinPreviewKind.forURL(url)
+        let folder = previewKind == .folder
+        panel.title = "Preview — \(item.name)"
         heading.stringValue = item.name.isEmpty || item.name == "/" ? FileManager.default.displayName(atPath: "/") : item.name
         path.stringValue = url.path
         path.toolTip = url.path
@@ -220,15 +251,27 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
         previous.isEnabled = currentIndex > 0
         next.isEnabled = currentIndex + 1 < urls.count
         hidden.isHidden = !folder
-        refresh.isHidden = !folder
+        refresh.isHidden = previewKind == .system
+        refresh.toolTip = folder ? "Refresh folder preview" : "Refresh preview"
         open.isHidden = !folder
         hidden.image = NSImage(systemSymbolName: showHidden ? "eye" : "eye.slash", accessibilityDescription: nil)
         hidden.toolTip = showHidden ? "Hide hidden items" : "Show hidden items"
         hidden.setAccessibilityLabel(hidden.toolTip)
         if folder {
+            outline.setAccessibilityLabel("Folder contents")
             embed(scroll)
             model.show(url, showHidden: showHidden)
             panel.makeFirstResponder(outline)
+        } else if previewKind == .zip {
+            outline.setAccessibilityLabel("ZIP contents")
+            embed(scroll)
+            outline.reloadData()
+            startZip(url)
+        } else if previewKind != .system {
+            let text = TextPreviewView()
+            textPreview = text
+            embed(text)
+            startText(url, kind: previewKind)
         } else {
             let preview = QLPreviewView(frame: content.bounds, style: .normal)!
             preview.autostarts = true
@@ -236,6 +279,71 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
             filePreview = preview
             preview.previewItem = url as NSURL
             status.stringValue = "System Quick Look"
+        }
+    }
+
+    private func cancelRead() {
+        readGeneration = UUID()
+        readOperation?.cancel()
+        readOperation = nil
+        loading = false
+    }
+
+    private func showReadError(_ error: Error) {
+        status.stringValue = "Could not preview file · Refresh to retry"
+        let message = NSTextField(wrappingLabelWithString: error.localizedDescription)
+        message.textColor = .secondaryLabelColor
+        message.alignment = .center
+        message.translatesAutoresizingMaskIntoConstraints = false
+        content.subviews.forEach { $0.removeFromSuperview() }
+        content.addSubview(message)
+        NSLayoutConstraint.activate([
+            message.centerXAnchor.constraint(equalTo: content.centerXAnchor), message.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            message.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -48)
+        ])
+    }
+
+    private func startZip(_ url: URL) {
+        loading = true
+        status.stringValue = "Reading ZIP directory…"
+        let generation = readGeneration
+        readOperation = PreviewWork.start({ operation in try ZipPreviewReader.read(url, cancelled: { operation.isCancelled }) }) { [weak self] result in
+            guard let self, self.readGeneration == generation else { return }
+            self.loading = false
+            self.readOperation = nil
+            switch result {
+            case .success(let listing):
+                let tree = ZipPreviewTree.build(listing)
+                self.zipRoot = tree.root
+                self.outline.reloadData()
+                let encrypted = listing.entries.contains { $0.encrypted }
+                self.status.stringValue = "\(listing.entries.count) / \(listing.total) entries · \(tree.limited ? "Limited preview · " : "")\(encrypted ? "Encrypted entries · " : "")Nothing extracted"
+                self.status.toolTip = self.status.stringValue
+                if listing.total == 0 { self.status.stringValue = "Empty ZIP archive" }
+                self.panel.makeFirstResponder(self.outline)
+            case .failure(let error): self.showReadError(error)
+            }
+        }
+    }
+
+    private func startText(_ url: URL, kind: BuiltinPreviewKind) {
+        loading = true
+        status.stringValue = "Reading file…"
+        let generation = readGeneration
+        readOperation = PreviewWork.start({ operation in try TextPreviewReader.read(url, kind: kind, cancelled: { operation.isCancelled }) }) { [weak self] result in
+            guard let self, self.readGeneration == generation else { return }
+            self.loading = false
+            self.readOperation = nil
+            switch result {
+            case .success(let document):
+                self.textPreview?.show(document, language: kind == .json ? "json" : url.pathExtension.lowercased())
+                var summary = document.notice ?? "\(document.source.components(separatedBy: .newlines).count) lines · Read only"
+                if document.truncated { summary += " · Limited preview (1 MB / 160,000 characters / 10,000 lines)" }
+                self.status.stringValue = summary
+                self.status.toolTip = summary
+                if let text = self.textPreview?.textView { self.panel.makeFirstResponder(text) }
+            case .failure(let error): self.showReadError(error)
+            }
         }
     }
 
@@ -250,10 +358,15 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
     }
 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        ((item as? FolderPreviewNode) ?? model.root)?.children.count ?? 0
+        if previewKind == .zip { return ((item as? ZipPreviewNode) ?? zipRoot)?.children.count ?? 0 }
+        return ((item as? FolderPreviewNode) ?? model.root)?.children.count ?? 0
     }
 
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        if previewKind == .zip {
+            guard let parent = (item as? ZipPreviewNode) ?? zipRoot, parent.children.indices.contains(index) else { return ZipPreviewNode(name: "", path: "") }
+            return parent.children[index]
+        }
         // AppKit may finish a layout callback while focus changes after closing.
         guard let parent = (item as? FolderPreviewNode) ?? model.root,
               parent.children.indices.contains(index) else { return FolderPreviewNode(message: "") }
@@ -261,7 +374,8 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
     }
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        (item as? FolderPreviewNode)?.item?.expandable == true
+        if let node = item as? ZipPreviewNode { return !node.children.isEmpty }
+        return (item as? FolderPreviewNode)?.item?.expandable == true
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldExpandItem item: Any) -> Bool {
@@ -270,10 +384,28 @@ final class FolderPreviewController: NSObject, NSWindowDelegate, NSOutlineViewDa
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
-        (item as? FolderPreviewNode)?.item != nil
+        if item is ZipPreviewNode { return true }
+        return (item as? FolderPreviewNode)?.item != nil
     }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+        if let node = item as? ZipPreviewNode, let id = tableColumn?.identifier {
+            let cell = (outlineView.makeView(withIdentifier: id, owner: self) as? NSTableCellView) ?? makeCell(id)
+            let folder = !node.children.isEmpty || node.entry?.directory == true
+            let text: String
+            switch id.rawValue {
+            case "name": text = node.name
+            case "size": text = node.entry.map { $0.directory ? "—" : ByteCountFormatter.string(fromByteCount: Int64(clamping: $0.size), countStyle: .file) } ?? "—"
+            case "kind": text = (node.entry?.encrypted == true ? "Encrypted " : "") + (node.entry?.symbolicLink == true ? "Link" : folder ? "Folder" : "File")
+            default: text = node.entry?.modified?.formatted(date: .abbreviated, time: .shortened) ?? "—"
+            }
+            cell.textField?.stringValue = text
+            cell.textField?.textColor = .labelColor
+            cell.imageView?.image = NSImage(systemSymbolName: folder ? "folder" : "doc", accessibilityDescription: nil)
+            cell.toolTip = node.path + (node.entry.map { "\nSize: \($0.size) bytes · Compressed: \($0.packedSize) bytes" } ?? "")
+            cell.setAccessibilityLabel(text)
+            return cell
+        }
         guard let node = item as? FolderPreviewNode, let id = tableColumn?.identifier else { return nil }
         let cell = (outlineView.makeView(withIdentifier: id, owner: self) as? NSTableCellView) ?? makeCell(id)
         let text: String

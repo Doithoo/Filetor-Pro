@@ -18,7 +18,9 @@ Filetor Pro is developed independently by Doithoo, building on [Filetor by David
 - **Go To toolbar button**: browse folders, sidebar favorites and recent locations in a native popover. Click a folder name to open it or its arrow to browse deeper; each breadcrumb also has a subfolder dropdown. Path entry, `⇧⌘G` and Tab completion remain available.
 - Categorized settings with independent list row height and grid icon size, safe extension hiding, and optional native file thumbnails (off by default).
 
-Press **Space** on a folder for the built-in native preview: expand subfolders, inspect name/size/type/modified time, toggle hidden items, refresh, or open the folder in the current pane. Folder preview needs no Looq or other extension. Space or Escape closes it; selection changes update the preview. Mixed selections have previous/next controls and use system Quick Look for files. Packages and symbolic links retain system preview. Each folder loads only when expanded; large directories show an explicit preview limit. Other file formats still depend on macOS and its enabled extensions. This release does not install a Finder preview extension.
+Press **Space** for built-in previews of folders, ZIP archives, common source/text files, Markdown, JSON and property lists — no Looq required for these formats. Folders expand on demand; ZIP previews browse the archive directory without extracting or decompressing contents. Code uses native selectable text with lightweight syntax highlighting; Markdown has Reading/Source modes, and JSON is formatted without rewriting numeric tokens. Text previews support copying and Find. Unicode UTF-8 and BOM-marked UTF-16/32 are supported; binary plists are displayed as XML.
+
+Mixed selections share one preview window. Space or Escape closes it, and changing the selection updates it. Images, PDFs, media and other formats retain system Quick Look. Large inputs display explicit preview limits. Markdown displays common text blocks and inline formatting; it does not render HTML, load images or open links. ZIP previews list metadata only, including encrypted-entry markers; they do not preview/extract member contents or support multi-volume archives. Packages and symbolic links retain system preview. No Finder preview extension is installed.
 
 ## File tools
 
@@ -30,7 +32,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.7.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.8.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

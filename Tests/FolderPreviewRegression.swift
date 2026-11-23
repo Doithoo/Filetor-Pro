@@ -37,7 +37,7 @@ extension Regression {
             throw FileOperationSafety.failure("Expected symlink rejection")
         } catch { try check(!(error.localizedDescription.contains("Expected")), "redirected folder previews are rejected before enumeration") }
 
-        let controller = FolderPreviewController()
+        let controller = BuiltinPreviewController()
         let window = NSWindow(contentRect: .init(x: 100, y: 100, width: 900, height: 600),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -102,7 +102,7 @@ extension Regression {
         controller.show([directory, document], relativeTo: window, showHidden: false)
         controller.nextItem()
         try check(controller.currentURL == document && controller.model.root == nil,
-                  "mixed selections use the system file preview and stop folder reads")
+                  "mixed selections switch to text preview and stop folder reads")
         controller.previousItem()
         try await until("mixed selection returns to folder") { controller.model.root?.loaded == true }
         try check(controller.currentURL == directory, "mixed selections return to the built-in folder preview")
