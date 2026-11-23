@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 private struct WorkspaceFocusKey: FocusedValueKey {
     typealias Value = AppModel

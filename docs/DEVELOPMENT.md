@@ -32,6 +32,33 @@ open ".build/pro/Filetor Pro.app"
 
 Filetor Pro 使用固定 Bundle ID `com.doithoo.Filetor.personal`，设置和原版隔离。更新源固定为自己的 `Doithoo/Filetor-Pro` Release，不检查上游发布。首次构建会下载 SHA-256 固定的 Sparkle 2.10.1，后续使用已校验的本地缓存。应用采用本地临时签名，更新包及更新清单另有 Ed25519 签名。本机构建不代表完成了其他 macOS 版本、Intel 或网络卷兼容性验证。
 
+## Xcode 开发环境
+
+本机已安装并初始化 Xcode 27.2（27B52），系统开发工具目录为
+`/Applications/Xcode.app/Contents/Developer`。可直接打开 `Filetor.xcodeproj`，
+选择 `Filetor` scheme 和 My Mac。Swift Package Manager 锁定 Sparkle 2.10.1
+及 libwebp 1.6.0；Sparkle 的 JSON 工程精确版本字段使用 `version`。
+
+无开发者团队的本机构建验证命令：
+
+```sh
+xcodebuild -project Filetor.xcodeproj -scheme Filetor -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode-validation \
+  -disableAutomaticPackageResolution CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual build
+```
+
+首次检出可先执行 `xcodebuild -resolvePackageDependencies -project Filetor.xcodeproj`。
+Xcode 的 Debug 构建与已安装应用使用相同 Bundle ID；运行时会读取现有偏好，
+日常自动验证继续使用独立设置和临时文件的 `scripts/build.py --test`。
+发布脚本暂保留 26.5 SDK 基线；安装 Xcode 本身不代表升级应用版本或替换现有安装。
+
+2026-11-23 验证：Xcode 27.2 / macOS 27.2 SDK 的原生 Debug 工程构建和
+签名检查通过；Xcode 编译器配合发布脚本的 26.5 SDK，最终完整运行通过
+131 项基础回归及 29 项真实窗口检查。过程中 UI 测试曾在预览、弹出面板
+和地址栏焦点检查出现间歇性失败；27.2 SDK 尚未完成稳定的全套 UI 验证，
+不据此切换正式发布的 SDK。原生构建仍有 Swift 6 并发迁移警告，项目继续
+使用 Swift 5 语言模式。
+
 ## 项目目录与清理
 
 | 路径 | 用途 |
