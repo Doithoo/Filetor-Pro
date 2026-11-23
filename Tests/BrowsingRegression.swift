@@ -188,6 +188,9 @@ extension Regression {
             try bitmap.representation(using: .png, properties: [:])!.write(to: out)
         }
         NSApp.appearance = NSAppearance(named: .aqua)
+        try await snapshot(Color.gray.floatingPanel(isPresented: .constant(true)) {
+            SettingsSheet(app: app)
+        }, name: "settings-rounded-light", size: NSSize(width: 850, height: 680))
         try await snapshot(SettingsSheet(app: app, page: .browsing), name: "settings-browsing", size: NSSize(width: 800, height: 650))
         try await snapshot(SettingsSheet(app: app, page: .updates), name: "settings-updates-new", size: NSSize(width: 800, height: 650))
         try await snapshot(SettingsSheet(app: app, page: .browsing), name: "settings-narrow", size: NSSize(width: 600, height: 500))
@@ -195,6 +198,9 @@ extension Regression {
         try await snapshot(SearchPopup(app: app, pane: app.active), name: "local-search", size: NSSize(width: 700, height: 660))
         try await snapshot(GoToFolderPopup(app: app, pane: app.active), name: "path-completion", size: NSSize(width: 700, height: 600))
         NSApp.appearance = NSAppearance(named: .darkAqua)
+        try await snapshot(Color.gray.floatingPanel(isPresented: .constant(true)) {
+            SettingsSheet(app: app)
+        }, name: "settings-rounded-dark", size: NSSize(width: 850, height: 680))
         try await snapshot(SettingsSheet(app: app, page: .browsing), name: "settings-browsing-dark", size: NSSize(width: 800, height: 650))
         NSApp.appearance = nil
     }

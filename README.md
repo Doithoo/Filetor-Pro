@@ -28,7 +28,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.5.3**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.5.4**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

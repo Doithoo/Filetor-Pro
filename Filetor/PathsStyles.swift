@@ -140,6 +140,9 @@ private struct FloatingPanel<Panel: View>: ViewModifier {
                         .transition(.opacity)
                     panel()
                         .environment(\.closePanel, PanelCloser(action: { isPresented = false }))
+                        // Child views can paint opaque rectangular backgrounds.
+                        // Clip those too, leaving the outer shadow unclipped.
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                         .background {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color(nsColor: .windowBackgroundColor))
