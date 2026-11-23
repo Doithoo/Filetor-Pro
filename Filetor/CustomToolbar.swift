@@ -114,7 +114,7 @@ struct CustomToolbar: View {
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .frame(width: 36 * s)
-                    .help("More")
+                    .toolbarHelp("More Toolbar Actions")
                     .modifier(FolderNavigationPopover(app: app,
                         enabled: model.contains("goTo") && !parts.visible.contains { $0.kind == "goTo" }))
                 }
@@ -138,7 +138,7 @@ struct CustomToolbar: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(ToolButtonStyle())
-                    .help(app.showInfo ? "Hide Info Panel" : "Show Info Panel")
+                    .toolbarHelp(app.showInfo ? "Hide Info Panel" : "Show Info Panel")
                     .accessibilityLabel("Info Panel")
                     .accessibilityValue(app.showInfo ? "Shown" : "Hidden")
                     .accessibilityIdentifier("toolbar-info-panel")
@@ -199,7 +199,7 @@ struct CustomToolbar: View {
                 .foregroundStyle(app.showGoToFolder ? Color.filetor : Color.primary.opacity(0.7))
                 .frame(width: buttonWidth - 4)
             }
-            .buttonStyle(ToolButtonStyle()).help("Go to Folder")
+            .buttonStyle(ToolButtonStyle()).toolbarHelp("Go to Folder")
             .accessibilityLabel("Go to Folder").accessibilityIdentifier("toolbar-go-to")
             .modifier(FolderNavigationPopover(app: app, enabled: true))
         case "flex":
@@ -216,7 +216,8 @@ struct CustomToolbar: View {
                             .contentShape(Rectangle())
                     }
                     .disabled(!app.active.canGoBack)
-                    .help("Back")
+                    .toolbarHelp(app.active.canGoBack ? "Back" : "Back — No previous folder")
+                    .accessibilityLabel("Back")
                     Button { app.active.goForward() } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 15 * s, weight: .regular))
@@ -224,7 +225,8 @@ struct CustomToolbar: View {
                             .contentShape(Rectangle())
                     }
                     .disabled(!app.active.canGoForward)
-                    .help("Forward")
+                    .toolbarHelp(app.active.canGoForward ? "Forward" : "Forward — No next folder")
+                    .accessibilityLabel("Forward")
                 }
                 .buttonStyle(NavHalfStyle())
                 .clipShape(Capsule())
@@ -240,6 +242,7 @@ struct CustomToolbar: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(width: 190 * s, alignment: .leading)
+                .toolbarHelp(app.active.currentURL.path)
         case "view":
             @Bindable var pane = app.active
             VStack(spacing: 3) {
@@ -257,6 +260,9 @@ struct CustomToolbar: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture { pane.viewMode = i }
+                            .toolbarHelp(["List View", "Icon View", "Column View"][i])
+                            .accessibilityLabel(["List View", "Icon View", "Column View"][i])
+                            .accessibilityAddTraits(.isButton)
                     }
                 }
                 .padding(2)
@@ -302,7 +308,8 @@ struct CustomToolbar: View {
                 }
                 .buttonStyle(ToolButtonStyle())
                 .disabled(isDisabled(def))
-                .help(def.title)
+                .toolbarHelp(ToolCatalog.help(def, app: app))
+                .accessibilityLabel(def.title)
             }
         }
     }
@@ -338,7 +345,7 @@ struct TransferButton: View {
             .frame(width: 58 * s)
         }
         .buttonStyle(ToolButtonStyle())
-        .help("Transfers")
+        .toolbarHelp("Show File Transfers")
         .popover(isPresented: $show) { TransferList(manager: app.transfers) }
     }
 }
@@ -359,10 +366,13 @@ struct FilterField: View {
             TextField("Filter selected pane", text: $text).textFieldStyle(.plain)
                 .focused($focused)
                 .onChange(of: focusTrigger) { _, _ in focused = true }
+                .toolbarHelp("Filter files by name in the selected pane")
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+                    .toolbarHelp("Clear Filter")
+                    .accessibilityLabel("Clear Filter")
             }
             if let subfolders {
                 Button { subfolders.wrappedValue.toggle() } label: {
@@ -370,7 +380,7 @@ struct FilterField: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(subfolders.wrappedValue ? Color.filetor : Color.secondary)
-                .help(subfolders.wrappedValue ? "Searching subfolders" : "Search subfolders")
+                .toolbarHelp(subfolders.wrappedValue ? "Search Only This Folder" : "Include Subfolders in Search")
             }
         }
         .font(.system(size: 12.5 * s))

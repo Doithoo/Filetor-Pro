@@ -11,6 +11,7 @@ final class PaneModel: Identifiable {
         KeyPathComparator(\FileItem.name, comparator: .localizedStandard)
     ]
     var errorMessage: String?
+    private(set) var trashAccessDenied = false
     var loading = false
     var searchTruncated = false
     var isVisible = false
@@ -39,7 +40,7 @@ final class PaneModel: Identifiable {
     var tagResults: [FileItem] = []
     var tagSearching = false
     @ObservationIgnored private var tagTask: Task<Void, Never>?
-    var title: String { tagFilter ?? CloudLocation.title(for: currentURL) }
+    var title: String { tagFilter ?? (TrashLocation.isRoot(currentURL) ? "Trash" : CloudLocation.title(for: currentURL)) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     var searchActive: Bool { tagFilter == nil && searchSubfolders && hasSearchFilters }
     /// 0 = list, 1 = icons, 2 = columns
@@ -394,6 +395,7 @@ final class PaneModel: Identifiable {
         if !keepSelection { selection.removeAll(); items = []; children = [:] }
         loading = true
         errorMessage = nil
+        trashAccessDenied = false
         loadTask = Task { [weak self] in
             let worker = Task.detached(priority: .userInitiated) {
                 let items = try Self.readDirectory(root, hidden: hidden)
@@ -436,6 +438,10 @@ final class PaneModel: Identifiable {
                 self.items = []
                 self.children = [:]
                 self.errorMessage = error.localizedDescription
+                self.trashAccessDenied = TrashLocation.contains(root)
+                    && ((error as? CocoaError)?.code == .fileReadNoPermission
+                        || (error as NSError).domain == NSPOSIXErrorDomain
+                        && [Int(EACCES), Int(EPERM)].contains((error as NSError).code))
             }
         }
         if !keepSelection { startWatching(); if searchActive { restartSearch() } }

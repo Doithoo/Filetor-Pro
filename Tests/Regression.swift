@@ -415,6 +415,8 @@ struct Regression {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
             if CommandLine.arguments.contains("--navigation-workspace-only") {
                 try await navigationWorkspaceUITests(root)
+            } else if CommandLine.arguments.contains("--sidebar-toolbar-only") {
+                try await sidebarToolbarTests(root)
             } else if CommandLine.arguments.contains("--navigation-only") {
                 try await navigationTests(root)
             } else {
@@ -427,6 +429,7 @@ struct Regression {
                 try await updateTests(root)
                 try await browsingTests(root)
                 try await navigationTests(root)
+                try await sidebarToolbarTests(root)
             }
             print("\nAll \(checks) regression checks passed.")
         } catch {

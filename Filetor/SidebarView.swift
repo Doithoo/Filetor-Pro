@@ -10,9 +10,18 @@ struct Place: Identifiable, Hashable {
 
 struct SidebarView: View {
     let app: AppModel
+    let trashURL: URL
     @AppStorage("textSize") private var textSize = 1
 
-    private var favorites: [Place] { app.favorites.urls.map { app.favorites.place(for: $0) } }
+    init(app: AppModel, trashURL: URL = TrashLocation.home) {
+        self.app = app
+        self.trashURL = trashURL
+    }
+
+    private var favorites: [Place] {
+        app.favorites.urls.filter { $0.standardizedFileURL.path != TrashLocation.home.path }
+            .map { app.favorites.place(for: $0) }
+    }
 
     @AppStorage("sidebarCollapsed") private var collapsedRaw = ""
 
@@ -203,6 +212,40 @@ struct SidebarView: View {
                 }
                 .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
                                               card: dragCard(p.name), onDragStart: watchDragEnd))
+            }
+            if isFavorites && !isCollapsed(title) { trashRow }
+        }
+    }
+
+    private var trashRow: some View {
+        let on = app.active.tagFilter == nil && TrashLocation.contains(app.active.currentURL)
+        return Button { app.openTrash(at: trashURL) } label: {
+            HStack(spacing: 8 * s) {
+                Image(systemName: "trash")
+                    .font(.system(size: 12.5 * s)).foregroundStyle(Color.filetor)
+                    .frame(width: 20 * s)
+                Text("Trash").font(.system(size: 13 * s)).foregroundStyle(Color.primary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5 * s)
+            .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .toolbarHelp("Open this Mac’s Trash in the selected pane. Right-click for other disks.")
+        .accessibilityLabel("Trash")
+        .accessibilityIdentifier("sidebar-trash")
+        .contextMenu {
+            Button("Open Trash") { app.openTrash(at: trashURL) }
+            Button("Open in New Tab") { app.activeGroup.newTab(at: trashURL) }
+            Button("Open in New Window") { app.openWindow?(trashURL) }
+            let disks = devices.filter { $0.url.path != "/" }
+            if !disks.isEmpty {
+                Menu("Trash on Disk") {
+                    ForEach(disks) { disk in
+                        Button(disk.name) { app.openTrash(on: disk.url) }
+                    }
+                }
             }
         }
     }

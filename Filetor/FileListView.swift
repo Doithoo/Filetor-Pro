@@ -22,6 +22,21 @@ struct FileListView: View {
             BreadcrumbBar(pane: pane, app: app)
                 .zIndex(1)
             Divider()
+            if TrashLocation.contains(pane.currentURL) {
+                HStack(spacing: 8) {
+                    Image(systemName: "trash")
+                    Text("Trash on this disk").lineLimit(1)
+                    Spacer(minLength: 0)
+                    Button("Move Out…") {
+                        app.activate(pane)
+                        app.chooseFolderAndTransfer(pane.selection, move: true)
+                    }
+                    .disabled(pane.selection.isEmpty)
+                    .help("Move selected items out of Trash to a folder you choose")
+                }
+                .font(.caption).foregroundStyle(.secondary).padding(8)
+                Divider()
+            }
             if app.showFilterBar && pane === app.active && !app.searchFieldVisible {
                 FilterBar(pane: pane, app: app, scale: scale)
                 Divider()
@@ -39,6 +54,24 @@ struct FileListView: View {
                 Divider()
             }
             table
+                .overlay {
+                    if pane.loading && pane.items.isEmpty {
+                        ProgressView("Loading folder…")
+                    } else if let message = pane.errorMessage, pane.items.isEmpty {
+                        ContentUnavailableView {
+                            Label(pane.trashAccessDenied ? "Allow access to Trash" : "Cannot open folder", systemImage: "lock")
+                        } description: {
+                            Text(pane.trashAccessDenied
+                                 ? "macOS denied access to Trash. Enable Full Disk Access for Filetor Pro in System Settings, then restart the app."
+                                 : message)
+                        } actions: {
+                            if pane.trashAccessDenied {
+                                Button("Open Privacy Settings") { FolderAccess.openPrivacySettings() }
+                            }
+                            Button("Retry") { pane.load() }
+                        }
+                    }
+                }
             if statusBar || pane.searchActive {
                 Divider()
                 HStack(spacing: 10) {
@@ -84,13 +117,6 @@ struct FileListView: View {
             rowSize: UserDefaults.standard.object(forKey: "listRowHeight") == nil ? nil : DisplayPreferences.rowHeight(rowHeight),
             showExtensions: showExtensions, previews: previews
         )
-        .overlay {
-            if pane.loading && pane.items.isEmpty {
-                ProgressView("Loading folder…")
-            } else if let msg = pane.errorMessage, pane.items.isEmpty {
-                ContentUnavailableView("Cannot open folder", systemImage: "lock", description: Text(msg))
-            }
-        }
         .safeAreaInset(edge: .bottom) {
             if let error = pane.errorMessage, !pane.items.isEmpty {
                 HStack {

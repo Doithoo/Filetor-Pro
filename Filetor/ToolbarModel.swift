@@ -93,6 +93,17 @@ enum ToolCatalog {
 
     static func def(_ id: String) -> ToolDef? { buttons.first { $0.id == id } }
 
+    static func help(_ def: ToolDef, app: AppModel) -> String {
+        if def.needsDual && !app.dual { return def.title + " — Enable Dual Browser first" }
+        if def.needsSelection && app.active.selection.isEmpty { return def.title + " — Select a file or folder first" }
+        switch def.id {
+        case "sidebar": return app.sidebarVisibility == .detailOnly ? "Show Sidebar" : "Hide Sidebar"
+        case "hidden": return app.active.showHidden ? "Hide Hidden Files" : "Show Hidden Files"
+        case "dual": return app.dual ? "Switch to Single Pane" : "Show Dual Browser"
+        default: return def.title
+        }
+    }
+
     static func title(_ kind: String) -> String { special[kind]?.title ?? def(kind)?.title ?? kind }
     static func symbol(_ kind: String) -> String { special[kind]?.symbol ?? def(kind)?.symbol ?? "questionmark" }
 
