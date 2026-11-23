@@ -103,6 +103,36 @@ struct NavigationRegressionScene: App {
             app.activateGoToFolder()
             try await assertOpen("menu navigation still opens when Go To is removed from the toolbar")
             try await close()
+
+            app.sidebarVisibility = .detailOnly
+            app.showInfo = false
+            try await Task.sleep(for: .milliseconds(350))
+            let savedToolbar = app.toolbarModel.entries
+            click(window, x: window.frame.width - 30, fromTop: 42)
+            try await Regression.until("trailing info control opens") { app.showInfo }
+            try Regression.check(UserDefaults.standard.bool(forKey: "showInfoPanel"), "right-edge info control opens and persists the panel")
+            try Regression.check(app.toolbarModel.entries == savedToolbar && app.toolbarModel.entries.contains { $0.kind == "info" }
+                                 && ToolCatalog.def("info")?.title == "Get Info" && ToolCatalog.def("info")?.needsSelection == true,
+                                 "Get Info keeps its saved position and requires a selection independently of the panel switch")
+            try await Task.sleep(for: .milliseconds(200))
+            snapshot(window, name: "info-panel-open")
+            click(window, x: window.frame.width - 30, fromTop: 42)
+            try await Regression.until("trailing info control closes") { !app.showInfo }
+            try Regression.check(!UserDefaults.standard.bool(forKey: "showInfoPanel"), "second click closes the info panel and persists its state")
+
+            window.setContentSize(NSSize(width: 800, height: 700))
+            try await Task.sleep(for: .milliseconds(350))
+            click(window, x: window.frame.width - 30, fromTop: 42)
+            try await Regression.until("narrow info control opens") { app.showInfo }
+            try Regression.check(app.showInfo, "info control stays clickable when toolbar items overflow")
+            try await Task.sleep(for: .milliseconds(250))
+            snapshot(window, name: "info-panel-narrow")
+            app.toolbarModel.entries = []
+            app.toolbarModel.showLabels = false
+            try await Task.sleep(for: .milliseconds(250))
+            click(window, x: window.frame.width - 30, fromTop: 48)
+            try await Regression.until("empty toolbar info control closes") { !app.showInfo }
+            try Regression.check(!app.showInfo, "info control stays available with an empty icon-only toolbar")
             print("\nAll \(Regression.checks) real-window navigation checks passed.")
         } catch {
             cleanup()
@@ -111,5 +141,14 @@ struct NavigationRegressionScene: App {
         }
         cleanup()
         NSApp.terminate(nil)
+    }
+
+    private func snapshot(_ window: NSWindow, name: String) {
+        guard let view = window.contentView else { return }
+        view.layoutSubtreeIfNeeded()
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        let url = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().appending(path: name + ".png")
+        try? bitmap.representation(using: .png, properties: [:])?.write(to: url)
     }
 }

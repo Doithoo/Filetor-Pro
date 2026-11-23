@@ -67,23 +67,25 @@ struct CustomToolbar: View {
     }
 
     private func split(available: CGFloat) -> (visible: [ToolbarEntry], hidden: [ToolbarEntry]) {
+        let entries = model.entries
         var used: CGFloat = 0
         var visible: [ToolbarEntry] = []
         var index = 0
-        for e in model.entries {
+        for e in entries {
             let w = width(e.kind) + 6
             if used + w > available { break }
             used += w
             visible.append(e)
             index += 1
         }
-        return (visible, Array(model.entries[index...]))
+        return (visible, Array(entries[index...]))
     }
 
     var body: some View {
         GeometryReader { geo in
             let transfersWidth: CGFloat = app.transfers.hasActive ? 70 * s : 0
-            let base = geo.size.width - 28 - transfersWidth
+            // Reserve the trailing panel control before fitting movable items.
+            let base = geo.size.width - 28 - transfersWidth - 41 * s - 6
             let first = split(available: base)
             let parts = first.hidden.isEmpty ? first : split(available: base - 40 * s)
             let hiddenButtons = parts.hidden.filter { !["flex", "space", "title"].contains($0.kind) }
@@ -97,8 +99,8 @@ struct CustomToolbar: View {
                 ForEach(parts.visible) { entry in
                     entryView(entry)
                 }
+                if !parts.visible.contains(where: { $0.kind == "flex" }) { Spacer(minLength: 0) }
                 if !hiddenButtons.isEmpty {
-                    if !parts.visible.contains(where: { $0.kind == "flex" }) { Spacer(minLength: 0) }
                     Menu {
                         ForEach(hiddenButtons) { entry in
                             overflowItem(entry)
@@ -118,6 +120,28 @@ struct CustomToolbar: View {
                 }
                 if app.transfers.hasActive {
                     TransferButton(app: app, showLabel: model.showLabels)
+                }
+                HStack(spacing: 8 * s) {
+                    Divider().frame(height: 24 * s)
+                    Button { app.showInfo.toggle() } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: "sidebar.right")
+                                .font(.system(size: 16 * s, weight: .regular))
+                                .frame(width: 32 * s, height: 30 * s)
+                                .background(app.showInfo ? Color.filetor.opacity(0.12) : .clear,
+                                            in: RoundedRectangle(cornerRadius: 6))
+                            if model.showLabels {
+                                Text(" ").font(.system(size: 10.5 * s)).hidden()
+                            }
+                        }
+                        .foregroundStyle(app.showInfo ? Color.filetor : Color.primary.opacity(0.6))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(ToolButtonStyle())
+                    .help(app.showInfo ? "Hide Info Panel" : "Show Info Panel")
+                    .accessibilityLabel("Info Panel")
+                    .accessibilityValue(app.showInfo ? "Shown" : "Hidden")
+                    .accessibilityIdentifier("toolbar-info-panel")
                 }
             }
             .padding(.horizontal, 14)
@@ -386,6 +410,8 @@ struct CustomizeSheet: View {
             }
 
             Text("Toolbar").foregroundStyle(.secondary)
+            Text("The Info Panel button always stays at the right edge of the toolbar.")
+                .font(.caption).foregroundStyle(.secondary)
             WrapGrid(cellWidth: 118 * s, rowSpacing: 14 * s) {
                 ForEach(model.entries) { entry in
                     stripCell(entry, s)
