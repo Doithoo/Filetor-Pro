@@ -150,7 +150,7 @@ nonisolated enum ArchiveOperations {
             do {
                 if control.cancelled { throw CancellationError() }
                 guard canExtract(url), let format = format(url), FileOperationSafety.validName(format.name) else {
-                    throw FileOperationSafety.failure("This format is not supported by built-in extraction. Use Keka or Open With.")
+                    throw FileOperationSafety.failure("This format is not supported by built-in extraction. Use Open With to choose another application.")
                 }
                 control.setName(url.lastPathComponent)
                 let staging = try stage(in: directory)

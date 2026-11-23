@@ -110,35 +110,24 @@ extension Regression {
         try check(!symlinkResult.failures.isEmpty && contents(outside) == "untouched", "archive symlinks cannot redirect writes outside staging")
         try check(!(try fm.contentsOfDirectory(atPath: output.path)).contains { $0.hasPrefix(".filetor-archive-") }, "successful and failed archive operations release their staging directories")
 
-        // An isolated fake installation tests both installed/missing states without launching Keka in CI.
-        let fake = try folder(root, "Keka fixture.app")
-        let info = try folder(fake, "Contents")
-        let services = ["Compress", "Extract"].map { verb -> [String: Any] in
-            ["NSMenuItem": ["default": "Keka/\(verb) using Keka"], "NSMessage": "service\(verb)", "NSSendTypes": ["NSFilenamesPboardType"]]
-        }
-        try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "com.aone.keka", "NSServices": services,
-            "CFBundleDocumentTypes": [["CFBundleTypeExtensions": ["zip", "7z", "rar", "xz", "*"]]]], format: .xml, options: 0).write(to: info.appending(path: "Info.plist"))
-        let keka = KekaIntegration.Installation(url: fake)!
-        try check(ArchiveMenuAction.available(for: [compressed.outputs[0]], keka: nil) == [.compress, .extract], "Keka is optional and absent installations create no dead menu entries")
-        try check(ArchiveMenuAction.available(for: [compressed.outputs[0]], keka: keka) == [.compress, .extract, .kekaCompress, .kekaExtract], "all context views share built-in and Keka actions for ZIP")
-        try check(ArchiveMenuAction.available(for: [rawXZ], keka: keka) == [.compress, .kekaCompress, .kekaExtract], "unsupported built-in formats retain an explicit external extraction action")
-        try check(ArchiveMenuAction.available(for: [original, compressed.outputs[0]], keka: keka) == [.compress, .kekaCompress], "mixed ordinary files and archives are not silently partially extracted")
-        try check(ArchiveMenuAction.available(for: [notArchive], keka: keka) == [.compress, .kekaCompress], "archive-named folders remain compression targets")
-        let clipboard = NSPasteboard.general.changeCount
-        var received: [String] = []
-        var serviceName = ""
-        let sent = KekaIntegration.send([original, leaf], action: .compress, installation: keka) { name, pb in
-            serviceName = name
-            received = pb.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] ?? []
-            return true
-        }
-        try check(sent == nil && serviceName == "Keka/Compress using Keka" && Set(received) == Set([original.path, leaf.path])
-                  && NSPasteboard.general.changeCount == clipboard, "Keka handoff preserves Chinese multi-selection paths without changing the clipboard")
-        try check(KekaIntegration.send([empty], action: .extract, installation: keka, perform: { _,_ in false }) != nil,
-                  "unavailable Keka services report a recoverable error instead of success")
-        var called = false
-        _ = KekaIntegration.send([empty], action: .extract, installation: nil) { _,_ in called = true; return true }
-        try check(!called, "missing Keka is never launched through a stale action")
+        try check(ArchiveMenuAction.available(for: [compressed.outputs[0]]) == [.compress, .extract], "ZIP context menus expose only built-in compression and extraction")
+        try check(ArchiveMenuAction.available(for: [rawXZ]) == [.compress], "unsupported archives use Open With instead of product-specific actions")
+        try check(ArchiveMenuAction.available(for: [original, compressed.outputs[0]]) == [.compress], "mixed files are not partially extracted")
+        try check(ArchiveMenuAction.available(for: [notArchive]) == [.compress], "archive-named folders remain compression targets")
+        let appA = try folder(root, "A Archive.app"), appB = try folder(root, "B Archive.app")
+        let missing = root.appending(path: "Uninstalled.app")
+        let lookup: (URL) -> [URL] = { $0 == empty ? [appA, appB, appA, missing] : [appB] }
+        let single = OpenWithApplications.candidates(for: [empty], applications: lookup, preferred: { _ in appB })
+        try check(single == [appB, appA], "Open With prioritizes the default and removes duplicate or uninstalled applications")
+        let shared = OpenWithApplications.candidates(for: [empty, rawXZ], applications: lookup, preferred: { _ in appA })
+        try check(shared == [appB], "Open With only offers applications supporting the entire selection")
+        let unknown = OpenWithApplications.candidates(for: [original], applications: { _ in [] }, preferred: { _ in nil })
+        try check(unknown.isEmpty, "unknown formats leave the manual Other application picker available")
+        let emptySelection = OpenWithApplications.candidates(for: [], applications: { _ in fatalError("Unexpected lookup") })
+        try check(emptySelection.isEmpty, "empty selection does not query application associations")
+        try fm.removeItem(at: appB)
+        let afterRemoval = OpenWithApplications.candidates(for: [empty], applications: lookup, preferred: { _ in appB })
+        try check(afterRemoval == [appA], "uninstalling an associated application immediately removes its stale menu candidate")
 
         let app = AppModel()
         let pane = app.active

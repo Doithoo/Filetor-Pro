@@ -1,97 +1,31 @@
 import SwiftUI
 
-/// Keka's public Services entry points, independent of its Finder extension.
-enum KekaIntegration {
-    enum Action: String { case compress, extract
-        var title: String { self == .compress ? "Compress using Keka" : "Extract using Keka" }
-        var message: String { self == .compress ? "serviceCompress" : "serviceExtract" }
-    }
-    struct Installation {
-        let url: URL
-        let services: [String: String]
-        let extensions: Set<String>
-
-        init?(url: URL) {
-            guard let bundle = Bundle(url: url), bundle.bundleIdentifier == "com.aone.keka" else { return nil }
-            self.url = url
-            var services: [String: String] = [:]
-            for service in bundle.object(forInfoDictionaryKey: "NSServices") as? [[String: Any]] ?? [] {
-                if let message = service["NSMessage"] as? String,
-                   let names = service["NSMenuItem"] as? [String: String], let name = names["default"],
-                   (service["NSSendTypes"] as? [String])?.contains("NSFilenamesPboardType") == true {
-                    services[message] = name
-                }
-            }
-            self.services = services
-            let types = bundle.object(forInfoDictionaryKey: "CFBundleDocumentTypes") as? [[String: Any]] ?? []
-            self.extensions = Set(types.flatMap { $0["CFBundleTypeExtensions"] as? [String] ?? [] }.map { $0.lowercased() }).subtracting(["*"])
-        }
-
-        func accepts(_ urls: Set<URL>, action: Action) -> Bool {
-            guard !urls.isEmpty, services[action.message] != nil else { return false }
-            return action == .compress || urls.allSatisfy {
-                extensions.contains($0.pathExtension.lowercased()) && (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
-            }
-        }
-    }
-
-    static var installed: Installation? {
-        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.aone.keka").flatMap(Installation.init)
-    }
-
-    static func send(_ urls: Set<URL>, action: Action,
-                     installation: Installation? = installed,
-                     perform: (String, NSPasteboard) -> Bool = { NSPerformService($0, $1) }) -> String? {
-        guard let installation, installation.accepts(urls, action: action),
-              let service = installation.services[action.message] else {
-            return "Keka is not available for this selection. Use Open With to choose another application."
-        }
-        let pasteboard = NSPasteboard.withUniqueName()
-        defer { pasteboard.releaseGlobally() }
-        // Keka declares the legacy filenames type, not public.file-url. Do not use the user's clipboard.
-        let type = NSPasteboard.PasteboardType("NSFilenamesPboardType")
-        pasteboard.declareTypes([type], owner: nil)
-        pasteboard.setPropertyList(FileOperationSafety.topLevel(Array(urls)).map(\.path), forType: type)
-        guard perform(service, pasteboard) else {
-            return "Could not send the selection to Keka. Open Keka once and enable its Services in System Settings → Keyboard → Keyboard Shortcuts → Services, then try again."
-        }
-        return nil
-    }
-}
-
 /// Shared action availability and labels for AppKit and SwiftUI context menus.
 enum ArchiveMenuAction: String, CaseIterable, Identifiable {
-    case compress, extract, kekaCompress, kekaExtract
+    case compress, extract
     var id: String { rawValue }
     var title: String {
         switch self {
         case .compress: return "Compress to ZIP"
         case .extract: return "Extract Archive"
-        case .kekaCompress: return "Compress using Keka"
-        case .kekaExtract: return "Extract using Keka"
         }
     }
     var help: String {
         switch self {
-        case .kekaCompress, .kekaExtract: return "Uses Keka’s format, output location and source-deletion settings."
         case .compress: return "Create a ZIP in the current folder. Original files are kept."
         case .extract: return "Extract into a new folder here. Original archives and existing files are kept."
         }
     }
-    static func available(for urls: Set<URL>, keka: KekaIntegration.Installation? = KekaIntegration.installed) -> [Self] {
+    static func available(for urls: Set<URL>) -> [Self] {
         guard !urls.isEmpty else { return [] }
         var actions: [Self] = [.compress]
         if urls.allSatisfy(FileTools.isArchive) { actions.append(.extract) }
-        if keka?.accepts(urls, action: .compress) == true { actions.append(.kekaCompress) }
-        if keka?.accepts(urls, action: .extract) == true { actions.append(.kekaExtract) }
         return actions
     }
     func perform(_ urls: Set<URL>, app: AppModel) {
         switch self {
         case .compress: app.compress(urls)
         case .extract: app.decompress(urls)
-        case .kekaCompress, .kekaExtract:
-            if let error = KekaIntegration.send(urls, action: self == .kekaCompress ? .compress : .extract) { app.alert = error }
         }
     }
 }
@@ -111,11 +45,12 @@ struct OpenWithContextMenu: View {
     let urls: Set<URL>
     let app: AppModel
     var body: some View {
+        let applications = app.openApps(for: urls)
         Menu("Open With") {
-            ForEach(app.openApps(for: urls), id: \.self) { url in
+            ForEach(applications, id: \.self) { url in
                 Button(FileManager.default.displayName(atPath: url.path)) { app.open(urls, with: url) }
             }
-            Divider()
+            if !applications.isEmpty { Divider() }
             Button("Other…") { app.chooseApplication(for: urls) }
         }
     }
@@ -168,7 +103,7 @@ extension AppModel {
             job.isFinished = true
             job.currentName = result.cancelled ? "Cancelled; completed results were kept" : (result.failures.isEmpty ? "Completed" : "Completed with errors")
             pane.reloadKeepingSelection()
-            if !result.failures.isEmpty { alert = result.failures.joined(separator: "\n") + (extracting ? "\nEncrypted or unsupported archives can be opened with Keka or another archive application." : "") }
+            if !result.failures.isEmpty { alert = result.failures.joined(separator: "\n") + (extracting ? "\nEncrypted or unsupported archives can be opened with another application using Open With." : "") }
             try? await Task.sleep(for: .seconds(1))
             transfers.jobs.removeAll { $0.id == job.id }
         }

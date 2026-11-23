@@ -137,8 +137,7 @@ extension AppModel {
     }
 
     func openApps(for urls: Set<URL>) -> [URL] {
-        guard let first = urls.sorted(by: { $0.path < $1.path }).first else { return [] }
-        return Array(NSWorkspace.shared.urlsForApplications(toOpen: first).prefix(25))
+        OpenWithApplications.candidates(for: urls)
     }
 
     func open(_ urls: Set<URL>, with appURL: URL) {

@@ -148,7 +148,7 @@ Markdown 用原生富文本呈现常见标题、列表、引用、代码块、�
 - 2026-11-23：0.6.2 安装后由用户重新绑定一次完整磁盘访问。实际 GUI 进程确认权限探测与本机废纸篓枚举均成功。随后更改安装包内容并用同一证书重签，替换应用、重启，再恢复公开发布的正式包、重启；两次均无需重新授权，两个检查仍通过。最终安装包与公开发布包一致，工具栏/偏好保留。本次受控测试改变了代码目录哈希但保留证书指定要求，仅证明当前 Mac 上此更新方式的权限连续性。
 - 签名专项 5 项检查及 Sparkle 更新集成 8 项检查通过，覆盖旧临时签名到固定证书迁移、固定证书更新和篡改拒绝。最小权限报告及替换验证记录仅保存在本机，不提交用户路径或数据。
 
-- 277 项回归检查，覆盖文件操作、界面、更新设置迁移、跨窗口共享、原工具栏保留和后台写操作重启保护；包含文件夹/ZIP/文本进入内置预览、图片等保留系统预览、选择跟随、多选顺序、列视图子项、预览不改变文件选择、跨窗口交接和关闭释放检查。新增行高迁移、隐藏扩展名重命名、中文组合搜索、路径补全与导航选择、缩略图并发/取消/缓存失效及真实图像生成检查；鼠标导航检查覆盖工具栏迁移、逐层浏览、最近访问、取消、双栏隔离，并向原生窗口发送鼠标事件验证实际按钮和下拉操作。
+- 278 项回归检查，覆盖文件操作、界面、更新设置迁移、跨窗口共享、原工具栏保留和后台写操作重启保护；包含文件夹/ZIP/文本进入内置预览、图片等保留系统预览、选择跟随、多选顺序、列视图子项、预览不改变文件选择、跨窗口交接和关闭释放检查。新增行高迁移、隐藏扩展名重命名、中文组合搜索、路径补全与导航选择、缩略图并发/取消/缓存失效及真实图像生成检查；鼠标导航检查覆盖工具栏迁移、逐层浏览、最近访问、取消、双栏隔离，并向原生窗口发送鼠标事件验证实际按钮和下拉操作。
 - 另有 31 项真实 `WindowGroup` 导航检查，完整加载主窗口，覆盖鼠标打开、关闭后重开、侧栏显示、工具栏溢出和菜单备用入口，并确认系统工具栏保持隐藏；另覆盖右侧信息面板按钮连续开关、状态保存、显示简介入口独立、窄窗口溢出和空工具栏。地址栏检查覆盖完整路径选中、中文组合输入、Tab 补全、鼠标和键盘选择候选、无效路径、文件定位、窗格切换、外部点击取消及对应窗格搜索应用。`scripts/build.py --test` 和发布流程自动执行；单独运行可使用 `.build/pro/FiletorRegression --navigation-scene`。主窗口使用 SwiftUI 工具栏可见性控制，禁止通过反复设置 `window.toolbar = nil` 隐藏工具栏，以免原生弹出面板在打开时被销毁。
 - 历史系统预览兼容性已检查 Looq 的文件夹、压缩包和代码预览扩展。0.7.0 起普通文件夹改走内置预览，不依赖这些扩展；0.8.0 同样内置 ZIP、代码/文本、Markdown、JSON 和 plist，未覆盖的格式继续依赖系统所选扩展。
 - 更新专项测试在临时应用中实际执行下载、校验、替换和重启，验证偏好保留、旧名称/旧可执行文件升级到 Filetor Pro，以及自动后台下载后退出安装；另验证篡改更新包、篡改清单、无新版本和服务器失败分支。
@@ -158,12 +158,12 @@ Markdown 用原生富文本呈现常见标题、列表、引用、代码块、�
 - 已检查展开列表截图。完整应用的跨进程 UI 自动化未运行（当前没有辅助功能自动化权限）；功能测试使用应用自身的 AppKit 控件进行。没有进行网络盘、长时间运行或内存压力基准测试。
 
 
-## Archive actions (0.9.0)
+## Archive actions (0.9.1)
 
-`ArchiveMenuAction` is the common menu model used by the AppKit list and SwiftUI icon/column context menus. `KekaIntegration` discovers the installed bundle through Launch Services, checks declared Services and archive extensions, and transfers absolute paths using a private `NSFilenamesPboardType` pasteboard. It neither hosts Finder Sync extensions nor changes Keka's preferences. A successful service call means handoff only; Keka owns progress, destination and possible source deletion. General Open With also has an application chooser and error reporting.
+`ArchiveMenuAction` is the common menu model used by the AppKit list and SwiftUI icon/column context menus. It exposes only native ZIP compression and supported extraction. `OpenWithApplications` uses Launch Services associations, filters stale installations, deduplicates canonical application paths, intersects handlers across multi-selection and prioritizes the default handler. No archive application names are hard-coded and no application preferences or default associations are changed. The manual Other picker is always available. Product-specific Keka Services integration was removed in 0.9.1.
 
 `ArchiveOperations` uses macOS system tools without bundled archive engines. It distinguishes compressed TAR archives from raw GZIP/BZIP2 streams. ZIP creation and extraction run in a private staging directory under the captured destination and publish only on success using a non-overwriting move. Compound archive suffixes are removed from result directory names. Cancellation stops the active subprocess and removes the unfinished staging directory; completed batch results are retained. Standard input is closed so password prompts cannot stall the operation. System bsdtar's traversal and symlink protections remain enabled. Raw XZ, encrypted and multipart archives remain external-tool operations.
 
 `startArchiveOperation` captures the originating pane/location and uses `TransferScheduler` across windows. The existing tasks UI shows indeterminate activity instead of a guessed byte percentage. The updater's existing active-operation guard also covers these jobs.
 
-Run archive-focused regression checks with `python3 scripts/build.py --test --archive-actions-only`. Tests include Chinese names, multiple source folders, leading dashes, compound formats, raw streams, collisions, corrupt/encrypted archives, cancellation, metadata, traversal/symlink boundaries, optional Keka discovery, exact pasteboard payloads and shared menu availability. Real Keka handoff is checked separately using disposable fixtures, not launched by the release regression suite.
+Run archive-focused regression checks with `python3 scripts/build.py --test --archive-actions-only`. Tests include Chinese names, multiple source folders, leading dashes, compound formats, raw streams, collisions, corrupt/encrypted archives, cancellation, metadata, traversal/symlink boundaries, shared menu availability, default application ordering, multi-selection compatibility and removal of stale application candidates. Live Launch Services discovery is checked separately for representative archive extensions without launching external applications.
