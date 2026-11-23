@@ -106,8 +106,6 @@ struct FileListView: View {
     private var table: some View {
         if pane.viewMode == 1 {
             IconGridView(pane: pane, app: app, scale: scale)
-        } else if pane.viewMode == 2 && !pane.hasSearchFilters && pane.tagFilter == nil {
-            ColumnsView(pane: pane, app: app, scale: scale)
         } else {
             listTable
         }

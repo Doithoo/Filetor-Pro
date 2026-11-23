@@ -26,7 +26,8 @@ struct PaneSnapshot: Codable {
 
     func makePane() -> PaneModel {
         let pane = PaneModel(url: URL(fileURLWithPath: path))
-        pane.viewMode = min(max(view, 0), 2)
+        // Legacy column-view tabs and unknown values reopen as expandable lists.
+        pane.viewMode = view == 1 ? 1 : 0
         pane.showHidden = hidden
         pane.expanded = Set(expanded.map { URL(fileURLWithPath: $0) })
         let order: SortOrder = ascending ? .forward : .reverse

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Basic actions shared by the icon and column views.
+/// File actions for the icon view.
 struct FileItemMenu: View {
     let item: FileItem
     let pane: PaneModel

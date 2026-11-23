@@ -168,6 +168,19 @@ struct Regression {
         try await until("restored tree") { !restored.loading }
         try check(restored.sortedItems.contains { $0.url == leaf }, "session restores expanded descendants")
         restored.stop()
+        for savedView in [0, 1, 2, -1, 99] {
+            var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot)) as! [String: Any]
+            legacy["view"] = savedView
+            let decoded = try JSONDecoder().decode(PaneSnapshot.self, from: JSONSerialization.data(withJSONObject: legacy))
+            let migrated = decoded.makePane()
+            let savedAgain = PaneSnapshot(migrated)
+            try check(migrated.viewMode == (savedView == 1 ? 1 : 0)
+                      && savedAgain.path == snapshot.path && savedAgain.hidden == snapshot.hidden
+                      && Set(savedAgain.expanded) == Set(snapshot.expanded)
+                      && savedAgain.sort == snapshot.sort && savedAgain.ascending == snapshot.ascending,
+                      "saved view \(savedView) restores a supported mode while preserving folder settings")
+            migrated.stop()
+        }
         pane.collapse(a)
         try check(!pane.sortedItems.contains { $0.url == leaf } && !pane.selection.contains(leaf), "collapse removes hidden descendants from selection")
         pane.expand(a)
@@ -301,7 +314,7 @@ struct Regression {
                   && preview.builtinPreview?.urls.count == 2, "toolbar and context previews preserve display order and multiple items")
         let leaf = child.appending(path: "Notes.txt")
         app.quickLook([leaf])
-        try check(preview.builtinPreview?.currentURL == leaf, "column descendant text files use built-in preview outside the visible root list")
+        try check(preview.builtinPreview?.currentURL == leaf, "descendant text files use built-in preview outside the visible root list")
 
         let image = NSImage(size: NSSize(width: 16, height: 16))
         image.lockFocus(); NSColor.blue.setFill(); NSRect(x: 0, y: 0, width: 16, height: 16).fill(); image.unlockFocus()

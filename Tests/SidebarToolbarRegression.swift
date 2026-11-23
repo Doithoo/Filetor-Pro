@@ -48,8 +48,8 @@ extension Regression {
         try await Task.sleep(for: .milliseconds(500))
         try check(help("Get Info — Select") != nil && help("Move to Trash — Select") != nil,
                   "disabled icon-only toolbar actions expose native tooltips with selection guidance")
-        try check(["List View", "Icon View", "Column View"].allSatisfy { help($0) != nil },
-                  "all three view modes have distinct native hover descriptions")
+        try check(["List View", "Icon View"].allSatisfy { help($0) != nil } && help("Column View") == nil,
+                  "toolbar offers only list and icon view controls with native hover descriptions")
         try check(helpViews(host).allSatisfy { $0.hitTest(.zero) == nil },
                   "native tooltip views never intercept toolbar or sidebar clicks")
         guard let row = help("Open this Mac’s Trash") else { throw FileOperationSafety.failure("Missing sidebar Trash button") }
@@ -76,6 +76,10 @@ extension Regression {
         click(icons)
         try await until("tooltip view switch") { right.viewMode == 1 }
         try check(right.viewMode == 1, "view-mode hover help does not block switching views")
+        guard let list = help("List View") else { throw FileOperationSafety.failure("Missing List View") }
+        click(list)
+        try await until("return to list view") { right.viewMode == 0 }
+        try check(right.treeActive && left.viewMode == 0, "returning to list restores folder expansion in only the active pane")
         try check(TrashLocation.isRoot(TrashLocation.home)
                   && TrashLocation.contains(TrashLocation.home.appending(path: "Nested/file.txt"))
                   && !TrashLocation.contains(TrashLocation.home.deletingLastPathComponent().appending(path: ".Trash-other")),

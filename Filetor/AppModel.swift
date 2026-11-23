@@ -307,7 +307,7 @@ final class AppModel {
 
     func orderedPreviewURLs(for selected: Set<URL>) -> [URL] {
         let visible = active.sortedItems.map(\.url).filter { selected.contains($0) }
-        // Column view can select a descendant outside the root list.
+        // Preserve requested files that are not in the current visible listing.
         return visible + selected.subtracting(visible).sorted { $0.path < $1.path }
     }
 

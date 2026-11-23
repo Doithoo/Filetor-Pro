@@ -59,7 +59,7 @@ struct CustomToolbar: View {
         case "backfwd": return 100 * s
         case "title": return 190 * s
         case "search": return 180 * s
-        case "view": return 120 * s
+        case "view": return 84 * s
         case "space": return 18 * s
         case "flex": return 0
         default: return buttonWidth
@@ -172,7 +172,6 @@ struct CustomToolbar: View {
             Menu("View") {
                 Button("As List") { app.active.viewMode = 0 }
                 Button("As Icons") { app.active.viewMode = 1 }
-                Button("As Columns") { app.active.viewMode = 2 }
             }
         } else if let def = ToolCatalog.def(entry.kind) {
             Button(def.title) { def.run(app) }
@@ -247,7 +246,7 @@ struct CustomToolbar: View {
             @Bindable var pane = app.active
             VStack(spacing: 3) {
                 HStack(spacing: 2) {
-                    ForEach(Array(["list.bullet", "square.grid.2x2", "rectangle.split.3x1"].enumerated()), id: \.offset) { i, name in
+                    ForEach(Array(["list.bullet", "square.grid.2x2"].enumerated()), id: \.offset) { i, name in
                         Image(systemName: name)
                             .font(.system(size: 13 * s))
                             .foregroundStyle(pane.viewMode == i ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color.primary.opacity(0.6)))
@@ -260,8 +259,8 @@ struct CustomToolbar: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture { pane.viewMode = i }
-                            .toolbarHelp(["List View", "Icon View", "Column View"][i])
-                            .accessibilityLabel(["List View", "Icon View", "Column View"][i])
+                            .toolbarHelp(["List View", "Icon View"][i])
+                            .accessibilityLabel(["List View", "Icon View"][i])
                             .accessibilityAddTraits(.isButton)
                     }
                 }
@@ -272,7 +271,7 @@ struct CustomToolbar: View {
                     Text("View").font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
                 }
             }
-            .frame(width: 118 * s)
+            .frame(width: 82 * s)
         case "search":
             @Bindable var pane = app.active
             VStack(spacing: 3) {
