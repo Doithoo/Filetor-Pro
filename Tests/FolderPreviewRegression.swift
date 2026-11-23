@@ -50,6 +50,8 @@ extension Regression {
                   "native folder preview displays contents without using Quick Look")
         let folderNode = controller.model.root!.children.first { $0.item?.url.path == nested.path }!
         try check(!folderNode.loaded && folderNode.children.isEmpty, "subfolders remain unread until expanded")
+        controller.panel.contentView?.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(150))
         let disclosure = controller.outline.frameOfOutlineCell(atRow: 0)
         let point = controller.outline.convert(NSPoint(x: disclosure.midX, y: disclosure.midY), to: nil)
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
