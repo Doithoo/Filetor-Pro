@@ -168,7 +168,7 @@ extension Regression {
         app.showGoToFolder = false
         try await until("toolbar popover closed") { popover() == nil }
         // The trailing breadcrumb disclosure is kept visible by the path bar's scroll alignment.
-        click(window, x: 973, fromTop: 86)
+        click(window, x: 909, fromTop: 86)
         try await until("right breadcrumb popover") { app.active === right && popover() != nil }
         try await Task.sleep(for: .milliseconds(300))
         try check(app.active === right && popover() != nil, "mouse click on the right breadcrumb activates its pane and keeps its popover open")

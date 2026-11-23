@@ -20,6 +20,7 @@ struct FileListView: View {
         let _ = foldersFirst
         VStack(spacing: 0) {
             BreadcrumbBar(pane: pane, app: app)
+                .zIndex(1)
             Divider()
             if app.showFilterBar && pane === app.active && !app.searchFieldVisible {
                 FilterBar(pane: pane, app: app, scale: scale)

@@ -133,6 +133,10 @@ struct NavigationRegressionScene: App {
             click(window, x: window.frame.width - 30, fromTop: 48)
             try await Regression.until("empty toolbar info control closes") { !app.showInfo }
             try Regression.check(!app.showInfo, "info control stays available with an empty icon-only toolbar")
+            app.toolbarModel.entries = savedToolbar
+            app.toolbarModel.showLabels = true
+            window.setContentSize(NSSize(width: 1100, height: 700))
+            try await Regression.addressBarTests(window: window, app: app, root: root)
             print("\nAll \(Regression.checks) real-window navigation checks passed.")
         } catch {
             cleanup()

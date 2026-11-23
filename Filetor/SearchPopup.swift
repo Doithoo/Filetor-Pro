@@ -57,7 +57,7 @@ struct SearchPopup: View {
         .frame(width: min(540, max(340, (NSApp.keyWindow?.contentLayoutRect.width ?? 700) - 60)))
         .frame(height: min(560, max(390, (NSApp.keyWindow?.contentLayoutRect.height ?? 700) - 60)))
         .onAppear { focused = true }
-        .onChange(of: app.active.id) { _, _ in dismiss() }
+        .onChange(of: app.active.id) { _, _ in if app.active !== pane { dismiss() } }
     }
 
     private func apply() {

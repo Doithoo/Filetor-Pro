@@ -7,6 +7,7 @@ struct BreadcrumbBar: View {
     @AppStorage("textSize") private var textSize = 1
     @State private var contentWidth: CGFloat = 0
     @State private var viewWidth: CGFloat = 0
+    @State private var editing = false
 
     private var s: CGFloat { UIScale.value(textSize) }
 
@@ -91,8 +92,56 @@ struct BreadcrumbBar: View {
         }
     }
 
+    private func editPath() {
+        app.showGoToFolder = false
+        app.showSearchPopup = false
+        app.activate(pane)
+        DispatchQueue.main.async {
+            guard app.active === pane else { return }
+            editing = true
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
+            if editing {
+                AddressBarEditor(pane: pane, app: app, scale: s) { editing = false }
+                    .id(pane.currentURL)
+            } else {
+                breadcrumbs
+                Button(action: editPath) {
+                    Image(systemName: "pencil").frame(width: 28 * s, height: 30 * s)
+                }
+                .buttonStyle(.borderless)
+                .help("Edit or copy the full path")
+                .accessibilityLabel("Edit path")
+            }
+            Button {
+                editing = false
+                app.activate(pane)
+                DispatchQueue.main.async {
+                    guard app.active === pane else { return }
+                    app.activateSearch()
+                }
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(pane.hasSearchFilters ? Color.filetor : Color.secondary)
+                    .frame(width: 30 * s, height: 30 * s)
+            }
+            .buttonStyle(.borderless)
+            .help("Search this folder…")
+            .accessibilityLabel("Search this folder")
+            .padding(.trailing, 6 * s)
+        }
+        .font(.system(size: 13 * s))
+        .frame(height: 44 * s)
+        .onChange(of: pane.currentURL) { _, _ in editing = false }
+        .onChange(of: app.active.id) { _, _ in if app.active !== pane { editing = false } }
+        .onChange(of: app.showGoToFolder) { _, open in if open { editing = false } }
+        .onChange(of: app.showSearchPopup) { _, open in if open { editing = false } }
+    }
+
+    private var breadcrumbs: some View {
             ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
@@ -142,9 +191,15 @@ struct BreadcrumbBar: View {
                 }
             )
             .onChange(of: pane.currentURL) { _, _ in align(proxy) }
+            .overlay(alignment: .trailing) {
+                // Only unused space edits the address; folder buttons keep their own actions.
+                Color.clear
+                    .frame(width: max(0, viewWidth - contentWidth))
+                    .contentShape(Rectangle())
+                    .onTapGesture { editPath() }
+                    .help("Click to edit the full path")
             }
         }
-        .frame(height: 44 * s)
     }
 }
 

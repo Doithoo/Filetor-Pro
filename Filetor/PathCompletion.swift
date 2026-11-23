@@ -74,14 +74,14 @@ nonisolated struct PathCandidate: Identifiable, Equatable, Sendable {
         return limit.map { Array(results.prefix($0)) } ?? results
     }
 
-    func update() {
+    func update(showHidden: Bool = false) {
         stop()
         let version = UUID(); generation = version
         let input = text, base = base
         candidates = []; error = nil; loading = true
         task = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(120)) } catch { return }
-            let worker = Task.detached(priority: .userInitiated) { try Self.list(input, base: base) }
+            let worker = Task.detached(priority: .userInitiated) { try Self.list(input, base: base, showHidden: showHidden) }
             let result = await withTaskCancellationHandler { await worker.result } onCancel: { worker.cancel() }
             guard let self, !Task.isCancelled, self.generation == version else { return }
             self.loading = false
