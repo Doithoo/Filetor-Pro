@@ -134,7 +134,7 @@ struct AddressTextField: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField()
+        let field = AddressInput()
         field.identifier = NSUserInterfaceItemIdentifier("breadcrumb-address")
         field.setAccessibilityLabel("Folder path")
         field.isBordered = false; field.drawsBackground = false
@@ -144,10 +144,6 @@ struct AddressTextField: NSViewRepresentable {
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         field.delegate = context.coordinator
-        DispatchQueue.main.async { [weak field] in
-            guard let field, field.window != nil else { return }
-            field.selectText(nil)
-        }
         return field
     }
 
@@ -162,8 +158,14 @@ struct AddressTextField: NSViewRepresentable {
         }
     }
 
+    static func dismantleNSView(_ field: NSTextField, coordinator: Coordinator) {
+        coordinator.active = false
+        field.delegate = nil
+    }
+
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: AddressTextField
+        var active = true
         init(_ parent: AddressTextField) { self.parent = parent }
         func controlTextDidChange(_ notification: Notification) {
             guard let field = notification.object as? NSTextField,
@@ -175,8 +177,9 @@ struct AddressTextField: NSViewRepresentable {
             // AppKit may end and restart editing while installing its field editor.
             // Also let a suggestion's mouse-up finish before dismissing on blur.
             DispatchQueue.main.async { [weak self, weak field] in
-                guard let field, field.currentEditor() == nil else { return }
-                self?.parent.endEditing()
+                guard let self, self.active, let field, field.window != nil,
+                      field.currentEditor() == nil else { return }
+                self.parent.endEditing()
             }
         }
         func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
@@ -190,6 +193,22 @@ struct AddressTextField: NSViewRepresentable {
             default: return false
             }
             return true
+        }
+    }
+}
+
+private final class AddressInput: NSTextField {
+    private var initiallyFocused = false
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil, !initiallyFocused else { return }
+        // SwiftUI can create the representable several run-loop turns before
+        // attaching it. Request focus only after AppKit installs it in a window.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window != nil, !self.initiallyFocused else { return }
+            self.initiallyFocused = true
+            self.selectText(nil)
         }
     }
 }
