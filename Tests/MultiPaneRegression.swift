@@ -133,7 +133,12 @@ extension Regression {
             })
         window.contentView = host
         window.makeKeyAndOrderFront(nil)
-        defer { window.orderOut(nil); window.contentView = nil; window.close() }
+        window.acceptsMouseMovedEvents = true
+        let originalPointer = NSEvent.mouseLocation
+        func warpPointer(_ point: NSPoint) {
+            CGWarpMouseCursorPosition(CGPoint(x: point.x, y: NSScreen.screens[0].frame.maxY - point.y))
+        }
+        defer { window.orderOut(nil); window.contentView = nil; window.close(); warpPointer(originalPointer) }
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         func tables() -> [QLTableView] { descendants(host).compactMap { $0 as? QLTableView } }
         func help(_ title: String) -> [ToolbarHelpView] { descendants(host).compactMap { $0 as? ToolbarHelpView }.filter { $0.toolTip == title } }
@@ -163,11 +168,26 @@ extension Regression {
                   "real window renders side-by-side and stacked panes with usable table frames")
         // Send real divider mouse drags in both directions, then check the persisted tree.
         for horizontal in [false, true] {
-            guard let divider = help("Drag to resize panes; double-click to balance").first(where: { ($0.bounds.width > $0.bounds.height) == horizontal }) else {
+            guard let divider = descendants(host).compactMap({ $0 as? PaneDividerView }).first(where: { ($0.axis == .horizontal) == horizontal }) else {
                 throw FileOperationSafety.failure("Missing divider")
             }
-            let before = app.layout
             let start = divider.convert(NSPoint(x: divider.bounds.midX, y: divider.bounds.midY), to: nil)
+            let hit = host.hitTest(host.convert(start, from: nil))
+            try check(hit === divider, "divider itself receives pointer events instead of an overlapping hosting view")
+            NSCursor.arrow.set()
+            warpPointer(window.convertPoint(toScreen: start))
+            window.sendEvent(NSEvent.mouseEvent(with: .mouseMoved, location: start, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!)
+            try await until("divider hover cursor") { divider.isHovering && NSCursor.current == divider.resizeCursor }
+            try check(NSCursor.current == (horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight),
+                      "hovering a \(horizontal ? "horizontal" : "vertical") divider shows the correct native resize cursor")
+            if let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: bitmap)
+                let name = horizontal ? "divider-hover-horizontal.png" : "divider-hover-vertical.png"
+                let output = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().appending(path: name)
+                try bitmap.representation(using: .png, properties: [:])?.write(to: output)
+            }
+            let before = app.layout
             let end = NSPoint(x: start.x + (horizontal ? 0 : 75), y: start.y + (horizontal ? 45 : 0))
             for (type, point) in [(NSEvent.EventType.leftMouseDown, start), (.leftMouseDragged, end), (.leftMouseUp, end)] {
                 window.sendEvent(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
@@ -178,6 +198,21 @@ extension Regression {
                       "real \(horizontal ? "horizontal" : "vertical") divider drag resizes its split")
             let resized = try JSONDecoder().decode(WorkspaceSnapshot.self, from: UserDefaults.standard.data(forKey: "workspace.\(app.workspaceID.uuidString)")!)
             try check(resized.layout == app.layout, "divider drag saves its new proportion")
+            try check(!divider.isDragging, "releasing the mouse ends native divider dragging")
+            // Double-click remains a native event and balances only this split.
+            let center = divider.convert(NSPoint(x: divider.bounds.midX, y: divider.bounds.midY), to: nil)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                window.sendEvent(NSEvent.mouseEvent(with: type, location: center, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 2, pressure: type == .leftMouseDown ? 1 : 0)!)
+            }
+            try await Task.sleep(for: .milliseconds(100))
+            try check(abs(divider.fraction - 0.5) < 0.001, "native divider double-click restores equal proportions")
+            let away = NSPoint(x: center.x + 35, y: center.y + 35)
+            warpPointer(window.convertPoint(toScreen: away))
+            window.sendEvent(NSEvent.mouseEvent(with: .mouseMoved, location: away, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!)
+            try await until("divider hover ends") { !divider.isHovering && NSCursor.current != divider.resizeCursor }
+            try check(!divider.isHovering, "leaving the divider clears its highlight and resize cursor")
         }
         app.active.navigate(to: a)
         app.groups.first { $0.id != app.activeGroup.id }!.current.navigate(to: b)

@@ -12,7 +12,7 @@ Filetor Pro is developed independently by Doithoo, building on [Filetor by David
 - **A customizable toolbar** with your choice of tools, order and labels. A fixed right-edge panel button shows or hides file information, even when other tools overflow. The separate **Get Info** tool opens Finder’s information windows for selected items.
 - **Trash in the sidebar** opens this Mac’s Trash in the selected pane. Use **Move Out…** to choose a recovery folder; right-click Trash to browse another disk’s Trash. **Empty Trash…** permanently clears the displayed disk’s Trash after confirmation, including hidden items regardless of filters; **Delete Immediately…** removes selected items only. macOS may require Full Disk Access.
 - **Native toolbar hover tips** describe icon-only actions, view modes and disabled actions without changing your toolbar layout.
-- **Flexible multi-pane layouts**: right-click empty space to split the current pane horizontally (top/bottom) or vertically (left/right), up to 16 panes per window. Drag dividers to resize; double-click to balance. Close a pane by closing its last tab; the last pane closes the window. Layout, proportions and tabs restore across launches. The existing Pane Layout toolbar tool focuses the active pane or restores all panes.
+- **Flexible multi-pane layouts**: right-click empty space to split the current pane horizontally (top/bottom) or vertically (left/right), up to 16 panes per window. Hover over a divider for the directional resize cursor and subtle highlight; drag to resize or double-click to balance. Close a pane by closing its last tab; the last pane closes the window. Layout, proportions and tabs restore across launches. The existing Pane Layout toolbar tool focuses the active pane or restores all panes.
 - List/icon views, breadcrumbs, favorites, mounted disks and network locations.
 - Finder tags, saved searches, subfolder search, Quick Look and an optional information panel.
 - **Local search** with `⌘F`: combine name, kind, extension, modification date and size, in the current folder or its subfolders.
@@ -37,7 +37,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.11.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.11.1**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

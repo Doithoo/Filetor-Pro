@@ -111,21 +111,3 @@ struct PaneChoiceView: View {
         }.padding(20).frame(width: 440)
     }
 }
-
-/// AppKit owns cursor rectangles, so removing a divider cannot leak a pushed cursor.
-struct PaneResizeCursor: NSViewRepresentable {
-    let axis: PaneSplitAxis
-    func makeNSView(context: Context) -> PaneResizeCursorView { PaneResizeCursorView() }
-    func updateNSView(_ view: PaneResizeCursorView, context: Context) {
-        view.axis = axis
-        view.window?.invalidateCursorRects(for: view)
-    }
-}
-
-final class PaneResizeCursorView: NSView {
-    var axis: PaneSplitAxis = .vertical
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: axis == .vertical ? .resizeLeftRight : .resizeUpDown)
-    }
-}

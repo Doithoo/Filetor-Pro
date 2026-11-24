@@ -195,3 +195,5 @@ Run archive-focused regression checks with `python3 scripts/build.py --test --ar
 三个以上可见窗格时，复制、移动、交换、对比、同步及路径菜单的 Open in Other Pane 显示目标选择面板。文件传输使用面板中展示的目录快照，不随切换活动窗格或目录改变目的地；关闭窗格或切换布局会取消未确认的目标选择。
 
 专项检查：`python3 scripts/build.py --test --multi-pane-only`，覆盖旧会话迁移、嵌套布局持久化、独立导航、窗格关闭与合并、目标选择取消、复制移动及撤销、同步与交换，以及真实窗口中的菜单分割和单标签关闭点击。截图在 `.build/pro/multi-pane-layout.png`。
+
+0.11.1 的分隔线由 `PaneDividerView` 原生控件统一接收鼠标事件，使用 tracking area、cursorUpdate 和 cursor rects 显示方向光标；悬停或拖动时轻微高亮，离开后恢复。避免把光标视图放在不参与命中的 SwiftUI 背景层。专项测试通过真实窗口鼠标移动验证左右／上下光标、离开清理、拖动与双击平分。

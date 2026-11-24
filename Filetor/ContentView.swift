@@ -276,22 +276,17 @@ struct PaneLayoutView: View {
                 stack {
                     AnyView(PaneLayoutView(app: app, node: first))
                         .frame(width: vertical ? available * fraction : nil, height: vertical ? nil : available * fraction)
-                    Rectangle().fill(Color.primary.opacity(0.06))
+                    PaneDivider(axis: axis, fraction: fraction, available: available,
+                                onResize: { value in
+                                    app.layout = app.layout.resizing(id, ratio: min(max(value, lo), max(lo, hi)))
+                                }, onFinish: { app.saveSession() }, onBalance: {
+                                    app.layout = app.layout.resizing(id, ratio: 0.5)
+                                    app.saveSession()
+                                })
                         .frame(width: vertical ? 7 : nil, height: vertical ? nil : 7)
-                        .contentShape(Rectangle())
-                        .accessibilityLabel(vertical ? "Resize Left and Right Panes" : "Resize Top and Bottom Panes")
-                        .toolbarHelp("Drag to resize panes; double-click to balance")
-                        .background(PaneResizeCursor(axis: axis))
-                        .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .named(id))
-                            .onChanged { value in
-                                let location = vertical ? value.location.x : value.location.y
-                                app.layout = app.layout.resizing(id, ratio: min(max((location - 3.5) / available, lo), max(lo, hi)))
-                            }
-                            .onEnded { _ in app.saveSession() })
-                        .onTapGesture(count: 2) { app.layout = app.layout.resizing(id, ratio: 0.5); app.saveSession() }
                     AnyView(PaneLayoutView(app: app, node: second))
                         .frame(width: vertical ? available * (1 - fraction) : nil, height: vertical ? nil : available * (1 - fraction))
-                }.coordinateSpace(name: id)
+                }
             }
         }
     }
