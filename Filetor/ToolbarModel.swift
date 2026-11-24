@@ -37,8 +37,6 @@ enum ToolCatalog {
                 isOn: { $0.showGoToFolder }, run: { $0.activateGoToFolder(focusPath: false) }),
         ToolDef(id: "dual", title: "Pane Layout", symbol: "rectangle.split.2x1",
                 isOn: { $0.dual }, run: { $0.dual.toggle() }),
-        ToolDef(id: "swap", title: "Swap Panes", symbol: "arrow.left.arrow.right", needsDual: true,
-                run: { $0.swapPanes() }),
         ToolDef(id: "quickLook", title: "Quick Look", symbol: "eye", needsSelection: true,
                 run: { $0.quickLook($0.active.selection) }),
         ToolDef(id: "hidden", title: "Hidden Files", symbol: "eye.slash",
@@ -109,7 +107,7 @@ enum ToolCatalog {
 
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
-        "sidebar", "backfwd", "enclosing", "goTo", "title", "view", "dual", "swap",
+        "sidebar", "backfwd", "enclosing", "goTo", "title", "view", "dual",
         "quickLook", "hidden", "newFolder", "projectFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "convert", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
@@ -118,7 +116,7 @@ enum ToolCatalog {
 
     static let defaultKinds: [String] = [
         "sidebar", "backfwd", "goTo", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
-        "newFolder", "copyPath", "connect", "swap", "view", "dual", "search",
+        "newFolder", "copyPath", "connect", "view", "dual", "search",
     ]
 }
 
@@ -127,6 +125,7 @@ final class ToolbarModel {
     var entries: [ToolbarEntry]
     var showLabels: Bool
 
+    private let defaults: UserDefaults
     private static let key = "toolbar.entries.v1"
     private static let labelsKey = "toolbar.showLabels.v1"
 
@@ -147,21 +146,26 @@ final class ToolbarModel {
         defaults.set(true, forKey: migration)
     }
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: Self.key),
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: Self.key),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
-            entries = decoded.filter { $0.kind != "folderSize" }
+            let kept = decoded.filter { $0.kind != "folderSize" && $0.kind != "swap" }
+            entries = kept
+            if kept != decoded, let migrated = try? JSONEncoder().encode(kept) {
+                defaults.set(migrated, forKey: Self.key)
+            }
         } else {
             entries = ToolCatalog.defaultKinds.map { ToolbarEntry(kind: $0) }
         }
-        showLabels = UserDefaults.standard.object(forKey: Self.labelsKey) as? Bool ?? true
+        showLabels = defaults.object(forKey: Self.labelsKey) as? Bool ?? true
     }
 
     func save() {
         if let data = try? JSONEncoder().encode(entries) {
-            UserDefaults.standard.set(data, forKey: Self.key)
+            defaults.set(data, forKey: Self.key)
         }
-        UserDefaults.standard.set(showLabels, forKey: Self.labelsKey)
+        defaults.set(showLabels, forKey: Self.labelsKey)
     }
 
     func restoreDefaults() {
@@ -173,6 +177,7 @@ final class ToolbarModel {
     func contains(_ kind: String) -> Bool { entries.contains { $0.kind == kind } }
 
     func toggle(_ kind: String) {
+        guard ToolCatalog.palette.contains(kind) else { return }
         if kind == "space" || kind == "flex" {
             entries.append(ToolbarEntry(kind: kind))
         } else if let i = entries.firstIndex(where: { $0.kind == kind }) {
@@ -187,6 +192,7 @@ final class ToolbarModel {
         var entry: ToolbarEntry
         if payload.hasPrefix("new:") {
             let kind = String(payload.dropFirst(4))
+            guard ToolCatalog.palette.contains(kind) else { return }
             if kind != "space" && kind != "flex" && contains(kind) { return }
             entry = ToolbarEntry(kind: kind)
         } else if payload.hasPrefix("move:"),

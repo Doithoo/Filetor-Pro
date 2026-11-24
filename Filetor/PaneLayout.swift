@@ -45,6 +45,37 @@ indirect enum PaneLayout: Codable, Equatable {
                           first: a.resizing(target, ratio: value), second: b.resizing(target, ratio: value))
         }
     }
+    /// Move whole groups, preserving their tabs, histories and closed-tab stacks.
+    func moving(_ source: UUID, to target: UUID, placement: PanePlacement) -> PaneLayout? {
+        guard source != target, leaves.contains(source), leaves.contains(target) else { return nil }
+        if placement == .center { return exchanging(source, target) }
+        guard let remaining = removing(source) else { return nil }
+        return remaining.inserting(source, beside: target, placement: placement)
+    }
+
+    private func exchanging(_ a: UUID, _ b: UUID) -> PaneLayout {
+        switch self {
+        case .pane(let id): return .pane(id == a ? b : id == b ? a : id)
+        case .split(let id, let axis, let ratio, let first, let second):
+            return .split(id: id, axis: axis, ratio: ratio, first: first.exchanging(a, b), second: second.exchanging(a, b))
+        }
+    }
+
+    private func inserting(_ source: UUID, beside target: UUID, placement: PanePlacement) -> PaneLayout {
+        switch self {
+        case .pane(let id):
+            guard id == target else { return self }
+            let before = placement == .left || placement == .top
+            let axis: PaneSplitAxis = placement == .left || placement == .right ? .vertical : .horizontal
+            return .split(id: UUID(), axis: axis, ratio: 0.5,
+                          first: before ? .pane(source) : self, second: before ? self : .pane(source))
+        case .split(let id, let axis, let ratio, let first, let second):
+            return .split(id: id, axis: axis, ratio: ratio,
+                          first: first.inserting(source, beside: target, placement: placement),
+                          second: second.inserting(source, beside: target, placement: placement))
+        }
+    }
+
     func valid(for groups: [UUID]) -> Bool {
         var nodes = Set<UUID>()
         func visit(_ node: PaneLayout, depth: Int) -> Bool {

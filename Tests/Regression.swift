@@ -433,7 +433,9 @@ struct Regression {
         }
         do {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
-            if CommandLine.arguments.contains("--multi-pane-only") {
+            if CommandLine.arguments.contains("--pane-drag-only") {
+                try await paneDragTests(root)
+            } else if CommandLine.arguments.contains("--multi-pane-only") {
                 try await multiPaneTests(root)
             } else if CommandLine.arguments.contains("--file-context-only") {
                 try await fileContextActionsTests(root)
@@ -472,6 +474,7 @@ struct Regression {
                 try await sidebarToolbarTests(root)
                 try await trashDeletionTests(root)
                 try await multiPaneTests(root)
+                try await paneDragTests(root)
             }
             print("\nAll \(checks) regression checks passed.")
         } catch {

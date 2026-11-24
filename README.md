@@ -9,6 +9,7 @@ Filetor Pro is developed independently by Doithoo, building on [Filetor by David
 - **Inline folder expansion** in list view: open the disclosure triangle, use the Right/Left arrow keys, or expand selected folders from the View menu. Browse nested folders without leaving the current list.
 - **Independent windows** with `⌘N`. Each window has its own folders, tabs, selections and undo history.
 - **Tabs in each pane**: one always-visible New Tab button, plus create, reorder, close and reopen actions; restore folders, views, sorting and expansion state across launches.
+- **Drag whole panes** using the small grip at the start of each tab bar. Drop in another pane’s center to exchange positions, or along an edge to place it above, below, left or right. A highlight previews the placement; all tabs travel with the pane. Escape cancels. Pane rearrangement stays within its window, and regular tab/file dragging stays separate.
 - **A customizable toolbar** with your choice of tools, order and labels. A fixed right-edge panel button shows or hides file information, even when other tools overflow. The separate **Get Info** tool opens Finder’s information windows for selected items.
 - **Trash in the sidebar** opens this Mac’s Trash in the selected pane. Use **Move Out…** to choose a recovery folder; right-click Trash to browse another disk’s Trash. **Empty Trash…** permanently clears the displayed disk’s Trash after confirmation, including hidden items regardless of filters; **Delete Immediately…** removes selected items only. macOS may require Full Disk Access.
 - **Native toolbar hover tips** describe icon-only actions, view modes and disabled actions without changing your toolbar layout.
@@ -25,7 +26,7 @@ Mixed selections share one preview window. Space or Escape closes it, and changi
 
 ## File tools
 
-Copy, move, rename, duplicate, Trash, batch rename, compress and extract archives. Transfers include progress, cancellation and conflict handling. With three or more visible panes, copy, move, swap, compare and synchronize ask you to choose the other pane and show its full path. File operations use a shared queue across windows, staged copying and recovery paths for failed replacements.
+Copy, move, rename, duplicate, Trash, batch rename, compress and extract archives. Transfers include progress, cancellation and conflict handling. With three or more visible panes, copy, move, compare and synchronize ask you to choose the other pane and show its full path. File operations use a shared queue across windows, staged copying and recovery paths for failed replacements.
 
 **Compress to ZIP** and **Extract Archive** are available consistently in list and icon context menus. Built-in extraction handles ZIP, TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, TAR.XZ/TXZ, and individual GZIP/BZIP2 streams. Results go into a new folder in the active pane, existing names are kept, and originals are retained. Archive jobs use the shared operations queue with activity and cancellation; failed or cancelled items do not leave partially extracted result folders.
 
@@ -37,7 +38,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.11.1**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.12.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

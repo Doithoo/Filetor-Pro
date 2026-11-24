@@ -90,14 +90,12 @@ extension Regression {
         try await until("multi-pane sync scan") { app.sync?.loading == false }
         try check(app.sync?.leftRoot == a && app.sync?.rightRoot == c, "synchronization uses the active source and selected destination")
         app.sync = nil
-        app.swapPanes()
-        let swapping = app.pendingPaneChoice!
-        app.selectPaneDestination(swapping.destinations.first { $0.id == third.id }!, for: swapping.id)
-        try check(source.current.currentURL == c && third.current.currentURL == a && targetB.current.currentURL == b,
-                  "swap exchanges only the chosen groups and keeps their layout positions")
-        app.swapPanes()
-        let swapBack = app.pendingPaneChoice!
-        app.selectPaneDestination(swapBack.destinations.first { $0.id == third.id }!, for: swapBack.id)
+        let originalOrder = app.layout.leaves
+        try check(app.movePane(source.id, to: third.id, placement: .center)
+                  && app.layout.leaves == originalOrder.map { $0 == source.id ? third.id : $0 == third.id ? source.id : $0 }
+                  && source.current.currentURL == a && third.current.currentURL == c && targetB.current.currentURL == b,
+                  "moving a pane to the center swaps layout positions without exchanging tab ownership")
+        _ = app.movePane(source.id, to: third.id, placement: .center)
         app.closeTab(in: third, at: 0)
         try check(app.groups.count == 2 && app.layout.leaves == [source.id, targetB.id] && app.activeGroup.id == source.id,
                   "closing an inactive pane collapses its split without changing the active pane")

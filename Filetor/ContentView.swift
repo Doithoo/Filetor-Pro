@@ -165,6 +165,9 @@ struct PaneContainer: View {
             FileListView(pane: group.current, app: app, isActive: app.dual && app.activeGroup.id == group.id).id(group.current.id)
         }
         .frame(minWidth: 280)
+        .overlay {
+            if app.paneDrag != nil { PaneDropSurface(app: app, groupID: group.id) }
+        }
         .simultaneousGesture(TapGesture().onEnded { app.activate(group.current) })
     }
 }
@@ -179,6 +182,11 @@ struct TabStrip: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            if app.dual {
+                PaneDragHandle(app: app, groupID: group.id)
+                    .frame(width: 24 * UIScale.value(textSize), height: 28 * UIScale.value(textSize))
+                    .padding(.leading, 3)
+            }
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 4) {

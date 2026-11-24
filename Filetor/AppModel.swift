@@ -80,6 +80,7 @@ final class AppModel {
     var layout: PaneLayout = .pane(UUID())
     var focusedPaneID: UUID?
     var pendingPaneChoice: PaneChoice?
+    var paneDrag: PaneDragPayload?
     var visibleGroups: [PaneGroup] {
         if let focusedPaneID, let group = groups.first(where: { $0.id == focusedPaneID }) { return [group] }
         return layout.leaves.compactMap { id in groups.first { $0.id == id } }
@@ -92,6 +93,7 @@ final class AppModel {
                 if groups.count == 1 { splitPane(active, axis: .vertical) }
             } else { focusedPaneID = activeGroup.id }
             pendingPaneChoice = nil
+            paneDrag = nil
             saveSession()
         }
     }
@@ -253,6 +255,7 @@ final class AppModel {
     // MARK: Session restore
 
     func stop() {
+        paneDrag = nil
         SystemQuickLook.shared.close(owner: self)
         saveSession()
         transfers.cancelAll()
@@ -434,6 +437,7 @@ final class AppModel {
         groups.append(added)
         focusedPaneID = nil
         activeIndex = groups.count - 1
+        paneDrag = nil
         pendingPaneChoice = nil
         refreshQuickLook()
         saveSession()
@@ -454,6 +458,7 @@ final class AppModel {
             group.tabs.forEach { $0.stop() }
             layout = remaining
             groups.removeAll { $0 === group }
+            paneDrag = nil
             activeIndex = groups.firstIndex { $0.id == next } ?? 0
             if focusedPaneID == group.id { focusedPaneID = nil }
             pendingPaneChoice = nil
@@ -482,17 +487,30 @@ final class AppModel {
         choice.perform(captured)
     }
 
-    func swapPanes() {
-        let source = activeGroup
-        chooseOtherPane(from: source.current, title: "Swap Panes") { [weak self, weak source] target in
-            guard let self, let source, self.groups.contains(where: { $0 === source }),
-                  let other = self.groups.first(where: { $0.id == target.id }) else { return }
-            let tabs = source.tabs, selected = source.selected
-            source.tabs = other.tabs; source.selected = other.selected
-            other.tabs = tabs; other.selected = selected
-            self.refreshQuickLook()
-            self.saveSession()
-        }
+    func startPaneDrag(_ groupID: UUID) -> PaneDragPayload? {
+        guard dual, visibleGroups.contains(where: { $0.id == groupID }) else { return nil }
+        let payload = PaneDragPayload(workspaceID: workspaceID, groupID: groupID, token: UUID())
+        paneDrag = payload
+        pendingPaneChoice = nil
+        return payload
+    }
+
+    func endPaneDrag(_ payload: PaneDragPayload) {
+        if paneDrag == payload { paneDrag = nil }
+    }
+
+    @discardableResult
+    func movePane(_ source: UUID, to target: UUID, placement: PanePlacement) -> Bool {
+        let visible = visibleGroups.map(\.id)
+        guard dual, visible.contains(source), visible.contains(target),
+              let moved = layout.moving(source, to: target, placement: placement),
+              moved.valid(for: groups.map(\.id)) else { return false }
+        layout = moved
+        activeIndex = groups.firstIndex { $0.id == source } ?? activeIndex
+        pendingPaneChoice = nil
+        refreshQuickLook()
+        saveSession()
+        return true
     }
 
     // MARK: File operations (first version, runs on the main thread)

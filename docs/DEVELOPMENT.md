@@ -192,8 +192,16 @@ Run archive-focused regression checks with `python3 scripts/build.py --test --ar
 
 `PaneLayout` 用稳定 UUID 的二叉分割树记录方向、比例和窗格顺序，`PaneGroup` 独立保存标签组。工作区新增可选布局和组 ID 字段，旧版本会话仍可读取，损坏的布局回退为包含全部标签组的左右排列。关闭最后一个窗格前保留有效工作区，供下次恢复。
 
-三个以上可见窗格时，复制、移动、交换、对比、同步及路径菜单的 Open in Other Pane 显示目标选择面板。文件传输使用面板中展示的目录快照，不随切换活动窗格或目录改变目的地；关闭窗格或切换布局会取消未确认的目标选择。
+三个以上可见窗格时，复制、移动、对比、同步及路径菜单的 Open in Other Pane 显示目标选择面板。文件传输使用面板中展示的目录快照，不随切换活动窗格或目录改变目的地；关闭窗格或切换布局会取消未确认的目标选择。
 
-专项检查：`python3 scripts/build.py --test --multi-pane-only`，覆盖旧会话迁移、嵌套布局持久化、独立导航、窗格关闭与合并、目标选择取消、复制移动及撤销、同步与交换，以及真实窗口中的菜单分割和单标签关闭点击。截图在 `.build/pro/multi-pane-layout.png`。
+专项检查：`python3 scripts/build.py --test --multi-pane-only`，覆盖旧会话迁移、嵌套布局持久化、独立导航、窗格关闭与合并、目标选择取消、复制移动及撤销、同步与窗格位置交换，以及真实窗口中的菜单分割和单标签关闭点击。截图在 `.build/pro/multi-pane-layout.png`。
 
 0.11.1 的分隔线由 `PaneDividerView` 原生控件统一接收鼠标事件，使用 tracking area、cursorUpdate 和 cursor rects 显示方向光标；悬停或拖动时轻微高亮，离开后恢复。避免把光标视图放在不参与命中的 SwiftUI 背景层。专项测试通过真实窗口鼠标移动验证左右／上下光标、离开清理、拖动与双击平分。
+
+## 拖动窗格（0.12.0）
+
+每个可见窗格的标签栏左侧新增小型六点拖动手柄，悬停显示抓手光标和说明。拖到另一个窗格中央交换位置，拖到上、下、左、右边缘则移到对应位置。高亮仅预览落点，成功松手才写入布局；Esc 或放到窗口外取消。整组标签页、当前标签、选择、历史和关闭标签记录仍属于原窗格。
+
+`PaneLayout.moving` 对分割树移动或交换叶子，边缘移动时折叠空出的分支，保留其他分支的比例。`PaneDragHandleView` 和 `PaneDropView` 使用原生 AppKit 拖放，私有 pasteboard 类型与窗口内有效会话校验区分窗格、标签和文件。落点覆盖层只在有效窗格拖动期间出现；跨窗口移动窗格暂不支持。
+
+自定义工具栏、默认工具栏和命令面板移除 Swap Panes。已有工具栏配置仅删除旧 swap 条目，保留其他条目的 ID、顺序和文字标签偏好，防止旧拖动数据重新添加。专项检查：`python3 scripts/build.py --test --pane-drag-only`。

@@ -52,7 +52,6 @@ struct AppCommand: Identifiable {
         AppCommand(id: "sync", title: "Synchronize…") { $0.synchronize() },
         AppCommand(id: "connect", title: "Connect to Server…") { $0.showConnect = true },
         AppCommand(id: "copyPath", title: "Copy Path") { $0.copyPath() },
-        AppCommand(id: "swap", title: "Swap Panes") { $0.swapPanes() },
         AppCommand(id: "reload", title: "Reload", keys: "⌥ ⌘ R") { $0.active.load() },
         AppCommand(id: "hidden", title: "Show or Hide Hidden Files", keys: "⇧ ⌘ .") { $0.active.toggleHidden() },
         AppCommand(id: "goToFolder", title: "Go to Folder…", keys: "⇧ ⌘ G") { $0.activateGoToFolder() },
