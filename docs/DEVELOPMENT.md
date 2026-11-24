@@ -213,3 +213,11 @@ Run archive-focused regression checks with `python3 scripts/build.py --test --ar
 `FolderExpansion.read` 在后台广度优先递归读取普通目录，跳过包和符号链接，遵守隐藏文件设置。单次限制为 2,000 个目录、20,000 个条目（含根目录已有条目）、64 层；超限目录不会部分展示，错误目录不阻塞其他目录。结果一次应用，避免逐目录刷新大量列表。停止时保留操作前状态，收拢、导航、重新加载、搜索、标签、视图改变及窗格停止均取消读取，并用代际标记拒绝迟到结果。
 
 专项验证：`python3 scripts/build.py --test --folder-expansion-only`，覆盖递归、中文、隐藏/包/链接、上限、失败恢复、取消竞态、偏好迁移及原生窗口按钮点击。
+
+## 帮助与反馈（0.14.0）
+
+`HelpCommands` 用 `.help` 命令组替换系统默认的 Help Book 动作，不依赖焦点工作区。`HelpCenter` 复用原生可缩放窗口，内含可搜索的离线指南和来自 `Shortcuts.groups` 的完整快捷键列表。帮助无需网络或额外 WebView，关闭后可重新打开。
+
+`SupportLink` 集中生成当前独立仓库的 HTTPS 地址，问题反馈和功能建议用 URLComponents 编码草稿，不自动提交。仅附应用版本、构建号和 macOS 版本，不读取文件路径、文件内容或诊断日志。打开浏览器失败时显示可复制的地址。
+
+验证：`python3 scripts/build.py --test --help-only` 测试离线搜索、完整快捷键、反馈路由和窗口复用；真实菜单检查与 `--navigation-scene` 一起运行，确认没有系统 Help 不可用警告，且无可见工作区时仍能打开帮助。

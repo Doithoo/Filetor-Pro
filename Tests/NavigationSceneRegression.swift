@@ -33,6 +33,7 @@ struct NavigationRegressionScene: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 700)
+        .commands { HelpCommands() }
     }
 
     private func verify() async {
@@ -137,6 +138,7 @@ struct NavigationRegressionScene: App {
             app.toolbarModel.showLabels = true
             window.setContentSize(NSSize(width: 1100, height: 700))
             try await Regression.addressBarTests(window: window, app: app, root: root)
+            try await Regression.helpMenuTests(workspace: window)
             print("\nAll \(Regression.checks) real-window navigation checks passed.")
         } catch {
             cleanup()

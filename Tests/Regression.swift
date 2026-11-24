@@ -433,7 +433,9 @@ struct Regression {
         }
         do {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
-            if CommandLine.arguments.contains("--folder-expansion-only") {
+            if CommandLine.arguments.contains("--help-only") {
+                try await helpTests()
+            } else if CommandLine.arguments.contains("--folder-expansion-only") {
                 try await folderExpansionTests(root)
             } else if CommandLine.arguments.contains("--pane-drag-only") {
                 try await paneDragTests(root)
@@ -478,6 +480,7 @@ struct Regression {
                 try await multiPaneTests(root)
                 try await paneDragTests(root)
                 try await folderExpansionTests(root)
+                try await helpTests()
             }
             print("\nAll \(checks) regression checks passed.")
         } catch {

@@ -18,7 +18,12 @@ extension Regression {
         func field(in view: NSView? = nil) -> NSTextField? {
             guard let view = view ?? window.contentView else { return nil }
             if let field = view as? NSTextField, field.identifier?.rawValue == "breadcrumb-address" { return field }
-            return view.subviews.lazy.compactMap { field(in: $0) }.first
+            // A lazy compactMap/first can evaluate recursive matches repeatedly.
+            // Visit each subtree once even while SwiftUI retains outgoing views.
+            for child in view.subviews {
+                if let match = field(in: child) { return match }
+            }
+            return nil
         }
         func editor() throws -> NSTextView {
             guard let view = field()?.currentEditor() as? NSTextView else { throw FileOperationSafety.failure("Address field has no editor") }

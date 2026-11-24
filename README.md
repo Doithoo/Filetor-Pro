@@ -40,7 +40,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.13.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.14.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 
@@ -70,6 +70,8 @@ Versions use `MAJOR.MINOR.PATCH`, starting with `0.3.0` under the Filetor Pro na
 ## Privacy, attribution and feedback
 
 File operations run locally. Update checks and downloads contact GitHub; the updater does not upload file contents or send Sparkle system profiles. Network file access and external applications run only as requested by the user.
+
+The **Help** menu opens a searchable offline user guide and the full keyboard shortcut reference in a native window, including when no workspace is open. It also provides issue reporting, feature suggestions, release notes and the project homepage. Feedback opens an editable GitHub draft containing only app/build and macOS versions; it is submitted only when you choose to submit it on GitHub. **Copy App Information** copies those versions for support.
 
 Please report Filetor Pro issues in [this repository's issue tracker](https://github.com/Doithoo/Filetor-Pro/issues).
 

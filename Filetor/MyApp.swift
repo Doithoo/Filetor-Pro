@@ -17,7 +17,7 @@ import SwiftUI
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 700)
-        .commands { WorkspaceCommands() }
+        .commands { WorkspaceCommands(); HelpCommands() }
     }
 }
 
