@@ -15,6 +15,25 @@ extension Regression {
         app.toolbarModel.showLabels = false
         let toolbar = app.toolbarModel.entries
         let favorites = app.favorites.urls
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let specialFolders = [
+            "Applications": "square.grid.2x2", "Desktop": "menubar.dock.rectangle",
+            "Documents": "doc", "Downloads": "arrow.down.circle", "Library": "books.vertical",
+            "Movies": "film", "Music": "music.note", "Pictures": "photo", "Public": "person.2"
+        ]
+        for (name, symbol) in specialFolders.sorted(by: { $0.key < $1.key }) {
+            let url = home.appending(path: name)
+            let place = app.favorites.place(for: url)
+            try check(place.icon == symbol && place.url == url && NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil,
+                      "\(name) favorite uses an available dedicated native symbol without changing its destination")
+            let ordinary = folder.appending(path: name)
+            try check(app.favorites.place(for: ordinary).icon == "folder",
+                      "ordinary folders named \(name) retain the regular folder symbol")
+        }
+        try check(app.favorites.place(for: URL(fileURLWithPath: "/Applications")).icon == "square.grid.2x2"
+                  && app.favorites.place(for: home.appending(path: "Pictures/../Music")).icon == "music.note"
+                  && app.favorites.urls == favorites,
+                  "special icons recognize system Applications and normalized paths without rewriting favorites")
         app.activeIndex = 1
         let left = app.groups[0].current, right = app.groups[1].current
         let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1200, height: 700),
@@ -91,6 +110,9 @@ extension Regression {
         defer { titled.stop() }
         try check(titled.title == "Trash", "Trash tabs use a readable title instead of a hidden-folder name")
 
+        // Render the real sidebar with the new symbols using only the test app's preferences.
+        app.favorites.insert(specialFolders.keys.sorted().map { home.appending(path: $0) }, before: nil)
+        try await Task.sleep(for: .milliseconds(150))
         host.layoutSubtreeIfNeeded()
         if let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
             host.cacheDisplay(in: host.bounds, to: bitmap)

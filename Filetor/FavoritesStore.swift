@@ -58,12 +58,23 @@ final class FavoritesStore {
 
     func place(for url: URL) -> Place {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        switch url.path {
+        switch url.standardizedFileURL.path {
         case home.path: return Place(name: "Home", icon: "house", url: url)
         case home.appending(path: "Desktop").path: return Place(name: "Desktop", icon: "menubar.dock.rectangle", url: url)
         case home.appending(path: "Documents").path: return Place(name: "Documents", icon: "doc", url: url)
         case home.appending(path: "Downloads").path: return Place(name: "Downloads", icon: "arrow.down.circle", url: url)
-        case "/Applications": return Place(name: "Applications", icon: "square.grid.2x2", url: url)
+        case "/Applications", home.appending(path: "Applications").path:
+            return Place(name: "Applications", icon: "square.grid.2x2", url: url)
+        case home.appending(path: "Movies").path:
+            return Place(name: "Movies", icon: "film", url: url)
+        case home.appending(path: "Music").path:
+            return Place(name: "Music", icon: "music.note", url: url)
+        case home.appending(path: "Pictures").path:
+            return Place(name: "Pictures", icon: "photo", url: url)
+        case home.appending(path: "Library").path:
+            return Place(name: "Library", icon: "books.vertical", url: url)
+        case home.appending(path: "Public").path:
+            return Place(name: "Public", icon: "person.2", url: url)
         default: return Place(name: url.lastPathComponent.isEmpty ? "/" : url.lastPathComponent, icon: "folder", url: url)
         }
     }
