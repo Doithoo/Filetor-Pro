@@ -174,13 +174,17 @@ struct CustomToolbar: View {
                 Button("As Icons") { app.active.viewMode = 1 }
             }
         } else if let def = ToolCatalog.def(entry.kind) {
-            Button(def.title) { def.run(app) }
+            Button(actionTitle(def)) { def.run(app) }
                 .disabled(isDisabled(def))
         }
     }
 
+    private func actionTitle(_ def: ToolDef) -> String {
+        def.id == "expandAll" && app.active.expandingAll ? "Stop Expanding" : def.title
+    }
+
     private func isDisabled(_ def: ToolDef) -> Bool {
-        (def.needsSelection && app.active.selection.isEmpty) || (def.needsDual && !app.dual)
+        (def.needsSelection && app.active.selection.isEmpty) || (def.needsDual && !app.dual) || !(def.isEnabled?(app) ?? true)
     }
 
     @ViewBuilder
@@ -287,7 +291,7 @@ struct CustomToolbar: View {
             if let def = ToolCatalog.def(entry.kind) {
                 Button { def.run(app) } label: {
                     VStack(spacing: 3) {
-                        Image(systemName: def.symbol)
+                        Image(systemName: def.id == "expandAll" && app.active.expandingAll ? "stop.circle" : def.symbol)
                             .font(.system(size: 16 * s, weight: .light))
                             .foregroundStyle((def.isOn?(app) ?? false) ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color.primary.opacity(0.6)))
                             .frame(width: 42 * s, height: 30 * s)
@@ -300,7 +304,7 @@ struct CustomToolbar: View {
                                 }
                             }
                         if model.showLabels {
-                            Text(def.title).font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(1)
+                            Text(actionTitle(def)).font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(1)
                         }
                     }
                     .frame(width: buttonWidth - 4)
@@ -308,7 +312,7 @@ struct CustomToolbar: View {
                 .buttonStyle(ToolButtonStyle())
                 .disabled(isDisabled(def))
                 .toolbarHelp(ToolCatalog.help(def, app: app))
-                .accessibilityLabel(def.title)
+                .accessibilityLabel(actionTitle(def))
             }
         }
     }

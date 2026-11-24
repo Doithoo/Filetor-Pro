@@ -83,8 +83,11 @@ private struct WorkspaceCommands: Commands {
                 Button("Expand Selected Folders") {
                     for url in app.active.selection where FileItem(url: url).expandable { app.active.expand(url) }
                 }.disabled(!app.active.treeActive)
+                Button(app.active.expandingAll ? "Stop Expanding Folders" : "Expand All Folders") {
+                    app.active.toggleExpandAll()
+                }.disabled(!app.active.expandingAll && !app.active.canExpandAll)
                 Button("Collapse All Folders") { app.active.collapseAll() }
-                    .disabled(app.active.expanded.isEmpty)
+                    .disabled(!app.active.canCollapseAll)
                 Button("Search") { app.activateSearch() }
                     .keyboardShortcut("f", modifiers: .command)
                 Button("Go to Folder…") { app.activateGoToFolder() }

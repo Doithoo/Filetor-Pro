@@ -12,6 +12,7 @@ struct ToolDef: Identifiable {
     let symbol: String
     var needsSelection = false
     var needsDual = false
+    var isEnabled: ((AppModel) -> Bool)? = nil
     var isOn: ((AppModel) -> Bool)? = nil
     let run: (AppModel) -> Void
 }
@@ -31,8 +32,11 @@ enum ToolCatalog {
         ToolDef(id: "sidebar", title: "Sidebar", symbol: "sidebar.left",
                 isOn: { $0.sidebarVisibility != .detailOnly },
                 run: { $0.sidebarVisibility = ($0.sidebarVisibility == .detailOnly) ? .all : .detailOnly }),
-        ToolDef(id: "enclosing", title: "Enclosing Folder", symbol: "chevron.up",
-                run: { $0.active.goUp() }),
+        ToolDef(id: "expandAll", title: "Expand All", symbol: "chevron.down.2",
+                isEnabled: { $0.active.expandingAll || $0.active.canExpandAll },
+                isOn: { $0.active.expandingAll }, run: { $0.active.toggleExpandAll() }),
+        ToolDef(id: "collapseAll", title: "Collapse All", symbol: "chevron.up.2",
+                isEnabled: { $0.active.canCollapseAll }, run: { $0.active.collapseAll() }),
         ToolDef(id: "goTo", title: "Go To", symbol: "folder",
                 isOn: { $0.showGoToFolder }, run: { $0.activateGoToFolder(focusPath: false) }),
         ToolDef(id: "dual", title: "Pane Layout", symbol: "rectangle.split.2x1",
@@ -95,6 +99,14 @@ enum ToolCatalog {
         if def.needsDual && !app.dual { return def.title + " — Split the pane or show all panes first" }
         if def.needsSelection && app.active.selection.isEmpty { return def.title + " — Select a file or folder first" }
         switch def.id {
+        case "expandAll", "collapseAll":
+            if def.id == "expandAll" && app.active.expandingAll { return "Stop Expanding Folders" }
+            let title = def.id == "expandAll" ? "Expand All Folders" : "Collapse All Folders"
+            if !app.active.treeActive { return title + " — Use List View without search filters" }
+            if def.id == "expandAll" && app.active.loading { return title + " — Wait for the folder to load" }
+            if def.id == "expandAll" && !app.active.canExpandAll { return title + " — No folders to expand" }
+            if def.id == "collapseAll" && !app.active.canCollapseAll { return title + " — No expanded folders" }
+            return title + " in Active Pane"
         case "sidebar": return app.sidebarVisibility == .detailOnly ? "Show Sidebar" : "Hide Sidebar"
         case "hidden": return app.active.showHidden ? "Hide Hidden Files" : "Show Hidden Files"
         case "dual": return app.dual ? "Focus Active Pane" : (app.groups.count > 1 ? "Show All Panes" : "Split Vertically (Left / Right)")
@@ -107,7 +119,7 @@ enum ToolCatalog {
 
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
-        "sidebar", "backfwd", "enclosing", "goTo", "title", "view", "dual",
+        "sidebar", "backfwd", "goTo", "title", "view", "expandAll", "collapseAll", "dual",
         "quickLook", "hidden", "newFolder", "projectFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "convert", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
@@ -116,7 +128,7 @@ enum ToolCatalog {
 
     static let defaultKinds: [String] = [
         "sidebar", "backfwd", "goTo", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
-        "newFolder", "copyPath", "connect", "view", "dual", "search",
+        "newFolder", "copyPath", "connect", "view", "expandAll", "collapseAll", "dual", "search",
     ]
 }
 
@@ -150,7 +162,7 @@ final class ToolbarModel {
         self.defaults = defaults
         if let data = defaults.data(forKey: Self.key),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
-            let kept = decoded.filter { $0.kind != "folderSize" && $0.kind != "swap" }
+            let kept = decoded.filter { $0.kind != "folderSize" && $0.kind != "swap" && $0.kind != "enclosing" }
             entries = kept
             if kept != decoded, let migrated = try? JSONEncoder().encode(kept) {
                 defaults.set(migrated, forKey: Self.key)

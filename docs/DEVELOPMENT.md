@@ -205,3 +205,11 @@ Run archive-focused regression checks with `python3 scripts/build.py --test --ar
 `PaneLayout.moving` 对分割树移动或交换叶子，边缘移动时折叠空出的分支，保留其他分支的比例。`PaneDragHandleView` 和 `PaneDropView` 使用原生 AppKit 拖放，私有 pasteboard 类型与窗口内有效会话校验区分窗格、标签和文件。落点覆盖层只在有效窗格拖动期间出现；跨窗口移动窗格暂不支持。
 
 自定义工具栏、默认工具栏和命令面板移除 Swap Panes。已有工具栏配置仅删除旧 swap 条目，保留其他条目的 ID、顺序和文字标签偏好，防止旧拖动数据重新添加。专项检查：`python3 scripts/build.py --test --pane-drag-only`。
+
+## 批量展开文件夹（0.13.0）
+
+工具栏提供 Expand All / Collapse All；已有自定义配置仅移除 enclosing，不自动插入新条目，保留 ID、顺序及图标模式。默认工具栏包含两个新按钮，View 菜单同样提供入口。读取中 Expand All 变为 Stop Expanding；非普通列表、加载中或无可展开目录时提供禁用提示。
+
+`FolderExpansion.read` 在后台广度优先递归读取普通目录，跳过包和符号链接，遵守隐藏文件设置。单次限制为 2,000 个目录、20,000 个条目（含根目录已有条目）、64 层；超限目录不会部分展示，错误目录不阻塞其他目录。结果一次应用，避免逐目录刷新大量列表。停止时保留操作前状态，收拢、导航、重新加载、搜索、标签、视图改变及窗格停止均取消读取，并用代际标记拒绝迟到结果。
+
+专项验证：`python3 scripts/build.py --test --folder-expansion-only`，覆盖递归、中文、隐藏/包/链接、上限、失败恢复、取消竞态、偏好迁移及原生窗口按钮点击。

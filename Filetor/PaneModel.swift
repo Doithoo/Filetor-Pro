@@ -19,10 +19,10 @@ final class PaneModel: Identifiable {
     @ObservationIgnored private var loadGeneration = UUID()
     @ObservationIgnored private var lastRecordedDirectory: URL?
     var revision = 0
-    var criteria = SearchCriteria() { didSet { if searchSubfolders { restartSearch() } } }
+    var criteria = SearchCriteria() { didSet { if !treeActive { cancelExpandAll() }; if searchSubfolders { restartSearch() } } }
     var hasSearchFilters: Bool { !filter.isEmpty || !criteria.isEmpty }
     @ObservationIgnored private var pendingSelection: URL?
-    var filter = "" { didSet { if searchSubfolders { restartSearch() } } }
+    var filter = "" { didSet { if !treeActive { cancelExpandAll() }; if searchSubfolders { restartSearch() } } }
     /// Search the filter text in all subfolders instead of only filtering the current folder.
     var searchSubfolders = UserDefaults.standard.bool(forKey: "searchSubfolders") {
         didSet {
@@ -34,7 +34,7 @@ final class PaneModel: Identifiable {
     var searching = false
     var foldersScanned = 0
     /// Name of the tag whose files are shown (a Spotlight search over the whole Mac), nil in a normal folder.
-    var tagFilter: String?
+    var tagFilter: String? { didSet { if !treeActive { cancelExpandAll() } } }
     /// Set when the list shows a saved search (tagFilter then holds its name).
     var savedSearchID: UUID?
     var tagResults: [FileItem] = []
@@ -43,9 +43,9 @@ final class PaneModel: Identifiable {
     var title: String { tagFilter ?? (TrashLocation.isRoot(currentURL) ? "Trash" : CloudLocation.title(for: currentURL)) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     var searchActive: Bool { tagFilter == nil && searchSubfolders && hasSearchFilters }
-    /// 0 = list, 1 = icons, 2 = columns
-    var viewMode = 0
-    var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
+    /// 0 = list, 1 = icons
+    var viewMode = 0 { didSet { if !treeActive { cancelExpandAll() } } }
+    var showHidden = UserDefaults.standard.bool(forKey: "showHidden") { didSet { cancelExpandAll() } }
 
     private var backStack: [URL] = []
     private var forwardStack: [URL] = []
@@ -81,6 +81,57 @@ final class PaneModel: Identifiable {
     var loadingFolders = Set<URL>()
     var expansionErrors: [URL: String] = [:]
     @ObservationIgnored private var expansionTasks: [URL: Task<Void, Never>] = [:]
+
+    private(set) var expandingAll = false
+    @ObservationIgnored private var expandAllTask: Task<Void, Never>?
+    @ObservationIgnored private var expandAllGeneration = UUID()
+
+    var canExpandAll: Bool { treeActive && !loading && items.contains(where: \.expandable) }
+    var canCollapseAll: Bool { treeActive && (expandingAll || !expanded.isEmpty) }
+
+    func cancelExpandAll() {
+        expandAllTask?.cancel()
+        expandAllTask = nil
+        expandAllGeneration = UUID()
+        expandingAll = false
+    }
+
+    func toggleExpandAll() {
+        if expandingAll { cancelExpandAll() } else { expandAll() }
+    }
+
+    /// Read off the main thread and apply a single bounded tree update. Cancelling
+    /// preserves the tree as it was before the request; stale workers cannot reopen it.
+    func expandAll(limits: FolderExpansion.Limits = .init()) {
+        guard canExpandAll, !expandingAll else { return }
+        cancelExpansions()
+        let generation = UUID()
+        expandAllGeneration = generation
+        expandingAll = true
+        let root = currentURL, hidden = showHidden, roots = items
+        expandAllTask = Task { [weak self] in
+            let worker = Task.detached(priority: .userInitiated) {
+                try FolderExpansion.read(roots: roots, hidden: hidden, limits: limits)
+            }
+            let result = await withTaskCancellationHandler { await worker.result } onCancel: { worker.cancel() }
+            guard let self, !Task.isCancelled, self.expandAllGeneration == generation,
+                  self.currentURL == root, self.treeActive, self.showHidden == hidden else { return }
+            self.expandingAll = false
+            self.expandAllTask = nil
+            if case .success(let tree) = result {
+                self.children.merge(tree.children) { _, new in new }
+                self.expanded.formUnion(tree.children.keys)
+                for url in tree.children.keys { self.expansionErrors[url] = nil }
+                self.expansionErrors.merge(tree.errors) { _, new in new }
+                TagStore.shared.remember(tree.children.values.flatMap { $0.flatMap(\.tags) })
+                if tree.limited {
+                    self.errorMessage = "Expansion stopped at the display limit (\(limits.folders) folders, \(limits.items) items, or \(limits.depth) levels). Open a subfolder to continue."
+                } else if !tree.errors.isEmpty {
+                    self.errorMessage = "Could not expand \(tree.errors.count) folder(s). Other accessible folders were expanded."
+                }
+            }
+        }
+    }
 
     /// The tree is only used in the plain list of a folder, not in search results, tag views or filtered lists.
     var treeActive: Bool { viewMode == 0 && tagFilter == nil && !searchActive && !hasSearchFilters }
@@ -145,6 +196,7 @@ final class PaneModel: Identifiable {
     }
 
     func collapse(_ url: URL) {
+        cancelExpandAll()
         let url = url.standardizedFileURL
         let prefix = url.path + "/"
         for key in Array(expansionTasks.keys) where key == url || key.path.hasPrefix(prefix) {
@@ -157,6 +209,7 @@ final class PaneModel: Identifiable {
     }
 
     func collapseAll() {
+        cancelExpandAll()
         expansionTasks.values.forEach { $0.cancel() }
         expansionTasks.removeAll()
         loadingFolders.removeAll()
@@ -191,6 +244,7 @@ final class PaneModel: Identifiable {
     }
 
     private func cancelExpansions() {
+        cancelExpandAll()
         expansionTasks.values.forEach { $0.cancel() }
         expansionTasks.removeAll()
         loadingFolders.removeAll()
@@ -391,6 +445,7 @@ final class PaneModel: Identifiable {
     }
 
     private func reload(keepSelection: Bool) {
+        cancelExpandAll()
         loadTask?.cancel()
         let generation = UUID()
         loadGeneration = generation
