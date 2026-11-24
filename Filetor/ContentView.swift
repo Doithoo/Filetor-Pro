@@ -138,6 +138,9 @@ struct ContentView: View {
         .floatingPanel(isPresented: Binding(get: { model.sync != nil }, set: { if !$0 { model.sync = nil } })) {
             SyncPanel(app: app)
         }
+        .floatingPanel(isPresented: Binding(get: { app.pendingPaneChoice != nil }, set: { if !$0 { app.pendingPaneChoice = nil } })) {
+            if let choice = app.pendingPaneChoice { PaneChoiceView(choice: choice, app: app) }
+        }
         .floatingPanel(isPresented: $model.showCustomize) {
             CustomizeSheet(app: app)
         }
@@ -146,24 +149,23 @@ struct ContentView: View {
         .onChange(of: pane.id) { _, _ in app.refreshQuickLook() }
         .onChange(of: pane.currentURL) { _, _ in app.refreshQuickLook() }
         .onChange(of: app.sidebarVisibility) { _, v in showSidebar = (v != .detailOnly) }
-        .onChange(of: app.dual) { _, dual in
-            if !dual { app.activeIndex = 0 }
-        }
     }
 }
 
 struct PaneContainer: View {
     let app: AppModel
-    let index: Int
+    let group: PaneGroup
+
+    init(app: AppModel, group: PaneGroup) { self.app = app; self.group = group }
+    init(app: AppModel, index: Int) { self.init(app: app, group: app.groups[index]) }
 
     var body: some View {
-        let group = app.groups[index]
         VStack(spacing: 0) {
             TabStrip(group: group, app: app)
-            FileListView(pane: group.current, app: app, isActive: app.dual && app.activeIndex == index).id(group.current.id)
+            FileListView(pane: group.current, app: app, isActive: app.dual && app.activeGroup.id == group.id).id(group.current.id)
         }
         .frame(minWidth: 280)
-        .simultaneousGesture(TapGesture().onEnded { app.activeIndex = index })
+        .simultaneousGesture(TapGesture().onEnded { app.activate(group.current) })
     }
 }
 
@@ -171,6 +173,9 @@ struct TabStrip: View {
     let group: PaneGroup
     let app: AppModel
     @AppStorage("textSize") private var textSize = 1
+    private var closeTitle: String {
+        group.tabs.count > 1 ? "Close Tab" : (app.groups.count > 1 ? "Close Pane" : "Close Window")
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -181,13 +186,14 @@ struct TabStrip: View {
                             let name = tab.title
                             HStack(spacing: 6) {
                                 Text(name).lineLimit(1)
-                                if group.tabs.count > 1 {
-                                    Button { group.close(at: i) } label: {
-                                        Image(systemName: "xmark").font(.caption2)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Close Tab")
+                                Button { app.closeTab(in: group, at: i) } label: {
+                                    Image(systemName: "xmark").font(.caption2)
+                                        .frame(width: 20, height: 20)
+                                        .contentShape(Rectangle())
                                 }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(closeTitle)
+                                .toolbarHelp(closeTitle)
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -204,7 +210,7 @@ struct TabStrip: View {
                             }
                             .contextMenu {
                                 Button("Open in New Window") { app.openWindow?(tab.currentURL) }
-                                Button("Close Tab") { group.close(at: i) }
+                                Button(closeTitle) { app.closeTab(in: group, at: i) }
                                 Button("Reopen Closed Tab") { group.reopen() }.disabled(!group.canReopen)
                             }
                             .id(tab.id)
@@ -235,49 +241,61 @@ struct TabStrip: View {
     }
 }
 
+/// Retains the existing view name while rendering an arbitrary split tree.
 struct DualPaneView: View {
     let app: AppModel
-    @State private var ratio: Double = 0.5
-
-    private let handle: CGFloat = 7
-    private let minPane: CGFloat = 280
-
     var body: some View {
-        GeometryReader { geo in
-            let usable = max(geo.size.width - handle, 1)
-            if app.dual {
-                let lo = min(minPane / usable, 0.5)
-                let r = min(max(ratio, lo), 1 - lo)
-                HStack(spacing: 0) {
-                    PaneContainer(app: app, index: 0)
-                        .frame(width: usable * r)
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: handle)
-                        .overlay { Divider() }
-                        .contentShape(Rectangle())
-                        .onHover { inside in
-                            if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 1, coordinateSpace: .named("dualSplit"))
-                                .onChanged { v in
-                                    ratio = min(max((v.location.x - handle / 2) / usable, lo), 1 - lo)
-                                }
-                        )
-                        .onTapGesture(count: 2) { ratio = 0.5 }
-                    PaneContainer(app: app, index: 1)
-                        .frame(width: usable * (1 - r))
-                }
-                .coordinateSpace(name: "dualSplit")
-            } else {
-                PaneContainer(app: app, index: 0)
+        GeometryReader { geometry in
+            let tree = app.focusedPaneID.map { PaneLayout.pane($0) } ?? app.layout
+            let minimum = tree.minimumSize
+            ScrollView([.horizontal, .vertical]) {
+                PaneLayoutView(app: app, node: tree)
+                    .frame(width: max(geometry.size.width, minimum.width),
+                           height: max(geometry.size.height, minimum.height))
             }
         }
     }
 }
 
+struct PaneLayoutView: View {
+    let app: AppModel
+    let node: PaneLayout
 
+    var body: some View {
+        switch node {
+        case .pane(let id):
+            if let group = app.groups.first(where: { $0.id == id }) { PaneContainer(app: app, group: group) }
+        case .split(let id, let axis, let ratio, let first, let second):
+            GeometryReader { geometry in
+                let vertical = axis == .vertical
+                let available = max((vertical ? geometry.size.width : geometry.size.height) - 7, 1)
+                let lo = (vertical ? first.minimumSize.width : first.minimumSize.height) / available
+                let hi = 1 - (vertical ? second.minimumSize.width : second.minimumSize.height) / available
+                let fraction = min(max(ratio, lo), max(lo, hi))
+                let stack = vertical ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
+                stack {
+                    AnyView(PaneLayoutView(app: app, node: first))
+                        .frame(width: vertical ? available * fraction : nil, height: vertical ? nil : available * fraction)
+                    Rectangle().fill(Color.primary.opacity(0.06))
+                        .frame(width: vertical ? 7 : nil, height: vertical ? nil : 7)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel(vertical ? "Resize Left and Right Panes" : "Resize Top and Bottom Panes")
+                        .toolbarHelp("Drag to resize panes; double-click to balance")
+                        .background(PaneResizeCursor(axis: axis))
+                        .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .named(id))
+                            .onChanged { value in
+                                let location = vertical ? value.location.x : value.location.y
+                                app.layout = app.layout.resizing(id, ratio: min(max((location - 3.5) / available, lo), max(lo, hi)))
+                            }
+                            .onEnded { _ in app.saveSession() })
+                        .onTapGesture(count: 2) { app.layout = app.layout.resizing(id, ratio: 0.5); app.saveSession() }
+                    AnyView(PaneLayoutView(app: app, node: second))
+                        .frame(width: vertical ? available * (1 - fraction) : nil, height: vertical ? nil : available * (1 - fraction))
+                }.coordinateSpace(name: id)
+            }
+        }
+    }
+}
 
 /// The alerts live in their own modifier so the main view body stays quick to type-check.
 struct AppAlerts: ViewModifier {

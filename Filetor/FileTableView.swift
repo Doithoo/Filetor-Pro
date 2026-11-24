@@ -738,6 +738,13 @@ struct FileTableView: NSViewRepresentable {
                 select.isEnabled = !items.isEmpty
                 menu.addItem(select)
                 menu.addItem(item("Refresh") { pane.reloadKeepingSelection() })
+                menu.addItem(.separator())
+                for axis in PaneSplitAxis.allCases {
+                    let split = item(axis.title) { app.splitPane(pane, axis: axis) }
+                    split.isEnabled = app.canSplitPane
+                    split.toolTip = app.canSplitPane ? nil : "Up to 16 panes per window"
+                    menu.addItem(split)
+                }
                 return
             }
             guard items.indices.contains(row) else { return }

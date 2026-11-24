@@ -35,7 +35,7 @@ enum ToolCatalog {
                 run: { $0.active.goUp() }),
         ToolDef(id: "goTo", title: "Go To", symbol: "folder",
                 isOn: { $0.showGoToFolder }, run: { $0.activateGoToFolder(focusPath: false) }),
-        ToolDef(id: "dual", title: "Dual Browser", symbol: "rectangle.split.2x1",
+        ToolDef(id: "dual", title: "Pane Layout", symbol: "rectangle.split.2x1",
                 isOn: { $0.dual }, run: { $0.dual.toggle() }),
         ToolDef(id: "swap", title: "Swap Panes", symbol: "arrow.left.arrow.right", needsDual: true,
                 run: { $0.swapPanes() }),
@@ -94,12 +94,12 @@ enum ToolCatalog {
     static func def(_ id: String) -> ToolDef? { buttons.first { $0.id == id } }
 
     static func help(_ def: ToolDef, app: AppModel) -> String {
-        if def.needsDual && !app.dual { return def.title + " — Enable Dual Browser first" }
+        if def.needsDual && !app.dual { return def.title + " — Split the pane or show all panes first" }
         if def.needsSelection && app.active.selection.isEmpty { return def.title + " — Select a file or folder first" }
         switch def.id {
         case "sidebar": return app.sidebarVisibility == .detailOnly ? "Show Sidebar" : "Hide Sidebar"
         case "hidden": return app.active.showHidden ? "Hide Hidden Files" : "Show Hidden Files"
-        case "dual": return app.dual ? "Switch to Single Pane" : "Show Dual Browser"
+        case "dual": return app.dual ? "Focus Active Pane" : (app.groups.count > 1 ? "Show All Panes" : "Split Vertically (Left / Right)")
         default: return def.title
         }
     }

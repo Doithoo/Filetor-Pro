@@ -63,10 +63,13 @@ struct BreadcrumbBar: View {
     /// Right-click menu of a crumb (folder or disk in the path).
     @ViewBuilder private func crumbMenu(_ url: URL, isRoot: Bool) -> some View {
         let ownGroup = app.groups.first { g in g.tabs.contains { $0 === pane } }
-        let otherGroup = app.groups.first { $0 !== ownGroup }
         Button("Open") { pane.navigate(to: url) }
-        if app.dual, let otherGroup {
-            Button("Open in Other Pane") { otherGroup.current.navigate(to: url) }
+        if app.dual {
+            Button("Open in Other Pane") {
+                app.chooseOtherPane(from: pane, title: "Open in Other Pane") { target in
+                    app.groups.first { $0.id == target.id }?.current.navigate(to: url)
+                }
+            }
         }
         if let ownGroup {
             Button("Open in New Tab") { ownGroup.newTab(at: url) }

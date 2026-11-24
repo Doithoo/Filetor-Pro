@@ -14,7 +14,9 @@ struct UndoStep {
 }
 
 @Observable
-final class PaneGroup {
+final class PaneGroup: Identifiable {
+    let id: UUID
+    init(id: UUID = UUID()) { self.id = id }
     var tabs: [PaneModel] = [PaneModel()]
     var selected = 0
     private var closed: [PaneSnapshot] = []
@@ -68,11 +70,32 @@ final class AppModel {
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
 
     func activate(_ pane: PaneModel) {
-        if let index = groups.firstIndex(where: { $0.current === pane }) { activeIndex = index }
+        if let index = groups.firstIndex(where: { $0.current === pane }) {
+            guard focusedPaneID == nil || focusedPaneID == groups[index].id else { return }
+            activeIndex = index
+        }
     }
-    let groups = [PaneGroup(), PaneGroup()]
+    var groups = [PaneGroup(), PaneGroup()]
     var activeIndex = 0
-    var dual = UserDefaults.standard.object(forKey: "startDual") as? Bool ?? true
+    var layout: PaneLayout = .pane(UUID())
+    var focusedPaneID: UUID?
+    var pendingPaneChoice: PaneChoice?
+    var visibleGroups: [PaneGroup] {
+        if let focusedPaneID, let group = groups.first(where: { $0.id == focusedPaneID }) { return [group] }
+        return layout.leaves.compactMap { id in groups.first { $0.id == id } }
+    }
+    var dual: Bool {
+        get { visibleGroups.count > 1 }
+        set {
+            if newValue {
+                focusedPaneID = nil
+                if groups.count == 1 { splitPane(active, axis: .vertical) }
+            } else { focusedPaneID = activeGroup.id }
+            pendingPaneChoice = nil
+            saveSession()
+        }
+    }
+    var canSplitPane: Bool { groups.count < 16 }
     let transfers = TransferManager()
     let toolbarModel = ToolbarModel()
     var sidebarVisibility: NavigationSplitViewVisibility =
@@ -207,6 +230,8 @@ final class AppModel {
 
     init(workspaceID: UUID = UUID()) {
         self.workspaceID = workspaceID
+        layout = .row(groups.map(\.id))
+        if !(UserDefaults.standard.object(forKey: "startDual") as? Bool ?? true) { focusedPaneID = groups[0].id }
         Self.liveModels.add(self)
         transfers.onFinished = { [weak self] in self?.refresh() }
         transfers.onError = { [weak self] message in self?.alert = message }
@@ -238,9 +263,9 @@ final class AppModel {
         observers.removeAll()
     }
 
-    /// Saves the open folders and tabs of both panes (restored on next launch).
+    /// Saves every pane, nested split, divider ratio and tab for the next launch.
     func saveSession() {
-        let session = WorkspaceSnapshot(panes: groups.map { $0.tabs.map(PaneSnapshot.init) }, selected: groups.map(\.selected), active: activeIndex, dual: dual)
+        let session = WorkspaceSnapshot(panes: groups.map { $0.tabs.map(PaneSnapshot.init) }, selected: groups.map(\.selected), active: activeIndex, dual: dual, groupIDs: groups.map(\.id), layout: layout, focusedPaneID: focusedPaneID)
         guard let data = try? JSONEncoder().encode(session) else { return }
         UserDefaults.standard.set(data, forKey: "workspace.\(workspaceID.uuidString)")
         UserDefaults.standard.set(data, forKey: "workspace.last")
@@ -249,20 +274,33 @@ final class AppModel {
     private func restoreSession() {
         let defaults = UserDefaults.standard
         let data = defaults.data(forKey: "workspace.\(workspaceID.uuidString)") ?? defaults.data(forKey: "workspace.last")
-        if let data, let saved = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data), saved.panes.count == 2 {
-            for i in groups.indices {
-                let panes = saved.panes[i].map { $0.makePane() }
-                if !panes.isEmpty { groups[i].tabs = panes }
-                groups[i].selected = min(max(saved.selected.indices.contains(i) ? saved.selected[i] : 0, 0), groups[i].tabs.count - 1)
-            }
-            activeIndex = min(max(saved.active, 0), 1)
-            dual = saved.dual
+        if let data, let saved = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data) {
+            restoreWorkspace(saved)
         } else if let legacy = defaults.dictionary(forKey: "session"), let tabs = legacy["tabs"] as? [[String]], tabs.count == 2 {
             for i in groups.indices where !tabs[i].isEmpty { groups[i].tabs = tabs[i].map { PaneModel(url: URL(fileURLWithPath: $0)) } }
         }
     }
 
-    var activeGroup: PaneGroup { groups[activeIndex] }
+    func restoreWorkspace(_ saved: WorkspaceSnapshot) {
+        guard !saved.panes.isEmpty, saved.panes.count <= 16 else { return }
+        groups.forEach { $0.tabs.forEach { $0.stop() } }
+        let ids = saved.groupIDs
+        let validIDs = ids?.count == saved.panes.count && Set(ids ?? []).count == saved.panes.count
+        groups = saved.panes.enumerated().map { index, snapshots in
+            let group = PaneGroup(id: validIDs ? ids![index] : UUID())
+            if !snapshots.isEmpty { group.tabs = snapshots.map { $0.makePane() } }
+            group.selected = min(max(saved.selected.indices.contains(index) ? saved.selected[index] : 0, 0), group.tabs.count - 1)
+            return group
+        }
+        activeIndex = min(max(saved.active, 0), groups.count - 1)
+        let groupIDs = groups.map(\.id)
+        layout = saved.layout.flatMap { $0.valid(for: groupIDs) ? $0 : nil } ?? .row(groupIDs)
+        focusedPaneID = saved.focusedPaneID.flatMap { groupIDs.contains($0) ? $0 : nil }
+        if let focusedPaneID, let index = groups.firstIndex(where: { $0.id == focusedPaneID }) { activeIndex = index }
+        else if !saved.dual { focusedPaneID = activeGroup.id }
+    }
+
+    var activeGroup: PaneGroup { groups[min(max(activeIndex, 0), groups.count - 1)] }
     var active: PaneModel { activeGroup.current }
 
     func newTab() { activeGroup.newTab() }
@@ -388,19 +426,72 @@ final class AppModel {
         }
     }
 
-    func swapPanes() {
-        guard dual else { return }
-        let a = groups[0], b = groups[1]
-        let tabs = a.tabs, sel = a.selected
-        a.tabs = b.tabs; a.selected = b.selected
-        b.tabs = tabs; b.selected = sel
+    func splitPane(_ pane: PaneModel, axis: PaneSplitAxis) {
+        guard canSplitPane, let source = groups.first(where: { $0.current === pane }) else { return }
+        let added = PaneGroup()
+        added.tabs = [PaneSnapshot(pane).makePane()]
+        layout = layout.splitting(source.id, with: added.id, axis: axis)
+        groups.append(added)
+        focusedPaneID = nil
+        activeIndex = groups.count - 1
+        pendingPaneChoice = nil
+        refreshQuickLook()
+        saveSession()
     }
 
-    func closeTab() {
-        if activeGroup.tabs.count > 1 {
-            activeGroup.close(at: activeGroup.selected)
-        } else {
-            NSApp.keyWindow?.performClose(nil)
+    func closeTab(in group: PaneGroup, at index: Int) {
+        guard groups.contains(where: { $0 === group }), group.tabs.indices.contains(index) else { return }
+        if group.tabs.count > 1 {
+            group.close(at: index)
+            refreshQuickLook()
+            saveSession()
+        } else if groups.count > 1, let remaining = layout.removing(group.id) {
+            let activeID = activeGroup.id
+            let order = layout.leaves
+            let position = order.firstIndex(of: group.id) ?? 0
+            let survivors = order.filter { $0 != group.id }
+            let next = activeID == group.id ? survivors[min(position, survivors.count - 1)] : activeID
+            group.tabs.forEach { $0.stop() }
+            layout = remaining
+            groups.removeAll { $0 === group }
+            activeIndex = groups.firstIndex { $0.id == next } ?? 0
+            if focusedPaneID == group.id { focusedPaneID = nil }
+            pendingPaneChoice = nil
+            refreshQuickLook()
+            saveSession()
+        } else { NSApp.keyWindow?.performClose(nil) }
+    }
+
+    func closeTab() { closeTab(in: activeGroup, at: activeGroup.selected) }
+
+    func chooseOtherPane(from pane: PaneModel, title: String, perform: @escaping (PaneDestination) -> Void) {
+        guard let source = visibleGroups.first(where: { $0.current === pane }) else { return }
+        let candidates = visibleGroups.enumerated().filter { $0.element !== source }.map { index, group in
+            PaneDestination(id: group.id, title: "Pane \(index + 1) — \(group.current.title)", directory: group.current.currentURL)
+        }
+        guard !candidates.isEmpty else { alert = "Split the pane or show all panes first."; return }
+        if candidates.count == 1 { perform(candidates[0]) }
+        else { pendingPaneChoice = PaneChoice(title: title, destinations: candidates, perform: perform) }
+    }
+
+    func selectPaneDestination(_ destination: PaneDestination, for choiceID: UUID) {
+        guard let choice = pendingPaneChoice, choice.id == choiceID,
+              let captured = choice.destinations.first(where: { $0.id == destination.id }),
+              visibleGroups.contains(where: { $0.id == captured.id }) else { return }
+        pendingPaneChoice = nil
+        choice.perform(captured)
+    }
+
+    func swapPanes() {
+        let source = activeGroup
+        chooseOtherPane(from: source.current, title: "Swap Panes") { [weak self, weak source] target in
+            guard let self, let source, self.groups.contains(where: { $0 === source }),
+                  let other = self.groups.first(where: { $0.id == target.id }) else { return }
+            let tabs = source.tabs, selected = source.selected
+            source.tabs = other.tabs; source.selected = other.selected
+            other.tabs = tabs; other.selected = selected
+            self.refreshQuickLook()
+            self.saveSession()
         }
     }
 
@@ -411,13 +502,6 @@ final class AppModel {
 
     func refresh() {
         for g in groups { g.current.reloadKeepingSelection() }
-    }
-
-    private func sourceIndex(for urls: Set<URL>) -> Int {
-        guard let first = urls.first else { return activeIndex }
-        let parent = first.deletingLastPathComponent().standardizedFileURL.path
-        if groups[activeIndex].current.currentURL.standardizedFileURL.path == parent { return activeIndex }
-        return groups.firstIndex { $0.current.currentURL.standardizedFileURL.path == parent } ?? activeIndex
     }
 
     func newFolder(in targetPane: PaneModel? = nil, directory: URL? = nil) {
@@ -616,14 +700,9 @@ final class AppModel {
 
     func transfer(_ urls: Set<URL>, move: Bool) {
         guard !urls.isEmpty else { return }
-        guard dual else {
-            alert = "Open the second pane to copy or move between panes."
-            return
+        chooseOtherPane(from: active, title: move ? "Move to Pane" : "Copy to Pane") { [weak self] target in
+            self?.dropTransfer(Array(urls), into: target.directory, move: move)
         }
-        let src = sourceIndex(for: urls)
-        let dst = groups[1 - src].current.currentURL
-        let items = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }.map { (src: $0, dstDir: dst) }
-        transfers.start(items: items, move: move)
     }
 }
 

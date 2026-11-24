@@ -67,5 +67,9 @@ struct FolderBackgroundMenu: View {
         }.disabled(!canCreate || !FileClipboard.shared.canPaste)
         Divider()
         Button("Refresh") { app.activate(pane); pane.reloadKeepingSelection() }
+        Divider()
+        ForEach(PaneSplitAxis.allCases, id: \.self) { axis in
+            Button(axis.title) { app.splitPane(pane, axis: axis) }.disabled(!app.canSplitPane)
+        }
     }
 }

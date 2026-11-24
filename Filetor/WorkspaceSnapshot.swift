@@ -5,6 +5,9 @@ struct WorkspaceSnapshot: Codable {
     let selected: [Int]
     let active: Int
     let dual: Bool
+    var groupIDs: [UUID]? = nil
+    var layout: PaneLayout? = nil
+    var focusedPaneID: UUID? = nil
 }
 
 struct PaneSnapshot: Codable {

@@ -7,7 +7,7 @@
 - **文件夹就地展开**：切换到列表视图，点击文件夹左侧小三角。右方向键展开，已展开时进入第一项；左方向键折叠，或选中上层文件夹。View 菜单支持展开所选文件夹和全部折叠。筛选、搜索和标签查询结果保持平面列表。
 - **独立窗口**：`⌘N` 新建窗口，各窗口的目录、标签页、选择和撤销记录独立；文件夹右键菜单可在新窗口打开。
 - **标签页**：`⌘T` 新建、`⌘W` 关闭、`⇧⌘T` 恢复；`⇧⌘[` / `⇧⌘]` 切换。拖动标签页调整顺序。标签栏始终显示，每个窗格只保留一个固定在标签栏右侧的“＋”；路径栏不再重复显示新建按钮。
-- **恢复状态**：保存每个窗口的双栏状态、目录、标签页、排序、视图、隐藏文件选项和展开目录。首次打开时恢复上次工作区；关闭标签页后重新打开会恢复其状态。
+- **恢复状态**：保存每个窗口的分割布局、分隔比例、活动窗格、目录、标签页、排序、视图、隐藏文件选项和展开目录。首次打开时恢复上次工作区；关闭标签页后重新打开会恢复其状态。
 - **Finder 标签**：保留原生标签功能；更改前重新读取磁盘标签，避免旧缓存覆盖外部更改。
 - **条件搜索**：`⌘F` 打开本地搜索，按名称、类型、扩展名、修改时间和大小组合筛选；可选择当前文件夹或包括子文件夹。结果上方可编辑或清除条件。现有侧栏保存搜索仍通过 Spotlight 运行，此次新增的组合条件暂不保存为侧栏项目。
 - **鼠标路径导航**：工具栏 **Go To**（前往）按钮弹出原生导航面板，包含当前目录子文件夹、侧栏收藏和最近访问。点击名称直接打开，点右侧箭头继续浏览，返回与上级按钮只改变面板中的浏览位置。路径栏各级目录的小箭头提供同样的子目录浏览，打开时使用对应窗格。`⇧⌘G`、路径输入、中文/空格/相对路径和 Tab 补全继续可用；输入文件路径会进入父目录并选中文件。
@@ -183,3 +183,15 @@ Markdown 用原生富文本呈现常见标题、列表、引用、代码块、�
 `startArchiveOperation` captures the originating pane/location and uses `TransferScheduler` across windows. The existing tasks UI shows indeterminate activity instead of a guessed byte percentage. The updater's existing active-operation guard also covers these jobs.
 
 Run archive-focused regression checks with `python3 scripts/build.py --test --archive-actions-only`. Tests include Chinese names, multiple source folders, leading dashes, compound formats, raw streams, collisions, corrupt/encrypted archives, cancellation, metadata, traversal/symlink boundaries, shared menu availability, default application ordering, multi-selection compatibility and removal of stale application candidates. Live Launch Services discovery is checked separately for representative archive extensions without launching external applications.
+
+## 多窗格布局（0.11.0）
+
+空白处右键菜单提供 `Split Horizontally (Top / Bottom)` 与 `Split Vertically (Left / Right)`，列表和图标视图都支持。分割当前窗格时复制其目录和视图偏好，标签页、选择及导航互相独立。每个窗口最多 16 个窗格；拖动分隔线调整比例，双击平分。窗格最小尺寸为 280×240，超出窗口可容纳范围时整个布局可滚动。
+
+标签上的关闭按钮始终可见：有多个标签时关闭该标签；只剩一个标签时移除该窗格并合并空出的布局；窗口只剩一个窗格时关闭窗口。原有工具栏 `dual` ID 保留以兼容自定义布局，名称改为 Pane Layout，在聚焦当前窗格和显示所有窗格之间切换。
+
+`PaneLayout` 用稳定 UUID 的二叉分割树记录方向、比例和窗格顺序，`PaneGroup` 独立保存标签组。工作区新增可选布局和组 ID 字段，旧版本会话仍可读取，损坏的布局回退为包含全部标签组的左右排列。关闭最后一个窗格前保留有效工作区，供下次恢复。
+
+三个以上可见窗格时，复制、移动、交换、对比、同步及路径菜单的 Open in Other Pane 显示目标选择面板。文件传输使用面板中展示的目录快照，不随切换活动窗格或目录改变目的地；关闭窗格或切换布局会取消未确认的目标选择。
+
+专项检查：`python3 scripts/build.py --test --multi-pane-only`，覆盖旧会话迁移、嵌套布局持久化、独立导航、窗格关闭与合并、目标选择取消、复制移动及撤销、同步与交换，以及真实窗口中的菜单分割和单标签关闭点击。截图在 `.build/pro/multi-pane-layout.png`。

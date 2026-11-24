@@ -1,6 +1,6 @@
 # Filetor Pro
 
-A lightweight, native file manager for macOS, maintained by **Doithoo**. Built with SwiftUI and AppKit, with independent windows, tabs, a dual-pane workspace and inline folder expansion.
+A lightweight, native file manager for macOS, maintained by **Doithoo**. Built with SwiftUI and AppKit, with independent windows, tabs, flexible multi-pane layouts and inline folder expansion.
 
 Filetor Pro is developed independently by Doithoo, building on [Filetor by David Praznik](https://github.com/davidpraznik/Filetor). It preserves the original project's native approach, commit history, MIT license and author attribution while maintaining its own roadmap and releases.
 
@@ -12,7 +12,8 @@ Filetor Pro is developed independently by Doithoo, building on [Filetor by David
 - **A customizable toolbar** with your choice of tools, order and labels. A fixed right-edge panel button shows or hides file information, even when other tools overflow. The separate **Get Info** tool opens Finder’s information windows for selected items.
 - **Trash in the sidebar** opens this Mac’s Trash in the selected pane. Use **Move Out…** to choose a recovery folder; right-click Trash to browse another disk’s Trash. **Empty Trash…** permanently clears the displayed disk’s Trash after confirmation, including hidden items regardless of filters; **Delete Immediately…** removes selected items only. macOS may require Full Disk Access.
 - **Native toolbar hover tips** describe icon-only actions, view modes and disabled actions without changing your toolbar layout.
-- Single or dual panes, list/icon views, breadcrumbs, favorites, mounted disks and network locations.
+- **Flexible multi-pane layouts**: right-click empty space to split the current pane horizontally (top/bottom) or vertically (left/right), up to 16 panes per window. Drag dividers to resize; double-click to balance. Close a pane by closing its last tab; the last pane closes the window. Layout, proportions and tabs restore across launches. The existing Pane Layout toolbar tool focuses the active pane or restores all panes.
+- List/icon views, breadcrumbs, favorites, mounted disks and network locations.
 - Finder tags, saved searches, subfolder search, Quick Look and an optional information panel.
 - **Local search** with `⌘F`: combine name, kind, extension, modification date and size, in the current folder or its subfolders.
 - **Go To toolbar button**: browse folders, sidebar favorites and recent locations in a native popover. Click a folder name to open it or its arrow to browse deeper; each breadcrumb also has a subfolder dropdown. Path entry, `⇧⌘G` and Tab completion remain available.
@@ -24,9 +25,9 @@ Mixed selections share one preview window. Space or Escape closes it, and changi
 
 ## File tools
 
-Copy, move, rename, duplicate, Trash, batch rename, compress and extract archives. Transfers include progress, cancellation and conflict handling. File operations use a shared queue across windows, staged copying and recovery paths for failed replacements.
+Copy, move, rename, duplicate, Trash, batch rename, compress and extract archives. Transfers include progress, cancellation and conflict handling. With three or more visible panes, copy, move, swap, compare and synchronize ask you to choose the other pane and show its full path. File operations use a shared queue across windows, staged copying and recovery paths for failed replacements.
 
-**Compress to ZIP** and **Extract Archive** are available consistently in list, icon and column context menus. Built-in extraction handles ZIP, TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, TAR.XZ/TXZ, and individual GZIP/BZIP2 streams. Results go into a new folder in the active pane, existing names are kept, and originals are retained. Archive jobs use the shared operations queue with activity and cancellation; failed or cancelled items do not leave partially extracted result folders.
+**Compress to ZIP** and **Extract Archive** are available consistently in list and icon context menus. Built-in extraction handles ZIP, TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, TAR.XZ/TXZ, and individual GZIP/BZIP2 streams. Results go into a new folder in the active pane, existing names are kept, and originals are retained. Archive jobs use the shared operations queue with activity and cancellation; failed or cancelled items do not leave partially extracted result folders.
 
 **Open With** automatically lists installed applications registered with macOS for the selected file types, including compatible archive tools. The default application appears first; duplicates and removed applications are filtered, and multi-selection lists only applications associated with every selected file. **Other…** always lets you choose an application manually, including one that does not register its supported types. No product-specific archive actions or Finder extension integration are required. Raw XZ, 7z, RAR, password-protected and split archives currently require an external tool; they are not advertised as built-in extraction support.
 
@@ -36,7 +37,7 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.10.3**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+Current release: **Filetor Pro 0.11.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

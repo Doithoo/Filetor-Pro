@@ -158,11 +158,13 @@ extension AppModel {
     }
 
     func compareFolders() {
-        guard dual else {
-            alert = "Open the second pane to compare folders."
-            return
+        let left = active.currentURL
+        chooseOtherPane(from: active, title: "Compare Folders") { [weak self] target in
+            self?.compareFolders(left: left, right: target.directory)
         }
-        let left = groups[0].current.currentURL, right = groups[1].current.currentURL
+    }
+
+    private func compareFolders(left: URL, right: URL) {
         report = Report(title: "Compare Folders", summary: "Comparing…", sections: [])
         Task {
             let result = await Task.detached { FolderAnalysis.compare(left, right) }.value
@@ -331,11 +333,13 @@ final class SyncSession {
 
 extension AppModel {
     func synchronize() {
-        guard dual else {
-            alert = "Open the second pane to synchronize folders."
-            return
+        let left = active.currentURL
+        chooseOtherPane(from: active, title: "Synchronize Folders") { [weak self] target in
+            self?.synchronize(left: left, right: target.directory)
         }
-        let left = groups[0].current.currentURL, right = groups[1].current.currentURL
+    }
+
+    private func synchronize(left: URL, right: URL) {
         guard left.standardizedFileURL != right.standardizedFileURL else {
             alert = "Both panes show the same folder."
             return
