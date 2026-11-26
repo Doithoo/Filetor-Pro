@@ -130,6 +130,7 @@ extension Regression {
                 if let choice = app.pendingPaneChoice { PaneChoiceView(choice: choice, app: app) }
             })
         window.contentView = host
+        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         window.acceptsMouseMovedEvents = true
         let originalPointer = NSEvent.mouseLocation
@@ -172,6 +173,13 @@ extension Regression {
             let start = divider.convert(NSPoint(x: divider.bounds.midX, y: divider.bounds.midY), to: nil)
             let hit = host.hitTest(host.convert(start, from: nil))
             try check(hit === divider, "divider itself receives pointer events instead of an overlapping hosting view")
+            // Begin outside the divider even if the user's pointer happened to
+            // be resting there. AppKit emits mouseEntered only on a crossing.
+            let outside = tables()[0].convert(NSPoint(x: 20, y: 20), to: nil)
+            warpPointer(window.convertPoint(toScreen: outside))
+            window.sendEvent(NSEvent.mouseEvent(with: .mouseMoved, location: outside, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!)
+            try await until("divider is outside the pointer in a key window") { window.isKeyWindow && !divider.isHovering }
             NSCursor.arrow.set()
             warpPointer(window.convertPoint(toScreen: start))
             window.sendEvent(NSEvent.mouseEvent(with: .mouseMoved, location: start, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
