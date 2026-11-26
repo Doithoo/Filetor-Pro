@@ -58,13 +58,19 @@ nonisolated enum FileOperationSafety {
             if $0.pathComponents.count != $1.pathComponents.count { return $0.pathComponents.count < $1.pathComponents.count }
             return $0.path < $1.path
         }
+        guard sorted.count > 1 else { return sorted }
         var result: [URL] = []
+        // Only actual directories can cover later selections. A sync made of
+        // regular files should not re-read every preceding file for each row.
+        var directories: [URL] = []
         for url in sorted {
-            if result.contains(where: { ancestor in
-                let v = try? ancestor.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                return v?.isDirectory == true && v?.isSymbolicLink != true && contains(ancestor, url.deletingLastPathComponent())
-            }) { continue }
+            if !directories.isEmpty {
+                let parent = url.deletingLastPathComponent()
+                if directories.contains(where: { contains($0, parent) }) { continue }
+            }
             result.append(url)
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            if values?.isDirectory == true && values?.isSymbolicLink != true { directories.append(url) }
         }
         return result
     }

@@ -436,6 +436,8 @@ struct Regression {
             if CommandLine.arguments.contains("--localization-only") {
                 try await localizationTests(root)
                 try duplicateReportTests(root)
+            } else if CommandLine.arguments.contains("--sync-preparation-only") {
+                try await syncPreparationTests(root)
             } else if CommandLine.arguments.contains("--quality-only") {
                 try await qualityTests(root)
             } else if CommandLine.arguments.contains("--help-only") {
@@ -469,6 +471,7 @@ struct Regression {
             } else {
                 try await localizationTests(root)
                 try await qualityTests(root)
+                try await syncPreparationTests(root)
                 try renameTests(root)
                 try await transferTests(root)
                 try archiveTests(root)

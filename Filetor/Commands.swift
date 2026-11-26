@@ -405,26 +405,36 @@ extension AppModel {
         }
     }
 
-    func runSync(_ session: SyncSession) {
-        func items(_ action: SyncAction) -> [(src: URL, dstDir: URL)] {
-            var out: [(src: URL, dstDir: URL)] = []
-            for row in session.rows where row.action == action {
-                guard let src = action == .toRight ? row.left?.url : row.right?.url else { continue }
-                let root = action == .toRight ? session.rightRoot : session.leftRoot
-                let dir = root.appending(path: row.rel).deletingLastPathComponent()
-                do { try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) }
-                catch { alert = error.localizedDescription; continue }
-                out.append((src: src, dstDir: dir))
-            }
-            return out
-        }
-        let right = items(.toRight), left = items(.toLeft)
+    func runSync(_ session: SyncSession, createDirectory: @escaping SyncPreparation.CreateDirectory = { try SyncPreparation.createDirectory($0) }) {
+        guard sync === session, !session.loading else { return }
+        let snapshot = SyncPreparation(rows: session.rows, leftRoot: session.leftRoot, rightRoot: session.rightRoot)
         sync = nil
-        // Both directions are one undo step.
-        let batch = UUID()
-        syncBatches[batch] = SyncBatchState(remaining: (right.isEmpty ? 0 : 1) + (left.isEmpty ? 0 : 1))
-        transfers.start(items: right, move: false, conflict: .replace, batch: batch)
-        transfers.start(items: left, move: false, conflict: .replace, batch: batch)
+
+        let job = TransferJob(title: L10n.tr("Preparing sync folders…"))
+        job.indeterminate = true
+        job.currentName = L10n.tr("Waiting for other file operations…")
+        transfers.jobs.append(job)
+        let control = job.control
+        Task {
+            defer { transfers.jobs.removeAll { $0.id == job.id } }
+            guard !control.cancelled, await TransferScheduler.shared.acquire(job.id) else { return }
+            defer { TransferScheduler.shared.release(job.id) }
+            guard !control.cancelled else { return }
+            job.currentName = L10n.tr("Preparing…")
+            let plan = await Task.detached(priority: .userInitiated) {
+                snapshot.prepare(control: control, create: createDirectory)
+            }.value
+            guard !control.cancelled, let plan else { return }
+            if !plan.errors.isEmpty { alert = plan.errors.joined(separator: "\n") }
+            let parts = (plan.right.isEmpty ? 0 : 1) + (plan.left.isEmpty ? 0 : 1)
+            guard parts > 0 else { return }
+            // Register the batch before either transfer can finish. Operations in
+            // both directions still appear as a single step in the undo history.
+            let batch = UUID()
+            syncBatches[batch] = SyncBatchState(remaining: parts)
+            transfers.start(items: plan.right, move: false, conflict: .replace, batch: batch)
+            transfers.start(items: plan.left, move: false, conflict: .replace, batch: batch)
+        }
     }
 }
 
