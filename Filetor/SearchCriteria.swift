@@ -20,7 +20,7 @@ nonisolated struct SearchCriteria: Equatable, Sendable {
         if text.isEmpty { return nil }
         guard let value = Double(text), value.isFinite, value >= 0,
               value * 1_000_000 < Double(Int64.max) else {
-            throw FileOperationSafety.failure("Enter a non-negative size in MB.")
+            throw FileOperationSafety.failure(L10n.tr("Enter a non-negative size in MB."))
         }
         return Int64(value * 1_000_000)
     }
@@ -58,9 +58,9 @@ nonisolated struct SearchCriteria: Equatable, Sendable {
 
     var summary: String {
         var parts: [String] = []
-        if let title = SearchGroup.all.first(where: { $0.key == kind })?.title { parts.append(title) }
+        if let title = SearchGroup.all.first(where: { $0.key == kind })?.title { parts.append(L10n.key(title)) }
         if !extensionList.isEmpty { parts.append(extensionList.joined(separator: ", ")) }
-        if days > 0 { parts.append("Last \(days) days") }
+        if days > 0 { parts.append(L10n.tr("Last \(days) days")) }
         if let minBytes { parts.append("≥ " + ByteCountFormatter.string(fromByteCount: minBytes, countStyle: .file)) }
         if let maxBytes { parts.append("≤ " + ByteCountFormatter.string(fromByteCount: maxBytes, countStyle: .file)) }
         return parts.joined(separator: " · ")

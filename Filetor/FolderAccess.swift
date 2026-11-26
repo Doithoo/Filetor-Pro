@@ -35,9 +35,9 @@ enum FolderAccess {
 
     static var trashAccessExplanation: String {
         if hasFullDiskAccess {
-            return "macOS denied access to this Trash folder even though the Full Disk Access probe succeeded. Check this disk’s availability and folder permissions, then retry."
+            return L10n.tr("macOS denied access to this Trash folder even though the Full Disk Access probe succeeded. Check this disk’s availability and folder permissions, then retry.")
         }
-        return "macOS is not applying Full Disk Access to this running copy. If Filetor Pro is already enabled in System Settings, remove that entry and add the current app again, then quit and reopen it. Reveal Current App locates the exact copy to add."
+        return L10n.tr("macOS is not applying Full Disk Access to this running copy. If Filetor Pro is already enabled in System Settings, remove that entry and add the current app again, then quit and reopen it. Reveal Current App locates the exact copy to add.")
     }
 
     /// Written by the actual GUI process, so diagnosis does not confuse a
@@ -116,8 +116,8 @@ struct FolderAccessBox: View {
             }
             if status != .on {
                 HStack {
-                    Button("Open Privacy Settings") { FolderAccess.openPrivacySettings() }
-                    Button("Reveal Current App") { FolderAccess.revealCurrentApplication() }
+                    Button(L10n.tr("Open Privacy Settings")) { FolderAccess.openPrivacySettings() }
+                    Button(L10n.tr("Reveal Current App")) { FolderAccess.revealCurrentApplication() }
                 }
                 .buttonStyle(PathsButtonStyle(scale: s))
                 .padding(.top, 4 * s)
@@ -133,25 +133,25 @@ struct FolderAccessBox: View {
 
     private var title: String {
         switch status {
-        case .on: return "Full Disk Access is on"
-        case .lost: return "Full Disk Access needs to be set again"
-        case .off: return "macOS asks for each folder separately"
+        case .on: return L10n.tr("Full Disk Access is on")
+        case .lost: return L10n.tr("Full Disk Access needs to be set again")
+        case .off: return L10n.tr("macOS asks for each folder separately")
         }
     }
 
     private var detail: String {
         switch status {
-        case .on: return "\(ProductInfo.name) passed the Full Disk Access probe. File permissions and disk availability still apply."
-        case .lost: return "\(ProductInfo.name) previously had access, but macOS is not applying it to this running copy. Older temporary signatures can leave a stale enabled entry."
-        case .off: return "Full Disk Access allows access to privacy-protected locations, including Trash. It does not override file permissions."
+        case .on: return L10n.tr("\(ProductInfo.name) passed the Full Disk Access probe. File permissions and disk availability still apply.")
+        case .lost: return L10n.tr("\(ProductInfo.name) previously had access, but macOS is not applying it to this running copy. Older temporary signatures can leave a stale enabled entry.")
+        case .off: return L10n.tr("Full Disk Access allows access to privacy-protected locations, including Trash. It does not override file permissions.")
         }
     }
 
     private var action: String? {
         switch status {
         case .on: return nil
-        case .lost: return "Open Privacy Settings, remove \(ProductInfo.name) from the list, use Reveal Current App to add this exact copy again and restart \(ProductInfo.name)."
-        case .off: return "Open Privacy Settings, add this exact copy using Reveal Current App and restart \(ProductInfo.name)."
+        case .lost: return L10n.tr("Open Privacy Settings, remove \(ProductInfo.name) from the list, use Reveal Current App to add this exact copy again and restart \(ProductInfo.name).")
+        case .off: return L10n.tr("Open Privacy Settings, add this exact copy using Reveal Current App and restart \(ProductInfo.name).")
         }
     }
 }
@@ -164,19 +164,19 @@ struct FolderAccessPrompt: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12 * s) {
-            Text("Allow access to your folders").font(.system(size: 22 * s))
-            Text("macOS may request permission when \(ProductInfo.name) opens Desktop, Documents, Downloads, an external disk or a network disk.")
-            Text("To stop the prompts, add \(ProductInfo.name) to **Full Disk Access**: click Open Privacy Settings, add this exact copy using Reveal Current App and restart \(ProductInfo.name).")
-            Button("Reveal Current App") { FolderAccess.revealCurrentApplication() }
+            Text(L10n.tr("Allow access to your folders")).font(.system(size: 22 * s))
+            Text(L10n.tr("macOS may request permission when \(ProductInfo.name) opens Desktop, Documents, Downloads, an external disk or a network disk."))
+            Text(L10n.tr("To stop the prompts, add \(ProductInfo.name) to **Full Disk Access**: click Open Privacy Settings, add this exact copy using Reveal Current App and restart \(ProductInfo.name)."))
+            Button(L10n.tr("Reveal Current App")) { FolderAccess.revealCurrentApplication() }
                 .buttonStyle(PathsButtonStyle(scale: s))
-            Text("Your files stay on your Mac. Update checks contact GitHub; file contents are not uploaded. You can change folder access later in Settings.")
+            Text(L10n.tr("Your files stay on your Mac. Update checks contact GitHub; file contents are not uploaded. You can change folder access later in Settings."))
                 .foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 Spacer()
-                Button("Not now") { dismiss() }
+                Button(L10n.tr("Not now")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Open Privacy Settings") {
+                Button(L10n.tr("Open Privacy Settings")) {
                     FolderAccess.openPrivacySettings()
                     dismiss()
                 }

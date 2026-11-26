@@ -179,8 +179,8 @@ final class AppModel {
     private(set) var redoSteps: [UndoStep] = []
     /// Transfers that belong to one Synchronize run; they become a single undo step.
     @ObservationIgnored var syncBatches: [UUID: SyncBatchState] = [:]
-    var undoTitle: String? { undoSteps.last.map { "Undo " + $0.title } }
-    var redoTitle: String? { redoSteps.last.map { "Redo " + $0.title } }
+    var undoTitle: String? { undoSteps.last.map { L10n.tr("Undo ") + $0.title } }
+    var redoTitle: String? { redoSteps.last.map { L10n.tr("Redo ") + $0.title } }
 
     func pushUndo(_ title: String, undo: @escaping () async -> String?, redo: @escaping () async -> String?) {
         undoSteps.append(UndoStep(title: title, undo: undo, redo: redo))
@@ -327,7 +327,7 @@ final class AppModel {
         do {
             let url = try FileCreation.create(kind, in: directory ?? pane.currentURL)
             let steps = Self.createdSteps(url)
-            pushUndo("New File", undo: steps.undo, redo: steps.redo)
+            pushUndo(L10n.tr("New File"), undo: steps.undo, redo: steps.redo)
             pane.load()
             pane.selection = [url]
             beginRename([url])
@@ -383,7 +383,7 @@ final class AppModel {
         pb.clearContents()
         pb.writeObjects(urls.sorted { $0.path < $1.path } as [NSURL])
         if !NSPerformService("Finder/Show Info", pb) {
-            alert = "Could not open Get Info in Finder."
+            alert = L10n.tr("Could not open Get Info in Finder.")
         }
     }
 
@@ -472,9 +472,9 @@ final class AppModel {
     func chooseOtherPane(from pane: PaneModel, title: String, perform: @escaping (PaneDestination) -> Void) {
         guard let source = visibleGroups.first(where: { $0.current === pane }) else { return }
         let candidates = visibleGroups.enumerated().filter { $0.element !== source }.map { index, group in
-            PaneDestination(id: group.id, title: "Pane \(index + 1) — \(group.current.title)", directory: group.current.currentURL)
+            PaneDestination(id: group.id, title: L10n.tr("Pane \(index + 1) — \(group.current.title)"), directory: group.current.currentURL)
         }
-        guard !candidates.isEmpty else { alert = "Split the pane or show all panes first."; return }
+        guard !candidates.isEmpty else { alert = L10n.tr("Split the pane or show all panes first."); return }
         if candidates.count == 1 { perform(candidates[0]) }
         else { pendingPaneChoice = PaneChoice(title: title, destinations: candidates, perform: perform) }
     }
@@ -537,7 +537,7 @@ final class AppModel {
             let folderURL = destination.appending(path: name)
             try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: false)
             let steps = Self.createdSteps(folderURL)
-            pushUndo("New Folder", undo: steps.undo, redo: steps.redo)
+            pushUndo(L10n.tr("New Folder"), undo: steps.undo, redo: steps.redo)
             refresh()
             pane.selection = [folderURL]
             beginRename([folderURL])
@@ -554,7 +554,7 @@ final class AppModel {
     func trash(_ urls: Set<URL>) {
         // Off the main thread: on a network disk trashItem can take a while before it fails, which showed the spinning wheel.
         // The toolbar progress ring only shows up when it takes longer than a moment, so quick trashing causes no flicker.
-        let job = TransferJob(title: "Moving to Trash")
+        let job = TransferJob(title: L10n.tr("Moving to Trash"))
         backgroundWrites += 1
         Task {
             defer { backgroundWrites -= 1 }
@@ -592,7 +592,7 @@ final class AppModel {
         if !noTrash.isEmpty { pendingDelete = noTrash.sorted { $0.path < $1.path } }
         if !movedItems.isEmpty {
             let steps = Self.transferClosures(movedItems.map { TransferRecord(src: $0.original, dst: $0.trashed, moved: true, trashed: nil) })
-            pushUndo(movedItems.count == 1 ? "Move to Trash" : "Move to Trash (\(movedItems.count) items)", undo: steps.undo, redo: steps.redo)
+            pushUndo(movedItems.count == 1 ? L10n.tr("Move to Trash") : L10n.tr("Move to Trash (\(movedItems.count) items)"), undo: steps.undo, redo: steps.redo)
         }
         refresh()
         if !failed.isEmpty { alert = failed.joined(separator: "\n") }
@@ -613,7 +613,7 @@ final class AppModel {
         guard let urls = pendingDelete else { return }
         pendingDelete = nil
         // Runs in the background and shows in the toolbar progress ring like a copy.
-        let job = TransferJob(title: urls.count == 1 ? "Deleting \(urls[0].lastPathComponent)" : "Deleting \(urls.count) items")
+        let job = TransferJob(title: urls.count == 1 ? L10n.tr("Deleting \(urls[0].lastPathComponent)") : L10n.tr("Deleting \(urls.count) items"))
         transfers.jobs.append(job)
         Task {
             var failed: [String] = []
@@ -657,14 +657,14 @@ final class AppModel {
     }
 
     func applyBatchRename(_ pairs: [(URL, String)]) {
-        guard pairs.allSatisfy({ FileOperationSafety.validName($0.1) }) else { alert = "Enter valid file names without slashes."; return }
+        guard pairs.allSatisfy({ FileOperationSafety.validName($0.1) }) else { alert = L10n.tr("Enter valid file names without slashes."); return }
         let moves = pairs
             .filter { $0.1 != $0.0.lastPathComponent }
             .map { (from: $0.0, to: $0.0.deletingLastPathComponent().appending(path: $0.1)) }
         do {
             try Self.moveViaTemps(moves)
             if !moves.isEmpty {
-                pushUndo("Rename", undo: {
+                pushUndo(L10n.tr("Rename"), undo: {
                     do { try Self.moveViaTemps(moves.map { (from: $0.to, to: $0.from) }); return nil }
                     catch { return error.localizedDescription }
                 }, redo: {
@@ -673,7 +673,7 @@ final class AppModel {
                 })
             }
         } catch {
-            alert = "Rename failed: \(error.localizedDescription)"
+            alert = L10n.tr("Rename failed: \(error.localizedDescription)")
         }
         refresh()
     }
@@ -685,10 +685,10 @@ final class AppModel {
         let name = FileNamePresentation.preservingExtension(edited, original: url.lastPathComponent, hidden: renameHidesExtension)
         renameHidesExtension = false
         guard !name.isEmpty, name != url.lastPathComponent else { return }
-        guard !name.contains("/") else { alert = "A name cannot contain \"/\"."; return }
+        guard !name.contains("/") else { alert = L10n.tr("A name cannot contain \"/\"."); return }
         let dest = url.deletingLastPathComponent().appending(path: name)
         if FileOperationSafety.exists(dest) && !FileOperationSafety.sameItem(url, dest) {
-            alert = "\"\(name)\" already exists."
+            alert = L10n.tr("\"\(name)\" already exists.")
             return
         }
         applyBatchRename([(url, name)])
@@ -718,7 +718,7 @@ final class AppModel {
 
     func transfer(_ urls: Set<URL>, move: Bool) {
         guard !urls.isEmpty else { return }
-        chooseOtherPane(from: active, title: move ? "Move to Pane" : "Copy to Pane") { [weak self] target in
+        chooseOtherPane(from: active, title: move ? L10n.tr("Move to Pane") : L10n.tr("Copy to Pane")) { [weak self] target in
             self?.dropTransfer(Array(urls), into: target.directory, move: move)
         }
     }

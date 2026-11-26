@@ -13,15 +13,15 @@ struct ConnectSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Connect to Server").font(.system(size: 22 * s))
-            Text("Enter the address of a network share, for example smb://nas.local/media")
+            Text(L10n.tr("Connect to Server")).font(.system(size: 22 * s))
+            Text(L10n.tr("Enter the address of a network share, for example smb://nas.local/media"))
                 .foregroundStyle(.secondary)
-            TextField("smb://server/share", text: $address)
+            TextField(L10n.tr("smb://server/share"), text: $address)
                 .textFieldStyle(PathsTextFieldStyle(scale: s))
                 .onSubmit(connect)
             if !recents.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Recent").foregroundStyle(.secondary)
+                    Text(L10n.tr("Recent")).foregroundStyle(.secondary)
                     ForEach(recents, id: \.self) { r in
                         Button(r) { address = r }
                             .buttonStyle(.plain)
@@ -31,10 +31,10 @@ struct ConnectSheet: View {
             }
             HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L10n.tr("Cancel")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Connect", action: connect)
+                Button(L10n.tr("Connect"), action: connect)
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     .keyboardShortcut(.defaultAction)
                     .disabled(URL(string: address.trimmingCharacters(in: .whitespaces))?.scheme == nil)

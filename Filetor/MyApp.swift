@@ -3,6 +3,8 @@ import SwiftUI
 @main struct FiletorApp: App {
     @NSApplicationDelegateAdaptor(FiletorApplicationDelegate.self) private var applicationDelegate
     init() {
+        _ = L10n.launchSelection
+        _ = L10n.language
         DisplayPreferences.migrate()
         ToolbarModel.migrateNavigationButton()
         // Filetor has its own tabs; the system tab bar would draw over the toolbar.
@@ -26,27 +28,27 @@ private struct WorkspaceCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     var body: some Commands {
         CommandGroup(after: .appInfo) {
-            Button("Check for Updates…") { UpdateChecker.shared.check() }
+            Button(L10n.tr("Check for Updates…")) { UpdateChecker.shared.check() }
                 .disabled(!UpdateChecker.shared.canCheck)
         }
         CommandGroup(replacing: .newItem) {
-            Button("New Window") { openWindow(id: "workspace", value: UUID()) }
+            Button(L10n.tr("New Window")) { openWindow(id: "workspace", value: UUID()) }
                 .keyboardShortcut("n", modifiers: .command)
             if let app = focusedWorkspace {
-                Button("New Tab") { app.newTab() }
+                Button(L10n.tr("New Tab")) { app.newTab() }
                     .keyboardShortcut("t", modifiers: .command)
-                Button("Reopen Closed Tab") { app.activeGroup.reopen() }
+                Button(L10n.tr("Reopen Closed Tab")) { app.activeGroup.reopen() }
                     .keyboardShortcut("t", modifiers: [.command, .shift])
                     .disabled(!app.activeGroup.canReopen)
-                Button("Next Tab") { app.activeGroup.cycle(1) }
+                Button(L10n.tr("Next Tab")) { app.activeGroup.cycle(1) }
                     .keyboardShortcut("]", modifiers: [.command, .shift])
-                Button("Previous Tab") { app.activeGroup.cycle(-1) }
+                Button(L10n.tr("Previous Tab")) { app.activeGroup.cycle(-1) }
                     .keyboardShortcut("[", modifiers: [.command, .shift])
             }
         }
         if let app = focusedWorkspace {
             CommandGroup(replacing: .appInfo) {
-                Button("About \(ProductInfo.name)") {
+                Button(L10n.tr("About \(ProductInfo.name)")) {
                     let link = "https://github.com/\(UpdateChecker.repo)"
                     let credits = NSMutableAttributedString(
                         string: "github.com/\(UpdateChecker.repo)",
@@ -62,41 +64,41 @@ private struct WorkspaceCommands: Commands {
                 }
             }
             CommandGroup(replacing: .undoRedo) {
-                Button(app.undoTitle ?? "Undo") { app.undo() }
+                Button(app.undoTitle ?? L10n.tr("Undo")) { app.undo() }
                     .keyboardShortcut("z", modifiers: .command)
                     .disabled(app.historyBusy)
-                Button(app.redoTitle ?? "Redo") { app.redo() }
+                Button(app.redoTitle ?? L10n.tr("Redo")) { app.redo() }
                     .keyboardShortcut("z", modifiers: [.command, .shift])
                     .disabled(app.historyBusy)
             }
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") { app.showSettings = true }
+                Button(L10n.tr("Settings…")) { app.showSettings = true }
                     .keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(after: .toolbar) {
-                Button(app.showInfo ? "Hide Info Panel" : "Show Info Panel") { app.showInfo.toggle() }
+                Button(app.showInfo ? L10n.tr("Hide Info Panel") : L10n.tr("Show Info Panel")) { app.showInfo.toggle() }
                     .keyboardShortcut("i", modifiers: [.command, .option])
-                Button(app.showShortcuts ? "Hide Keyboard Shortcuts" : "Show Keyboard Shortcuts") { app.showShortcuts.toggle() }
+                Button(app.showShortcuts ? L10n.tr("Hide Keyboard Shortcuts") : L10n.tr("Show Keyboard Shortcuts")) { app.showShortcuts.toggle() }
                     .keyboardShortcut("k", modifiers: [.command, .option])
-                Button("Actions…") { app.showPalette.toggle() }
+                Button(L10n.tr("Actions…")) { app.showPalette.toggle() }
                     .keyboardShortcut("k", modifiers: .command)
-                Button("Expand Selected Folders") {
+                Button(L10n.tr("Expand Selected Folders")) {
                     for url in app.active.selection where FileItem(url: url).expandable { app.active.expand(url) }
                 }.disabled(!app.active.treeActive)
-                Button(app.active.expandingAll ? "Stop Expanding Folders" : "Expand All Folders") {
+                Button(app.active.expandingAll ? L10n.tr("Stop Expanding Folders") : L10n.tr("Expand All Folders")) {
                     app.active.toggleExpandAll()
                 }.disabled(!app.active.expandingAll && !app.active.canExpandAll)
-                Button("Collapse All Folders") { app.active.collapseAll() }
+                Button(L10n.tr("Collapse All Folders")) { app.active.collapseAll() }
                     .disabled(!app.active.canCollapseAll)
-                Button("Search") { app.activateSearch() }
+                Button(L10n.tr("Search")) { app.activateSearch() }
                     .keyboardShortcut("f", modifiers: .command)
-                Button("Go to Folder…") { app.activateGoToFolder() }
+                Button(L10n.tr("Go to Folder…")) { app.activateGoToFolder() }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
-                Button("Customize Toolbar…") { app.showCustomize = true }
-                Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
+                Button(L10n.tr("Customize Toolbar…")) { app.showCustomize = true }
+                Button(L10n.tr("Restore Toolbar Defaults")) { app.toolbarModel.restoreDefaults() }
             }
-            CommandMenu("Commands") {
-                Menu("Open with") {
+            CommandMenu(L10n.tr("Commands")) {
+                Menu(L10n.tr("Open with")) {
                     ForEach(app.openApps(for: app.active.selection), id: \.self) { appURL in
                         Button(FileManager.default.displayName(atPath: appURL.path)) {
                             app.open(app.active.selection, with: appURL)
@@ -105,71 +107,71 @@ private struct WorkspaceCommands: Commands {
                 }
                 .disabled(app.active.selection.isEmpty)
                 Divider()
-                Button("New Folder") { app.newFolder() }
+                Button(L10n.tr("New Folder")) { app.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
-                Menu("New File") {
+                Menu(L10n.tr("New File")) {
                     ForEach(NewFileKind.allCases) { kind in
                         Button(kind.title) { app.newFile(kind) }
                     }
                 }
                 .disabled(app.active.searchActive || app.active.tagFilter != nil || !FileCreation.canCreate(in: app.active.currentURL))
-                Button("New Project Folder…") { app.projectDialog = true }
-                Button("Rename…") { app.beginRename(app.active.selection) }
+                Button(L10n.tr("New Project Folder…")) { app.projectDialog = true }
+                Button(L10n.tr("Rename…")) { app.beginRename(app.active.selection) }
                     .keyboardShortcut(.f2, modifiers: [])
                 Divider()
-                Button("Duplicate") { app.duplicate(app.active.selection) }
+                Button(L10n.tr("Duplicate")) { app.duplicate(app.active.selection) }
                     .keyboardShortcut("d", modifiers: .command)
                     .disabled(app.active.selection.isEmpty)
-                Button("Copy to…") { app.chooseFolderAndTransfer(app.active.selection, move: false) }
+                Button(L10n.tr("Copy to…")) { app.chooseFolderAndTransfer(app.active.selection, move: false) }
                     .disabled(app.active.selection.isEmpty)
-                Button("Move to…") { app.chooseFolderAndTransfer(app.active.selection, move: true) }
+                Button(L10n.tr("Move to…")) { app.chooseFolderAndTransfer(app.active.selection, move: true) }
                     .disabled(app.active.selection.isEmpty)
-                Button("Move to Trash") { app.trash(app.active.selection) }
+                Button(L10n.tr("Move to Trash")) { app.trash(app.active.selection) }
                     .keyboardShortcut(.delete, modifiers: .command)
                     .disabled(app.active.selection.isEmpty)
-                Button("Delete Immediately…") { app.deleteImmediately(app.active.selection) }
+                Button(L10n.tr("Delete Immediately…")) { app.deleteImmediately(app.active.selection) }
                     .keyboardShortcut(.delete, modifiers: [.command, .option])
                     .disabled(app.active.selection.isEmpty)
                 Divider()
-                Button("Copy to Other Pane") { app.transfer(app.active.selection, move: false) }
+                Button(L10n.tr("Copy to Other Pane")) { app.transfer(app.active.selection, move: false) }
                     .keyboardShortcut(.f5, modifiers: [])
-                Button("Move to Other Pane") { app.transfer(app.active.selection, move: true) }
+                Button(L10n.tr("Move to Other Pane")) { app.transfer(app.active.selection, move: true) }
                     .keyboardShortcut(.f6, modifiers: [])
                 Divider()
-                Button("Get Info") { app.getInfo(app.active.selection) }
+                Button(L10n.tr("Get Info")) { app.getInfo(app.active.selection) }
                     .keyboardShortcut("i", modifiers: .command)
                     .disabled(app.active.selection.isEmpty)
-                Button("Compress to ZIP") { app.compress(app.active.selection) }
+                Button(L10n.tr("Compress to ZIP")) { app.compress(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)
-                Button("Extract Archive") { app.decompress(app.active.selection) }
+                Button(L10n.tr("Extract Archive")) { app.decompress(app.active.selection) }
                     .disabled(app.active.selection.isEmpty || !app.active.selection.allSatisfy(FileTools.isArchive))
                 Divider()
-                Button("Rotate Left") { app.rotateImages(app.active.selection, degrees: 270) }
+                Button(L10n.tr("Rotate Left")) { app.rotateImages(app.active.selection, degrees: 270) }
                     .disabled(app.active.selection.isEmpty)
-                Button("Rotate Right") { app.rotateImages(app.active.selection, degrees: 90) }
+                Button(L10n.tr("Rotate Right")) { app.rotateImages(app.active.selection, degrees: 90) }
                     .disabled(app.active.selection.isEmpty)
-                Menu("Convert Image") {
-                    Button("PNG") { app.convertImages(app.active.selection, format: "png", ext: "png") }
-                    Button("JPEG") { app.convertImages(app.active.selection, format: "jpeg", ext: "jpg") }
-                    Button("HEIC") { app.convertImages(app.active.selection, format: "heic", ext: "heic") }
-                    Button("TIFF") { app.convertImages(app.active.selection, format: "tiff", ext: "tiff") }
+                Menu(L10n.tr("Convert Image")) {
+                    Button(L10n.tr("PNG")) { app.convertImages(app.active.selection, format: "png", ext: "png") }
+                    Button(L10n.tr("JPEG")) { app.convertImages(app.active.selection, format: "jpeg", ext: "jpg") }
+                    Button(L10n.tr("HEIC")) { app.convertImages(app.active.selection, format: "heic", ext: "heic") }
+                    Button(L10n.tr("TIFF")) { app.convertImages(app.active.selection, format: "tiff", ext: "tiff") }
                     if FileTools.canWriteWebP {
-                        Button("WebP") { app.convertImages(app.active.selection, format: "webp", ext: "webp") }
+                        Button(L10n.tr("WebP")) { app.convertImages(app.active.selection, format: "webp", ext: "webp") }
                     }
                 }
                 .disabled(app.active.selection.isEmpty)
-                Button("Optimize…") { app.optimizeImages(app.active.selection) }
+                Button(L10n.tr("Optimize…")) { app.optimizeImages(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)
-                Button("Strip Metadata") { app.stripMetadata(app.active.selection) }
+                Button(L10n.tr("Strip Metadata")) { app.stripMetadata(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)
                 Divider()
-                Button("Find Duplicates…") { app.findDuplicates() }
-                Button("Large Files…") { app.findLargeFiles() }
-                Button("Compare Folders…") { app.compareFolders() }
-                Button("Synchronize…") { app.synchronize() }
+                Button(L10n.tr("Find Duplicates…")) { app.findDuplicates() }
+                Button(L10n.tr("Large Files…")) { app.findLargeFiles() }
+                Button(L10n.tr("Compare Folders…")) { app.compareFolders() }
+                Button(L10n.tr("Synchronize…")) { app.synchronize() }
             }
             CommandGroup(replacing: .saveItem) {
-                Button("Close Tab") { app.closeTab() }
+                Button(L10n.tr("Close Tab")) { app.closeTab() }
                     .keyboardShortcut("w", modifiers: .command)
             }
         }
@@ -189,9 +191,9 @@ final class FiletorApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !AppModel.hasActiveFileOperations else {
             let alert = NSAlert()
-            alert.messageText = "File operations are still running"
-            alert.informativeText = "Finish or cancel the file operations before quitting or restarting \(ProductInfo.name)."
-            alert.addButton(withTitle: "Keep \(ProductInfo.name) Open")
+            alert.messageText = L10n.tr("File operations are still running")
+            alert.informativeText = L10n.tr("Finish or cancel the file operations before quitting or restarting \(ProductInfo.name).")
+            alert.addButton(withTitle: L10n.tr("Keep \(ProductInfo.name) Open"))
             alert.runModal()
             return .terminateCancel
         }

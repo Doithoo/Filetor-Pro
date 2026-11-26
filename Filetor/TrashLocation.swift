@@ -53,7 +53,7 @@ extension AppModel {
             guard active === pane, pane.currentURL == origin else { return }
             switch result {
             case .success(let url): openTrash(at: url)
-            case .failure(let error): alert = "Cannot open Trash on this disk: \(error.localizedDescription)"
+            case .failure(let error): alert = L10n.tr("Cannot open Trash on this disk: \(error.localizedDescription)")
             }
         }
     }

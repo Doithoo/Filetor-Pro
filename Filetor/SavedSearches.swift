@@ -78,11 +78,11 @@ nonisolated struct SavedSearch: Codable, Identifiable, Hashable {
         var bits: [String] = []
         let n = nameContains.trimmingCharacters(in: .whitespaces)
         if !n.isEmpty { bits.append(n) }
-        for g in SearchGroup.all where groups.contains(g.key) { bits.append(g.title) }
+        for g in SearchGroup.all where groups.contains(g.key) { bits.append(L10n.key(g.title)) }
         bits.append(contentsOf: extensionList)
-        if days > 0 { bits.append(days == 365 ? "1 year" : "\(days) days") }
+        if days > 0 { bits.append(days == 365 ? L10n.tr("1 year") : L10n.tr("\(days) days")) }
         if !tag.isEmpty { bits.append(tag) }
-        return bits.isEmpty ? "Saved Search" : bits.joined(separator: ", ")
+        return bits.isEmpty ? L10n.tr("Saved Search") : bits.joined(separator: ", ")
     }
 }
 
@@ -236,7 +236,7 @@ struct SavedSearchSheet: View {
     private var liveQuery: String { draft.isEmpty ? "" : draft.makeQuery() }
 
     private var folderChoices: [FolderChoice] {
-        var out = [FolderChoice(title: "This Mac", path: "")]
+        var out = [FolderChoice(title: L10n.tr("This Mac"), path: "")]
         var seen: Set<String> = [""]
         for p in [draft.folder] + app.favorites.urls.map(\.path) where !p.isEmpty && !seen.contains(p) {
             seen.insert(p)
@@ -262,12 +262,12 @@ struct SavedSearchSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(isEditing ? "Edit Saved Search" : "New Saved Search").font(.system(size: 22 * s))
+            Text(isEditing ? L10n.tr("Edit Saved Search") : L10n.tr("New Saved Search")).font(.system(size: 22 * s))
 
-            row("Name") {
+            row(L10n.tr("Name")) {
                 TextField(draft.suggestedName, text: $draft.name).textFieldStyle(PathsTextFieldStyle(scale: s))
             }
-            row("Search in") {
+            row(L10n.tr("Search in")) {
                 Picker("", selection: $draft.folder) {
                     ForEach(folderChoices, id: \.self) { Text($0.title).tag($0.path) }
                 }
@@ -275,29 +275,29 @@ struct SavedSearchSheet: View {
                 .pickerStyle(.menu)
                 .fixedSize()
             }
-            row("Name contains") {
+            row(L10n.tr("Name contains")) {
                 TextField("", text: $draft.nameContains).textFieldStyle(PathsTextFieldStyle(scale: s))
             }
-            row("Kind") {
+            row(L10n.tr("Kind")) {
                 ChipFlow(spacing: 6) {
                     ForEach(SearchGroup.all, id: \.key) { g in
-                        ChipToggle(title: g.title, isOn: groupBinding(g.key), scale: s)
+                        ChipToggle(title: L10n.key(g.title), isOn: groupBinding(g.key), scale: s)
                     }
                 }
             }
-            row("Extensions") {
-                TextField("psd, ai, svg", text: $draft.extensions).textFieldStyle(PathsTextFieldStyle(scale: s))
+            row(L10n.tr("Extensions")) {
+                TextField(L10n.tr("psd, ai, svg"), text: $draft.extensions).textFieldStyle(PathsTextFieldStyle(scale: s))
             }
-            row("Modified") {
-                SegmentedChoice(options: ["Any", "7 days", "30 days", "1 year"],
+            row(L10n.tr("Modified")) {
+                SegmentedChoice(options: [L10n.tr("Any"), L10n.tr("7 days"), L10n.tr("30 days"), L10n.tr("1 year")],
                                 selection: Binding(
                                     get: { Self.dayValues.firstIndex(of: draft.days) ?? 0 },
                                     set: { draft.days = Self.dayValues[$0] }),
                                 scale: s, accent: true)
             }
-            row("Tag") {
+            row(L10n.tr("Tag")) {
                 Picker("", selection: $draft.tag) {
-                    Text("Any").tag("")
+                    Text(L10n.tr("Any")).tag("")
                     ForEach(TagStore.shared.all) { Text($0.name).tag($0.name) }
                 }
                 .labelsHidden()
@@ -305,16 +305,16 @@ struct SavedSearchSheet: View {
                 .fixedSize()
             }
 
-            Text(draft.isEmpty ? "Set at least one condition." : count)
+            Text(draft.isEmpty ? L10n.tr("Set at least one condition.") : count)
                 .font(.system(size: 12 * s)).foregroundStyle(.secondary)
                 .padding(.leading, 122 * s)
 
             HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L10n.tr("Cancel")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Save") {
+                Button(L10n.tr("Save")) {
                     var result = draft
                     let typed = result.name.trimmingCharacters(in: .whitespaces)
                     result.name = typed.isEmpty ? result.suggestedName : typed
@@ -332,12 +332,12 @@ struct SavedSearchSheet: View {
         .frame(width: 560 * s)
         .task(id: liveQuery + "|" + draft.folder) {
             guard !draft.isEmpty else { count = ""; return }
-            count = "Searching…"
+            count = L10n.tr("Searching…")
             try? await Task.sleep(for: .milliseconds(450))
             if Task.isCancelled { return }
             let urls = await SpotlightSearch.run(liveQuery, onlyIn: draft.folder)
             if Task.isCancelled { return }
-            count = urls.count >= 3000 ? "3000+ items found now" : (urls.count == 1 ? "1 item found now" : "\(urls.count) items found now")
+            count = urls.count >= 3000 ? L10n.tr("3000+ items found now") : (urls.count == 1 ? L10n.tr("1 item found now") : L10n.tr("\(urls.count) items found now"))
         }
     }
 }

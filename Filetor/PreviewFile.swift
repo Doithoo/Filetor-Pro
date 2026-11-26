@@ -29,7 +29,7 @@ nonisolated final class PreviewFile {
         var info = stat()
         guard fstat(fd, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0 else {
             Darwin.close(fd)
-            throw Self.error("Preview requires a readable regular file.")
+            throw Self.error(L10n.tr("Preview requires a readable regular file."))
         }
         handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         size = UInt64(info.st_size)
@@ -37,12 +37,12 @@ nonisolated final class PreviewFile {
     deinit { try? handle.close() }
 
     func read(at offset: UInt64, count: Int) throws -> Data {
-        guard count >= 0, offset <= size, UInt64(count) <= size - offset else { throw Self.error("The file is incomplete or changed while being read.") }
+        guard count >= 0, offset <= size, UInt64(count) <= size - offset else { throw Self.error(L10n.tr("The file is incomplete or changed while being read.")) }
         try handle.seek(toOffset: offset)
         var result = Data()
         while result.count < count {
             let part = try handle.read(upToCount: count - result.count) ?? Data()
-            guard !part.isEmpty else { throw Self.error("The file changed while being read. Refresh to try again.") }
+            guard !part.isEmpty else { throw Self.error(L10n.tr("The file changed while being read. Refresh to try again.")) }
             result.append(part)
         }
         return result

@@ -93,8 +93,8 @@ struct CustomToolbar: View {
             HStack(alignment: .center, spacing: 6) {
                 if model.entries.isEmpty {
                     Spacer(minLength: 0)
-                    Button("Customize Toolbar…") { app.showCustomize = true }
-                    Button("Restore Defaults") { model.restoreDefaults() }
+                    Button(L10n.tr("Customize Toolbar…")) { app.showCustomize = true }
+                    Button(L10n.tr("Restore Defaults")) { model.restoreDefaults() }
                 }
                 ForEach(parts.visible) { entry in
                     entryView(entry)
@@ -114,7 +114,7 @@ struct CustomToolbar: View {
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .frame(width: 36 * s)
-                    .toolbarHelp("More Toolbar Actions")
+                    .toolbarHelp(L10n.tr("More Toolbar Actions"))
                     .modifier(FolderNavigationPopover(app: app,
                         enabled: model.contains("goTo") && !parts.visible.contains { $0.kind == "goTo" }))
                 }
@@ -138,9 +138,9 @@ struct CustomToolbar: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(ToolButtonStyle())
-                    .toolbarHelp(app.showInfo ? "Hide Info Panel" : "Show Info Panel")
-                    .accessibilityLabel("Info Panel")
-                    .accessibilityValue(app.showInfo ? "Shown" : "Hidden")
+                    .toolbarHelp(app.showInfo ? L10n.tr("Hide Info Panel") : L10n.tr("Show Info Panel"))
+                    .accessibilityLabel(L10n.tr("Info Panel"))
+                    .accessibilityValue(app.showInfo ? L10n.tr("Shown") : L10n.tr("Hidden"))
                     .accessibilityIdentifier("toolbar-info-panel")
                 }
             }
@@ -153,8 +153,8 @@ struct CustomToolbar: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .modifier(FolderNavigationPopover(app: app, enabled: !model.contains("goTo")))
         .contextMenu {
-            Button("Customize Toolbar…") { app.showCustomize = true }
-            Button(model.showLabels ? "Icon Only" : "Icon and Text") {
+            Button(L10n.tr("Customize Toolbar…")) { app.showCustomize = true }
+            Button(model.showLabels ? L10n.tr("Icon Only") : L10n.tr("Icon and Text")) {
                 model.showLabels.toggle()
                 model.save()
             }
@@ -164,14 +164,14 @@ struct CustomToolbar: View {
     @ViewBuilder
     private func overflowItem(_ entry: ToolbarEntry) -> some View {
         if entry.kind == "backfwd" {
-            Button("Back") { app.active.goBack() }.disabled(!app.active.canGoBack)
-            Button("Forward") { app.active.goForward() }.disabled(!app.active.canGoForward)
+            Button(L10n.tr("Back")) { app.active.goBack() }.disabled(!app.active.canGoBack)
+            Button(L10n.tr("Forward")) { app.active.goForward() }.disabled(!app.active.canGoForward)
         } else if entry.kind == "search" {
-            Button("Search…") { app.activateSearch() }
+            Button(L10n.tr("Search…")) { app.activateSearch() }
         } else if entry.kind == "view" {
-            Menu("View") {
-                Button("As List") { app.active.viewMode = 0 }
-                Button("As Icons") { app.active.viewMode = 1 }
+            Menu(L10n.tr("View")) {
+                Button(L10n.tr("As List")) { app.active.viewMode = 0 }
+                Button(L10n.tr("As Icons")) { app.active.viewMode = 1 }
             }
         } else if let def = ToolCatalog.def(entry.kind) {
             Button(actionTitle(def)) { def.run(app) }
@@ -180,7 +180,7 @@ struct CustomToolbar: View {
     }
 
     private func actionTitle(_ def: ToolDef) -> String {
-        def.id == "expandAll" && app.active.expandingAll ? "Stop Expanding" : def.title
+        def.id == "expandAll" && app.active.expandingAll ? L10n.tr("Stop Expanding") : def.title
     }
 
     private func isDisabled(_ def: ToolDef) -> Bool {
@@ -197,13 +197,13 @@ struct CustomToolbar: View {
                         Image(systemName: "folder").font(.system(size: 16 * s, weight: .regular))
                         Image(systemName: "chevron.down").font(.system(size: 8 * s, weight: .semibold))
                     }.frame(width: 42 * s, height: 30 * s)
-                    if model.showLabels { Text("Go To").font(.system(size: 10.5 * s)) }
+                    if model.showLabels { Text(L10n.tr("Go To")).font(.system(size: 10.5 * s)) }
                 }
                 .foregroundStyle(app.showGoToFolder ? Color.filetor : Color.primary.opacity(0.7))
                 .frame(width: buttonWidth - 4)
             }
-            .buttonStyle(ToolButtonStyle()).toolbarHelp("Go to Folder")
-            .accessibilityLabel("Go to Folder").accessibilityIdentifier("toolbar-go-to")
+            .buttonStyle(ToolButtonStyle()).toolbarHelp(L10n.tr("Go to Folder"))
+            .accessibilityLabel(L10n.tr("Go to Folder")).accessibilityIdentifier("toolbar-go-to")
             .modifier(FolderNavigationPopover(app: app, enabled: true))
         case "flex":
             Spacer(minLength: 0)
@@ -219,8 +219,8 @@ struct CustomToolbar: View {
                             .contentShape(Rectangle())
                     }
                     .disabled(!app.active.canGoBack)
-                    .toolbarHelp(app.active.canGoBack ? "Back" : "Back — No previous folder")
-                    .accessibilityLabel("Back")
+                    .toolbarHelp(app.active.canGoBack ? L10n.tr("Back") : L10n.tr("Back — No previous folder"))
+                    .accessibilityLabel(L10n.tr("Back"))
                     Button { app.active.goForward() } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 15 * s, weight: .regular))
@@ -228,14 +228,14 @@ struct CustomToolbar: View {
                             .contentShape(Rectangle())
                     }
                     .disabled(!app.active.canGoForward)
-                    .toolbarHelp(app.active.canGoForward ? "Forward" : "Forward — No next folder")
-                    .accessibilityLabel("Forward")
+                    .toolbarHelp(app.active.canGoForward ? L10n.tr("Forward") : L10n.tr("Forward — No next folder"))
+                    .accessibilityLabel(L10n.tr("Forward"))
                 }
                 .buttonStyle(NavHalfStyle())
                 .clipShape(Capsule())
                 .background(Capsule().fill(Color.primary.opacity(0.07)))
                 if model.showLabels {
-                    Text("Back/Forward").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
+                    Text(L10n.tr("Back/Forward")).font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
                 }
             }
             .frame(width: 100 * s, alignment: .leading)
@@ -263,8 +263,8 @@ struct CustomToolbar: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture { pane.viewMode = i }
-                            .toolbarHelp(["List View", "Icon View"][i])
-                            .accessibilityLabel(["List View", "Icon View"][i])
+                            .toolbarHelp(L10n.key(["List View", "Icon View"][i]))
+                            .accessibilityLabel(L10n.key(["List View", "Icon View"][i]))
                             .accessibilityAddTraits(.isButton)
                     }
                 }
@@ -272,7 +272,7 @@ struct CustomToolbar: View {
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.07)))
                 .frame(height: 30 * s)
                 if model.showLabels {
-                    Text("View").font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
+                    Text(L10n.tr("View")).font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
                 }
             }
             .frame(width: 82 * s)
@@ -283,7 +283,7 @@ struct CustomToolbar: View {
                     .onAppear { app.searchFieldVisible = true; app.showFilterBar = false }
                     .onDisappear { app.searchFieldVisible = false }
                 if model.showLabels {
-                    Text("Search").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
+                    Text(L10n.tr("Search")).font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
                 }
             }
             .frame(width: 180 * s)
@@ -348,7 +348,7 @@ struct TransferButton: View {
             .frame(width: 58 * s)
         }
         .buttonStyle(ToolButtonStyle())
-        .toolbarHelp("Show File Transfers")
+        .toolbarHelp(L10n.tr("Show File Transfers"))
         .popover(isPresented: $show) { TransferList(manager: app.transfers) }
     }
 }
@@ -366,16 +366,16 @@ struct FilterField: View {
         let s = UIScale.value(textSize)
         HStack(spacing: 4) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Filter selected pane", text: $text).textFieldStyle(.plain)
+            TextField(L10n.tr("Filter selected pane"), text: $text).textFieldStyle(.plain)
                 .focused($focused)
                 .onChange(of: focusTrigger) { _, _ in focused = true }
-                .toolbarHelp("Filter files by name in the selected pane")
+                .toolbarHelp(L10n.tr("Filter files by name in the selected pane"))
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .toolbarHelp("Clear Filter")
-                    .accessibilityLabel("Clear Filter")
+                    .toolbarHelp(L10n.tr("Clear Filter"))
+                    .accessibilityLabel(L10n.tr("Clear Filter"))
             }
             if let subfolders {
                 Button { subfolders.wrappedValue.toggle() } label: {
@@ -383,7 +383,7 @@ struct FilterField: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(subfolders.wrappedValue ? Color.filetor : Color.secondary)
-                .toolbarHelp(subfolders.wrappedValue ? "Search Only This Folder" : "Include Subfolders in Search")
+                .toolbarHelp(subfolders.wrappedValue ? L10n.tr("Search Only This Folder") : L10n.tr("Include Subfolders in Search"))
             }
         }
         .font(.system(size: 12.5 * s))
@@ -408,8 +408,8 @@ struct CustomizeSheet: View {
         let s = UIScale.value(textSize)
 
         VStack(alignment: .leading, spacing: 16) {
-            Text("Customize Toolbar").font(.system(size: 22 * s))
-            Text("Click an item to add or remove it, or drag it into the toolbar below. Drag items in the toolbar to reorder them, or out of it to remove them.")
+            Text(L10n.tr("Customize Toolbar")).font(.system(size: 22 * s))
+            Text(L10n.tr("Click an item to add or remove it, or drag it into the toolbar below. Drag items in the toolbar to reorder them, or out of it to remove them."))
                 .foregroundStyle(.secondary)
 
             WrapGrid(cellWidth: 118 * s, rowSpacing: 14 * s) {
@@ -422,8 +422,8 @@ struct CustomizeSheet: View {
                 return true
             }
 
-            Text("Toolbar").foregroundStyle(.secondary)
-            Text("The Info Panel button always stays at the right edge of the toolbar.")
+            Text(L10n.tr("Toolbar")).foregroundStyle(.secondary)
+            Text(L10n.tr("The Info Panel button always stays at the right edge of the toolbar."))
                 .font(.caption).foregroundStyle(.secondary)
             WrapGrid(cellWidth: 118 * s, rowSpacing: 14 * s) {
                 ForEach(model.entries) { entry in
@@ -441,19 +441,19 @@ struct CustomizeSheet: View {
             }
 
             HStack(spacing: 12) {
-                Text("Show")
+                Text(L10n.tr("Show"))
                 SegmentedChoice(
-                    options: ["Icon and Text", "Icon Only"],
+                    options: [L10n.tr("Icon and Text"), L10n.tr("Icon Only")],
                     selection: Binding(
                         get: { tb.showLabels ? 0 : 1 },
                         set: { tb.showLabels = ($0 == 0); model.save() }
                     ),
                     scale: s
                 )
-                Button("Restore Defaults") { model.restoreDefaults() }
+                Button(L10n.tr("Restore Defaults")) { model.restoreDefaults() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                 Spacer()
-                Button("Done") { dismiss() }
+                Button(L10n.tr("Done")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     .keyboardShortcut(.defaultAction)
                     .background { Button("") { dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0) }

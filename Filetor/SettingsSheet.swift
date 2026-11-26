@@ -36,6 +36,7 @@ struct SettingsSheet: View {
     @AppStorage("startDual") private var startDual = true
     @AppStorage("showSidebar") private var showSidebar = true
     @AppStorage("showHidden") private var showHidden = false
+    @State private var language = L10n.selection()
     @State private var loginError: String?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
@@ -50,7 +51,7 @@ struct SettingsSheet: View {
                     VStack(spacing: 4) {
                         ForEach(Page.allCases) { item in
                             Button { page = item } label: {
-                                Label(item.rawValue, systemImage: item.symbol)
+                                Label(L10n.key(item.rawValue), systemImage: item.symbol)
                                     .font(.system(size: 13, weight: page == item ? .semibold : .regular))
                                     .foregroundStyle(.primary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,12 +69,12 @@ struct SettingsSheet: View {
                 .background(Color(nsColor: .controlBackgroundColor))
                 Divider()
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(page.rawValue).font(.title2.bold())
+                    Text(L10n.key(page.rawValue)).font(.title2.bold())
                     Form { pageContent }
                         .formStyle(.grouped)
                     HStack {
                         Spacer()
-                        Button("Done") { dismiss() }
+                        Button(L10n.tr("Done")) { dismiss() }
                             .keyboardShortcut(.defaultAction)
                     }
                 }
@@ -95,8 +96,20 @@ struct SettingsSheet: View {
         @Bindable var model = app
         switch page {
         case .general:
+            Section(L10n.tr("Language")) {
+                Picker(L10n.tr("Interface language"), selection: $language) {
+                    ForEach(L10n.Language.allCases) { Text($0.title).tag($0) }
+                }
+                .onChange(of: language) { _, value in L10n.save(value) }
+                if language != L10n.launchSelection {
+                    Text(L10n.tr("Quit and reopen Filetor Pro to apply the new language to all windows and menus."))
+                        .font(.callout).foregroundStyle(.secondary)
+                    Button(L10n.tr("Quit Filetor Pro")) { NSApp.terminate(nil) }
+                        .disabled(AppModel.hasActiveFileOperations)
+                }
+            }
             Section {
-                Toggle("Launch at login", isOn: $launchAtLogin)
+                Toggle(L10n.tr("Launch at login"), isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in
                         do {
                             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
@@ -107,65 +120,65 @@ struct SettingsSheet: View {
                         }
                     }
                 if let loginError { Text(loginError).foregroundStyle(.secondary) }
-                Toggle("Open new windows with two panes", isOn: $startDual)
-                Toggle("Show hidden files", isOn: $showHidden)
+                Toggle(L10n.tr("Open new windows with two panes"), isOn: $startDual)
+                Toggle(L10n.tr("Show hidden files"), isOn: $showHidden)
             }
         case .appearance:
             Section {
-                Picker("Appearance", selection: $appearance) {
-                    Text("Light").tag(0); Text("Dark").tag(1); Text("Auto").tag(2)
+                Picker(L10n.tr("Appearance"), selection: $appearance) {
+                    Text(L10n.tr("Light")).tag(0); Text(L10n.tr("Dark")).tag(1); Text(L10n.tr("Auto")).tag(2)
                 }
-                Picker("Accent colour", selection: $accent) {
+                Picker(L10n.tr("Accent colour"), selection: $accent) {
                     ForEach(Array(["Blue", "Purple", "Pink", "Red", "Orange", "Green", "Grey"].enumerated()), id: \.offset) { i, title in
-                        Text(title).tag(i)
+                        Text(L10n.key(title)).tag(i)
                     }
                 }.onChange(of: accent) { _, value in AccentStore.shared.index = value }
-                Picker("Text size", selection: $textSize) {
-                    ForEach(Array(Self.sizeNames.enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
+                Picker(L10n.tr("Text size"), selection: $textSize) {
+                    ForEach(Array(Self.sizeNames.enumerated()), id: \.offset) { i, name in Text(L10n.key(name)).tag(i) }
                 }
             }
         case .browsing:
-            Section("Size") {
+            Section(L10n.tr("Size")) {
                 Slider(value: $listRowHeight, in: 20...56, step: 1) {
-                    Text("List row height: \(Int(listRowHeight))")
+                    Text(L10n.tr("List row height: \(Int(listRowHeight))"))
                 }
                 Slider(value: $gridIconSize, in: 32...128, step: 4) {
-                    Text("Grid icon size: \(Int(gridIconSize))")
+                    Text(L10n.tr("Grid icon size: \(Int(gridIconSize))"))
                 }
             }
-            Section("Files") {
-                Toggle("Show file extensions", isOn: $showExtensions)
-                Toggle("Show file thumbnails", isOn: $iconPreviews)
-                Text("Thumbnails load as files become visible. Space still opens system Quick Look.")
+            Section(L10n.tr("Files")) {
+                Toggle(L10n.tr("Show file extensions"), isOn: $showExtensions)
+                Toggle(L10n.tr("Show file thumbnails"), isOn: $iconPreviews)
+                Text(L10n.tr("Thumbnails load as files become visible. Space still opens system Quick Look."))
                     .font(.caption).foregroundStyle(.secondary)
-                Toggle("Alternating row colours", isOn: $striped)
-                Toggle("Keep folders on top", isOn: $foldersFirst)
-                Toggle("Calculate all folder sizes", isOn: $calcFolderSizes)
+                Toggle(L10n.tr("Alternating row colours"), isOn: $striped)
+                Toggle(L10n.tr("Keep folders on top"), isOn: $foldersFirst)
+                Toggle(L10n.tr("Calculate all folder sizes"), isOn: $calcFolderSizes)
             }
         case .window:
             Section {
-                Toggle("Show item count and free space", isOn: $statusBar)
-                Toggle("Show sidebar", isOn: $showSidebar)
-                Toggle("Show info panel", isOn: $model.showInfo)
+                Toggle(L10n.tr("Show item count and free space"), isOn: $statusBar)
+                Toggle(L10n.tr("Show sidebar"), isOn: $showSidebar)
+                Toggle(L10n.tr("Show info panel"), isOn: $model.showInfo)
             }
-            Section("Toolbar") {
-                Toggle("Show labels", isOn: $toolbar.showLabels)
+            Section(L10n.tr("Toolbar")) {
+                Toggle(L10n.tr("Show labels"), isOn: $toolbar.showLabels)
                     .onChange(of: toolbar.showLabels) { _, _ in app.toolbarModel.save() }
-                Button("Customize Toolbar…") {
+                Button(L10n.tr("Customize Toolbar…")) {
                     dismiss()
                     DispatchQueue.main.async { app.showCustomize = true }
                 }
             }
         case .updates:
             Section {
-                Toggle("Automatically check for and install updates", isOn: Binding(
+                Toggle(L10n.tr("Automatically check for and install updates"), isOn: Binding(
                     get: { app.updater.automaticallyUpdates }, set: { app.updater.setAutomaticUpdates($0) }))
-                Text("Updates download in the background and install when you quit. You can also check and install now.")
+                Text(L10n.tr("Updates download in the background and install when you quit. You can also check and install now."))
                     .font(.callout).foregroundStyle(.secondary)
-                Button("Check for updates…") { app.updater.check() }.disabled(!app.updater.canCheck)
+                Button(L10n.tr("Check for updates…")) { app.updater.check() }.disabled(!app.updater.canCheck)
                 Text(app.updater.message).foregroundStyle(.secondary)
                 if let date = app.updater.lastCheck {
-                    Text("Last checked: \(date.formatted(date: .abbreviated, time: .shortened))")
+                    Text(L10n.tr("Last checked: \(date.formatted(date: .abbreviated, time: .shortened))"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -176,8 +189,8 @@ struct SettingsSheet: View {
                 Text("\(ProductInfo.name) \(ProductInfo.version)").font(.headline)
                 Text(Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String ?? "")
                     .font(.caption).foregroundStyle(.secondary)
-                Link("Project on GitHub", destination: URL(string: "https://github.com/\(UpdateChecker.repo)")!)
-                Link("Release notes", destination: URL(string: "https://github.com/\(UpdateChecker.repo)/releases")!)
+                Link(L10n.tr("Project on GitHub"), destination: URL(string: "https://github.com/\(UpdateChecker.repo)")!)
+                Link(L10n.tr("Release notes"), destination: URL(string: "https://github.com/\(UpdateChecker.repo)/releases")!)
             }
         }
     }

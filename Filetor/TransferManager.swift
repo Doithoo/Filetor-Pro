@@ -47,8 +47,8 @@ final class TransferManager {
     func start(items: [(src: URL, dstDir: URL)], move: Bool, conflict: ConflictChoice? = nil, batch: UUID? = nil,
                completion: (([TransferRecord]) -> Void)? = nil) {
         guard !items.isEmpty else { return }
-        let verb = move ? "Moving" : "Copying"
-        let title = items.count == 1 ? "\(verb) \(items[0].src.lastPathComponent)" : "\(verb) \(items.count) items"
+        let verb = move ? L10n.tr("Moving") : L10n.tr("Copying")
+        let title = items.count == 1 ? "\(verb) \(items[0].src.lastPathComponent)" : L10n.tr("\(verb) \(items.count) items")
         let job = TransferJob(title: title)
         jobs.append(job)
 
@@ -58,7 +58,7 @@ final class TransferManager {
         let pairs = items
 
         Task {
-            job.currentName = "Waiting for other file operations…"
+            job.currentName = L10n.tr("Waiting for other file operations…")
             let acquired = await TransferScheduler.shared.acquire(job.id)
             guard acquired, !job.control.cancelled else {
                 if acquired { TransferScheduler.shared.release(job.id) }
@@ -82,7 +82,7 @@ final class TransferManager {
             poller.cancel()
             TransferScheduler.shared.release(job.id)
             if !job.control.cancelled && failures.isEmpty { job.fraction = 1 }
-            job.currentName = job.control.cancelled ? "Cancelled" : (failures.isEmpty ? "Completed" : "Completed with errors")
+            job.currentName = job.control.cancelled ? L10n.tr("Cancelled") : (failures.isEmpty ? L10n.tr("Completed") : L10n.tr("Completed with errors"))
             job.isFinished = true
             onFinished?()
             if !engine.records.isEmpty || batch != nil { onCompleted?(move, engine.records, batch) }
@@ -102,7 +102,7 @@ final class TransferManager {
         let cancelled = queue.filter { $0.jobID == job.id }
         queue.removeAll { $0.jobID == job.id }
         cancelled.forEach { $0.continuation.resume(returning: ConflictAnswer(choice: .stop, applyToAll: false)) }
-        job.currentName = "Cancelling…"
+        job.currentName = L10n.tr("Cancelling…")
     }
 
     func cancelAll() { jobs.forEach { cancel($0) } }
@@ -129,7 +129,7 @@ struct ConflictSheet: View {
     @State private var applyToAll = false
 
     private func describe(isDir: Bool, size: Int64, date: Date?) -> String {
-        let s = isDir ? "Folder" : ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+        let s = isDir ? L10n.tr("Folder") : ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
         let d = date?.formatted(date: .abbreviated, time: .shortened) ?? ""
         return d.isEmpty ? s : "\(s), \(d)"
     }
@@ -137,25 +137,25 @@ struct ConflictSheet: View {
     var body: some View {
         let i = request.info
         VStack(alignment: .leading, spacing: 12) {
-            Text("\"\(i.name)\" already exists in this location.")
+            Text(L10n.tr("\"\(i.name)\" already exists in this location."))
                 .font(.headline)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Existing: " + describe(isDir: i.dstIsDir, size: i.dstSize, date: i.dstDate))
-                Text("New: " + describe(isDir: i.srcIsDir, size: i.srcSize, date: i.srcDate))
+                Text(L10n.tr("Existing: ") + describe(isDir: i.dstIsDir, size: i.dstSize, date: i.dstDate))
+                Text(L10n.tr("New: ") + describe(isDir: i.srcIsDir, size: i.srcSize, date: i.srcDate))
             }
             .foregroundStyle(.secondary)
 
-            Toggle("Apply to all", isOn: $applyToAll)
+            Toggle(L10n.tr("Apply to all"), isOn: $applyToAll)
 
             HStack {
-                Button("Stop") { manager.answer(.stop, applyToAll: false) }
+                Button(L10n.tr("Stop")) { manager.answer(.stop, applyToAll: false) }
                 Spacer()
-                Button("Skip") { manager.answer(.skip, applyToAll: applyToAll) }
-                Button("Keep Both") { manager.answer(.keepBoth, applyToAll: applyToAll) }
+                Button(L10n.tr("Skip")) { manager.answer(.skip, applyToAll: applyToAll) }
+                Button(L10n.tr("Keep Both")) { manager.answer(.keepBoth, applyToAll: applyToAll) }
                 if i.srcIsDir && i.dstIsDir {
-                    Button("Merge") { manager.answer(.merge, applyToAll: applyToAll) }
+                    Button(L10n.tr("Merge")) { manager.answer(.merge, applyToAll: applyToAll) }
                 }
-                Button("Replace") { manager.answer(.replace, applyToAll: applyToAll) }
+                Button(L10n.tr("Replace")) { manager.answer(.replace, applyToAll: applyToAll) }
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -181,7 +181,7 @@ struct TransferList: View {
                             Image(systemName: "xmark.circle.fill")
                         }
                         .buttonStyle(.plain)
-                        .help("Cancel")
+                        .help(L10n.tr("Cancel"))
                         }
                     }
                     Text(job.currentName)

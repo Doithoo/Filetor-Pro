@@ -40,7 +40,7 @@ final class PaneModel: Identifiable {
     var tagResults: [FileItem] = []
     var tagSearching = false
     @ObservationIgnored private var tagTask: Task<Void, Never>?
-    var title: String { tagFilter ?? (TrashLocation.isRoot(currentURL) ? "Trash" : CloudLocation.title(for: currentURL)) }
+    var title: String { tagFilter ?? (TrashLocation.isRoot(currentURL) ? L10n.tr("Trash") : CloudLocation.title(for: currentURL)) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     var searchActive: Bool { tagFilter == nil && searchSubfolders && hasSearchFilters }
     /// 0 = list, 1 = icons
@@ -125,9 +125,9 @@ final class PaneModel: Identifiable {
                 self.expansionErrors.merge(tree.errors) { _, new in new }
                 TagStore.shared.remember(tree.children.values.flatMap { $0.flatMap(\.tags) })
                 if tree.limited {
-                    self.errorMessage = "Expansion stopped at the display limit (\(limits.folders) folders, \(limits.items) items, or \(limits.depth) levels). Open a subfolder to continue."
+                    self.errorMessage = L10n.tr("Expansion stopped at the display limit (\(limits.folders) folders, \(limits.items) items, or \(limits.depth) levels). Open a subfolder to continue.")
                 } else if !tree.errors.isEmpty {
-                    self.errorMessage = "Could not expand \(tree.errors.count) folder(s). Other accessible folders were expanded."
+                    self.errorMessage = L10n.tr("Could not expand \(tree.errors.count) folder(s). Other accessible folders were expanded.")
                 }
             }
         }
@@ -190,7 +190,7 @@ final class PaneModel: Identifiable {
             case .failure(let error):
                 self.expanded.remove(url)
                 self.expansionErrors[url] = error.localizedDescription
-                self.errorMessage = "Could not expand \(url.lastPathComponent): \(error.localizedDescription)"
+                self.errorMessage = L10n.tr("Could not expand \(url.lastPathComponent): \(error.localizedDescription)")
             }
         }
     }

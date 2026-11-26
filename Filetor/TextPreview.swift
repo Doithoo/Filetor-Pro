@@ -23,11 +23,11 @@ nonisolated enum TextPreviewReader {
         var notice: String?
         var source: String
         if kind == .plist && data.starts(with: Data("bplist".utf8)) {
-            guard !truncated else { throw PreviewFile.error("This binary property list is too large to preview (1 MB limit).") }
+            guard !truncated else { throw PreviewFile.error(L10n.tr("This binary property list is too large to preview (1 MB limit).")) }
             let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
             let xml = try PropertyListSerialization.data(fromPropertyList: object, format: .xml, options: 0)
             source = String(decoding: xml, as: UTF8.self)
-            encoding = "Binary plist → XML"
+            encoding = L10n.tr("Binary plist → XML")
         } else {
             var bytes = data
             let textEncoding: String.Encoding
@@ -52,9 +52,9 @@ nonisolated enum TextPreviewReader {
                     decoded = String(data: bytes, encoding: textEncoding)
                 }
             }
-            guard let decoded else { throw PreviewFile.error("Unsupported text encoding. Save as UTF-8 or Unicode with a byte-order mark to preview.") }
+            guard let decoded else { throw PreviewFile.error(L10n.tr("Unsupported text encoding. Save as UTF-8 or Unicode with a byte-order mark to preview.")) }
             guard !decoded.unicodeScalars.contains(where: { $0.value == 0 || ($0.value < 32 && ![9, 10, 12, 13].contains($0.value)) }) else {
-                throw PreviewFile.error("This file contains binary data rather than readable text.")
+                throw PreviewFile.error(L10n.tr("This file contains binary data rather than readable text."))
             }
             source = decoded
         }
@@ -67,13 +67,13 @@ nonisolated enum TextPreviewReader {
             do {
                 _ = try JSONSerialization.jsonObject(with: Data(source.utf8), options: [.fragmentsAllowed])
                 formatted = prettyJSON(source)
-            } catch { notice = "Invalid JSON · Showing source" }
+            } catch { notice = L10n.tr("Invalid JSON · Showing source") }
         } else if !truncated && kind == .plist && encoding == "UTF-8" {
             do {
                 let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
                 let output = try PropertyListSerialization.data(fromPropertyList: object, format: .xml, options: 0)
                 formatted = String(decoding: output, as: UTF8.self)
-            } catch { notice = "Invalid property list · Showing source" }
+            } catch { notice = L10n.tr("Invalid property list · Showing source") }
         }
         if formatted.count > characterLimit { formatted = String(formatted.prefix(characterLimit)); truncated = true }
         let formattedLines = limitedLines(formatted)
@@ -247,7 +247,7 @@ enum TextPreviewStyle {
 final class TextPreviewView: NSView {
     let textView = NSTextView()
     let scroll = NSScrollView()
-    let mode = NSSegmentedControl(labels: ["Reading", "Source"], trackingMode: .selectOne, target: nil, action: nil)
+    let mode = NSSegmentedControl(labels: [L10n.tr("Reading"), L10n.tr("Source")], trackingMode: .selectOne, target: nil, action: nil)
     private let summary = NSTextField(labelWithString: "")
     private var document: TextPreviewDocument?
     private var language = ""
@@ -265,15 +265,15 @@ final class TextPreviewView: NSView {
         textView.autoresizingMask = [.width]
         textView.textContainer?.widthTracksTextView = true
         textView.backgroundColor = .textBackgroundColor
-        textView.setAccessibilityLabel("File preview text")
+        textView.setAccessibilityLabel(L10n.tr("File preview text"))
         scroll.documentView = textView
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         mode.target = self; mode.action = #selector(changeReadingMode)
         mode.selectedSegment = 0
-        let find = NSButton(image: NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Find in preview")!, target: self, action: #selector(findText))
+        let find = NSButton(image: NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: L10n.tr("Find in preview"))!, target: self, action: #selector(findText))
         find.bezelStyle = .texturedRounded
-        find.toolTip = "Find in preview (⌘F)"
+        find.toolTip = L10n.tr("Find in preview (⌘F)")
         summary.font = .systemFont(ofSize: 11)
         summary.textColor = .secondaryLabelColor
         summary.lineBreakMode = .byTruncatingMiddle
@@ -297,7 +297,7 @@ final class TextPreviewView: NSView {
         self.language = language
         mode.isHidden = document.kind == .text
         mode.selectedSegment = 0
-        summary.stringValue = document.encoding + (document.truncated ? " · Limited preview" : "")
+        summary.stringValue = document.encoding + (document.truncated ? L10n.tr(" · Limited preview") : "")
         summary.toolTip = summary.stringValue
         render()
     }

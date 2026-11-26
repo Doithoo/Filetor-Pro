@@ -59,7 +59,7 @@ struct AddressBarEditor: View {
             })
             .frame(minWidth: 20)
             Button(action: close) { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                .buttonStyle(.borderless).help("Cancel path editing").accessibilityLabel("Cancel path editing")
+                .buttonStyle(.borderless).help(L10n.tr("Cancel path editing")).accessibilityLabel(L10n.tr("Cancel path editing"))
         }
         .padding(.horizontal, 8)
         .frame(height: 30 * scale)
@@ -79,10 +79,10 @@ struct AddressBarEditor: View {
             if let error = pathError ?? action.error ?? model.error {
                 Text(error).foregroundStyle(.secondary).padding(10)
             } else if model.loading || action.opening {
-                HStack { ProgressView().controlSize(.small); Text(action.opening ? "Opening…" : "Finding matches…") }
+                HStack { ProgressView().controlSize(.small); Text(action.opening ? L10n.tr("Opening…") : L10n.tr("Finding matches…")) }
                     .foregroundStyle(.secondary).padding(10)
             } else if model.candidates.isEmpty {
-                Text("No matching files or folders").foregroundStyle(.secondary).padding(10)
+                Text(L10n.tr("No matching files or folders")).foregroundStyle(.secondary).padding(10)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -136,7 +136,7 @@ struct AddressTextField: NSViewRepresentable {
     func makeNSView(context: Context) -> NSTextField {
         let field = AddressInput()
         field.identifier = NSUserInterfaceItemIdentifier("breadcrumb-address")
-        field.setAccessibilityLabel("Folder path")
+        field.setAccessibilityLabel(L10n.tr("Folder path"))
         field.isBordered = false; field.drawsBackground = false
         field.focusRingType = .none
         field.lineBreakMode = .byClipping

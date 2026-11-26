@@ -20,7 +20,7 @@ struct PaneDivider: NSViewRepresentable {
         view.onResize = onResize
         view.onFinish = onFinish
         view.onBalance = onBalance
-        view.setAccessibilityLabel(axis == .vertical ? "Resize Left and Right Panes" : "Resize Top and Bottom Panes")
+        view.setAccessibilityLabel(axis == .vertical ? L10n.tr("Resize Left and Right Panes") : L10n.tr("Resize Top and Bottom Panes"))
         view.window?.invalidateCursorRects(for: view)
     }
 }
@@ -42,7 +42,7 @@ final class PaneDividerView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        toolTip = "Drag to resize panes; double-click to balance"
+        toolTip = L10n.tr("Drag to resize panes; double-click to balance")
         setAccessibilityElement(true)
         setAccessibilityRole(.splitter)
         setAccessibilityHelp(toolTip)

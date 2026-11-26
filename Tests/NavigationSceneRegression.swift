@@ -52,6 +52,14 @@ struct NavigationRegressionScene: App {
             window.makeKeyAndOrderFront(nil)
             try await Task.sleep(for: .milliseconds(200))
 
+            if L10n.language == "zh-Hans" {
+                try await Regression.localizationSceneTests(app: app, window: window)
+                print("All \(Regression.checks) Chinese real-window checks passed.")
+                cleanup()
+                NSApp.terminate(nil)
+                return
+            }
+
             func click(_ target: NSWindow, x: CGFloat, fromTop: CGFloat) {
                 for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                     let event = NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: target.frame.height - fromTop), modifierFlags: [],

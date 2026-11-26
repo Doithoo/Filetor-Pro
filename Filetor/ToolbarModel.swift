@@ -29,92 +29,92 @@ enum ToolCatalog {
     ]
 
     static let buttons: [ToolDef] = [
-        ToolDef(id: "sidebar", title: "Sidebar", symbol: "sidebar.left",
+        ToolDef(id: "sidebar", title: L10n.tr("Sidebar"), symbol: "sidebar.left",
                 isOn: { $0.sidebarVisibility != .detailOnly },
                 run: { $0.sidebarVisibility = ($0.sidebarVisibility == .detailOnly) ? .all : .detailOnly }),
-        ToolDef(id: "expandAll", title: "Expand All", symbol: "chevron.down.2",
+        ToolDef(id: "expandAll", title: L10n.tr("Expand All"), symbol: "chevron.down.2",
                 isEnabled: { $0.active.expandingAll || $0.active.canExpandAll },
                 isOn: { $0.active.expandingAll }, run: { $0.active.toggleExpandAll() }),
-        ToolDef(id: "collapseAll", title: "Collapse All", symbol: "chevron.up.2",
+        ToolDef(id: "collapseAll", title: L10n.tr("Collapse All"), symbol: "chevron.up.2",
                 isEnabled: { $0.active.canCollapseAll }, run: { $0.active.collapseAll() }),
-        ToolDef(id: "goTo", title: "Go To", symbol: "folder",
+        ToolDef(id: "goTo", title: L10n.tr("Go To"), symbol: "folder",
                 isOn: { $0.showGoToFolder }, run: { $0.activateGoToFolder(focusPath: false) }),
-        ToolDef(id: "dual", title: "Pane Layout", symbol: "rectangle.split.2x1",
+        ToolDef(id: "dual", title: L10n.tr("Pane Layout"), symbol: "rectangle.split.2x1",
                 isOn: { $0.dual }, run: { $0.dual.toggle() }),
-        ToolDef(id: "quickLook", title: "Quick Look", symbol: "eye", needsSelection: true,
+        ToolDef(id: "quickLook", title: L10n.tr("Quick Look"), symbol: "eye", needsSelection: true,
                 run: { $0.quickLook($0.active.selection) }),
-        ToolDef(id: "hidden", title: "Hidden Files", symbol: "eye.slash",
+        ToolDef(id: "hidden", title: L10n.tr("Hidden Files"), symbol: "eye.slash",
                 isOn: { $0.active.showHidden }, run: { $0.active.toggleHidden() }),
-        ToolDef(id: "newFolder", title: "New Folder", symbol: "folder.badge.plus",
+        ToolDef(id: "newFolder", title: L10n.tr("New Folder"), symbol: "folder.badge.plus",
                 run: { $0.newFolder() }),
-        ToolDef(id: "projectFolder", title: "New Project Folder", symbol: "folder.badge.gearshape",
+        ToolDef(id: "projectFolder", title: L10n.tr("New Project Folder"), symbol: "folder.badge.gearshape",
                 run: { $0.projectDialog = true }),
-        ToolDef(id: "newFile", title: "New File", symbol: "doc.badge.plus",
+        ToolDef(id: "newFile", title: L10n.tr("New File"), symbol: "doc.badge.plus",
                 run: { $0.newFile() }),
-        ToolDef(id: "newTab", title: "New Tab", symbol: "plus",
+        ToolDef(id: "newTab", title: L10n.tr("New Tab"), symbol: "plus",
                 run: { $0.newTab() }),
-        ToolDef(id: "open", title: "Open", symbol: "folder", needsSelection: true,
+        ToolDef(id: "open", title: L10n.tr("Open"), symbol: "folder", needsSelection: true,
                 run: { $0.openSelection() }),
-        ToolDef(id: "rename", title: "Rename", symbol: "pencil", needsSelection: true,
+        ToolDef(id: "rename", title: L10n.tr("Rename"), symbol: "pencil", needsSelection: true,
                 run: { $0.beginRename($0.active.selection) }),
-        ToolDef(id: "duplicate", title: "Duplicate", symbol: "plus.square.on.square", needsSelection: true,
+        ToolDef(id: "duplicate", title: L10n.tr("Duplicate"), symbol: "plus.square.on.square", needsSelection: true,
                 run: { $0.duplicate($0.active.selection) }),
-        ToolDef(id: "copy", title: "Copy", symbol: "doc.on.doc", needsSelection: true, needsDual: true,
+        ToolDef(id: "copy", title: L10n.tr("Copy"), symbol: "doc.on.doc", needsSelection: true, needsDual: true,
                 run: { $0.transfer($0.active.selection, move: false) }),
-        ToolDef(id: "move", title: "Move", symbol: "arrow.right.doc.on.clipboard", needsSelection: true, needsDual: true,
+        ToolDef(id: "move", title: L10n.tr("Move"), symbol: "arrow.right.doc.on.clipboard", needsSelection: true, needsDual: true,
                 run: { $0.transfer($0.active.selection, move: true) }),
-        ToolDef(id: "trash", title: "Move to Trash", symbol: "trash", needsSelection: true,
+        ToolDef(id: "trash", title: L10n.tr("Move to Trash"), symbol: "trash", needsSelection: true,
                 run: { $0.trash($0.active.selection) }),
-        ToolDef(id: "compress", title: "Compress to ZIP", symbol: "arrow.down.right.and.arrow.up.left", needsSelection: true,
+        ToolDef(id: "compress", title: L10n.tr("Compress to ZIP"), symbol: "arrow.down.right.and.arrow.up.left", needsSelection: true,
                 run: { $0.compress($0.active.selection) }),
-        ToolDef(id: "decompress", title: "Extract Archive", symbol: "arrow.up.left.and.arrow.down.right", needsSelection: true,
+        ToolDef(id: "decompress", title: L10n.tr("Extract Archive"), symbol: "arrow.up.left.and.arrow.down.right", needsSelection: true,
                 run: { $0.decompress($0.active.selection) }),
-        ToolDef(id: "convert", title: "Convert", symbol: "arrow.triangle.2.circlepath", needsSelection: true,
+        ToolDef(id: "convert", title: L10n.tr("Convert"), symbol: "arrow.triangle.2.circlepath", needsSelection: true,
                 run: { let images = $0.active.selection.filter { FileTools.isImage($0) }; $0.convertURLs = images.isEmpty ? nil : images }),
-        ToolDef(id: "optimize", title: "Optimize", symbol: "photo", needsSelection: true,
+        ToolDef(id: "optimize", title: L10n.tr("Optimize"), symbol: "photo", needsSelection: true,
                 run: { $0.optimizeImages($0.active.selection) }),
-        ToolDef(id: "stripMeta", title: "Strip Metadata", symbol: "eraser", needsSelection: true,
+        ToolDef(id: "stripMeta", title: L10n.tr("Strip Metadata"), symbol: "eraser", needsSelection: true,
                 run: { $0.stripMetadata($0.active.selection) }),
-        ToolDef(id: "touch", title: "Touch", symbol: "clock", needsSelection: true,
+        ToolDef(id: "touch", title: L10n.tr("Touch"), symbol: "clock", needsSelection: true,
                 run: { $0.touch($0.active.selection) }),
-        ToolDef(id: "copyPath", title: "Copy Path", symbol: "link",
+        ToolDef(id: "copyPath", title: L10n.tr("Copy Path"), symbol: "link",
                 run: { $0.copyPath() }),
-        ToolDef(id: "terminal", title: "Terminal", symbol: "apple.terminal",
+        ToolDef(id: "terminal", title: L10n.tr("Terminal"), symbol: "apple.terminal",
                 run: { $0.openTerminal() }),
-        ToolDef(id: "reload", title: "Reload", symbol: "arrow.clockwise",
+        ToolDef(id: "reload", title: L10n.tr("Reload"), symbol: "arrow.clockwise",
                 run: { $0.active.load() }),
-        ToolDef(id: "airdrop", title: "AirDrop", symbol: "airplayaudio", needsSelection: true,
+        ToolDef(id: "airdrop", title: L10n.tr("AirDrop"), symbol: "airplayaudio", needsSelection: true,
                 run: { $0.airDrop($0.active.selection) }),
-        ToolDef(id: "info", title: "Get Info", symbol: "info.circle", needsSelection: true,
+        ToolDef(id: "info", title: L10n.tr("Get Info"), symbol: "info.circle", needsSelection: true,
                 run: { $0.getInfo($0.active.selection) }),
-        ToolDef(id: "connect", title: "Connect", symbol: "globe",
+        ToolDef(id: "connect", title: L10n.tr("Connect"), symbol: "globe",
                 run: { $0.showConnect = true }),
-        ToolDef(id: "customize", title: "Settings", symbol: "gearshape",
+        ToolDef(id: "customize", title: L10n.tr("Settings"), symbol: "gearshape",
                 run: { $0.showSettings = true }),
     ]
 
     static func def(_ id: String) -> ToolDef? { buttons.first { $0.id == id } }
 
     static func help(_ def: ToolDef, app: AppModel) -> String {
-        if def.needsDual && !app.dual { return def.title + " — Split the pane or show all panes first" }
-        if def.needsSelection && app.active.selection.isEmpty { return def.title + " — Select a file or folder first" }
+        if def.needsDual && !app.dual { return def.title + L10n.tr(" — Split the pane or show all panes first") }
+        if def.needsSelection && app.active.selection.isEmpty { return def.title + L10n.tr(" — Select a file or folder first") }
         switch def.id {
         case "expandAll", "collapseAll":
-            if def.id == "expandAll" && app.active.expandingAll { return "Stop Expanding Folders" }
-            let title = def.id == "expandAll" ? "Expand All Folders" : "Collapse All Folders"
-            if !app.active.treeActive { return title + " — Use List View without search filters" }
-            if def.id == "expandAll" && app.active.loading { return title + " — Wait for the folder to load" }
-            if def.id == "expandAll" && !app.active.canExpandAll { return title + " — No folders to expand" }
-            if def.id == "collapseAll" && !app.active.canCollapseAll { return title + " — No expanded folders" }
-            return title + " in Active Pane"
-        case "sidebar": return app.sidebarVisibility == .detailOnly ? "Show Sidebar" : "Hide Sidebar"
-        case "hidden": return app.active.showHidden ? "Hide Hidden Files" : "Show Hidden Files"
-        case "dual": return app.dual ? "Focus Active Pane" : (app.groups.count > 1 ? "Show All Panes" : "Split Vertically (Left / Right)")
+            if def.id == "expandAll" && app.active.expandingAll { return L10n.tr("Stop Expanding Folders") }
+            let title = def.id == "expandAll" ? L10n.tr("Expand All Folders") : L10n.tr("Collapse All Folders")
+            if !app.active.treeActive { return title + L10n.tr(" — Use List View without search filters") }
+            if def.id == "expandAll" && app.active.loading { return title + L10n.tr(" — Wait for the folder to load") }
+            if def.id == "expandAll" && !app.active.canExpandAll { return title + L10n.tr(" — No folders to expand") }
+            if def.id == "collapseAll" && !app.active.canCollapseAll { return title + L10n.tr(" — No expanded folders") }
+            return title + L10n.tr(" in Active Pane")
+        case "sidebar": return app.sidebarVisibility == .detailOnly ? L10n.tr("Show Sidebar") : L10n.tr("Hide Sidebar")
+        case "hidden": return app.active.showHidden ? L10n.tr("Hide Hidden Files") : L10n.tr("Show Hidden Files")
+        case "dual": return app.dual ? L10n.tr("Focus Active Pane") : (app.groups.count > 1 ? L10n.tr("Show All Panes") : L10n.tr("Split Vertically (Left / Right)"))
         default: return def.title
         }
     }
 
-    static func title(_ kind: String) -> String { special[kind]?.title ?? def(kind)?.title ?? kind }
+    static func title(_ kind: String) -> String { special[kind].map { L10n.key($0.title) } ?? def(kind)?.title ?? kind }
     static func symbol(_ kind: String) -> String { special[kind]?.symbol ?? def(kind)?.symbol ?? "questionmark" }
 
     /// Order of the palette in the Customize sheet.

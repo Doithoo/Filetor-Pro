@@ -5,11 +5,11 @@ enum NewFileKind: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .text: return "Text Document (.txt)"
-        case .markdown: return "Markdown Document (.md)"
-        case .csv: return "CSV Document (.csv)"
-        case .json: return "JSON Document (.json)"
-        case .empty: return "Empty File"
+        case .text: return L10n.tr("Text Document (.txt)")
+        case .markdown: return L10n.tr("Markdown Document (.md)")
+        case .csv: return L10n.tr("CSV Document (.csv)")
+        case .json: return L10n.tr("JSON Document (.json)")
+        case .empty: return L10n.tr("Empty File")
         }
     }
     var filename: String {
@@ -33,7 +33,7 @@ enum FileCreation {
 
     static func create(_ kind: NewFileKind, in directory: URL) throws -> URL {
         guard canCreate(in: directory) else {
-            throw FileOperationSafety.failure("Choose a regular folder to create a file.")
+            throw FileOperationSafety.failure(L10n.tr("Choose a regular folder to create a file."))
         }
         let base = directory.appendingPathComponent(kind.filename)
         for _ in 0..<100 {
@@ -44,6 +44,6 @@ enum FileCreation {
                 return url
             } catch let error as CocoaError where error.code == .fileWriteFileExists { continue }
         }
-        throw FileOperationSafety.failure("Could not find an available file name. Please try again.")
+        throw FileOperationSafety.failure(L10n.tr("Could not find an available file name. Please try again."))
     }
 }

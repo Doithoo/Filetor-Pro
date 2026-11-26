@@ -221,3 +221,16 @@ Run archive-focused regression checks with `python3 scripts/build.py --test --ar
 `SupportLink` 集中生成当前独立仓库的 HTTPS 地址，问题反馈和功能建议用 URLComponents 编码草稿，不自动提交。仅附应用版本、构建号和 macOS 版本，不读取文件路径、文件内容或诊断日志。打开浏览器失败时显示可复制的地址。
 
 验证：`python3 scripts/build.py --test --help-only` 测试离线搜索、完整快捷键、反馈路由和窗口复用；真实菜单检查与 `--navigation-scene` 一起运行，确认没有系统 Help 不可用警告，且无可见工作区时仍能打开帮助。
+
+
+## 多语言界面（0.15.0）
+
+`Localization.swift` 集中处理应用语言，支持 `system`、`en`、`zh-Hans`。默认跟随系统；设置页只保存 `interfaceLanguage` 和应用域的 `AppleLanguages`，下次启动时统一应用到 SwiftUI、AppKit 和 Sparkle。选择“跟随系统”会移除应用语言覆盖，不修改 macOS 全局语言。运行中的文件操作完成前，设置页的退出按钮不可用。
+
+`Filetor/en.lproj/Localizable.strings` 和 `Filetor/zh-Hans.lproj/Localizable.strings` 使用英文原文作为键。展示固定文案用 `L10n.tr("Copy")`；包含变量的文案同样使用 Swift 插值，`L10n.Message` 将变量转成 `{0}`、`{1}` 等占位符。翻译可以调整占位符顺序，但必须保留所有占位符。渲染只遍历模板一次，文件名中的 `{0}`、`%@` 不会被再次解释。资源缺失回退英文原文。
+
+`L10n.key` 仅用于受控的内置标题目录。不要翻译保存到偏好设置的标识、搜索条件、文件格式参数、路径、文件名、用户标签或自定义模板名称。内置模板仅翻译展示标题，创建的文件夹名称保持模板数据原样。日期、文件类型和第三方应用名采用系统提供的显示方式。
+
+添加文案时同时更新两种语言的 `.strings` 文件。运行 `python3 scripts/check_localization.py` 验证资源格式、键集合、遗漏翻译及占位符；`scripts/build.py` 每次构建都会执行此检查。添加新语言还需更新 `L10n.Language`、支持语言列表、Info.plist、Xcode localizations 和测试。
+
+`python3 scripts/build.py --test` 包含英文全量回归、英文真实窗口导航，以及独立进程的中文专项和中文真实窗口测试。测试使用隔离的 `FiletorRegression` 偏好设置；语言保存测试使用独立 suite，并检查持久域（命令行的 `-AppleLanguages` 覆盖只供测试进程使用）。UI 截图覆盖中文工具栏、菜单操作、全部设置页、深色设置、帮助和预览。日常开发可使用 `--test --localization-only` 单独检查本地化。

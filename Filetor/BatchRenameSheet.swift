@@ -41,14 +41,14 @@ struct BatchRenameSheet: View {
 
     private var problem: String? {
         let names = newNames
-        if names.contains(where: { $0.trimmingCharacters(in: .whitespaces).isEmpty }) { return "A name cannot be empty." }
-        if names.contains(where: { $0.contains("/") }) { return "A name cannot contain \"/\"." }
-        if Set(names).count != names.count { return "Two files would get the same name." }
+        if names.contains(where: { $0.trimmingCharacters(in: .whitespaces).isEmpty }) { return L10n.tr("A name cannot be empty.") }
+        if names.contains(where: { $0.contains("/") }) { return L10n.tr("A name cannot contain \"/\".") }
+        if Set(names).count != names.count { return L10n.tr("Two files would get the same name.") }
         let own = Set(urls.map { $0.standardizedFileURL.path })
         for (url, name) in zip(urls, names) where name != url.lastPathComponent {
             let dest = url.deletingLastPathComponent().appending(path: name).standardizedFileURL.path
             if FileManager.default.fileExists(atPath: dest) && !own.contains(dest) {
-                return "\"\(name)\" already exists in this folder."
+                return L10n.tr("\"\(name)\" already exists in this folder.")
             }
         }
         return nil
@@ -58,23 +58,23 @@ struct BatchRenameSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Rename \(urls.count) Items").font(.system(size: 22 * s))
+            Text(L10n.tr("Rename \(urls.count) Items")).font(.system(size: 22 * s))
 
-            SegmentedChoice(options: ["Replace Text", "Add Text", "Numbering"], selection: $mode, scale: s)
+            SegmentedChoice(options: [L10n.tr("Replace Text"), L10n.tr("Add Text"), L10n.tr("Numbering")], selection: $mode, scale: s)
 
             Group {
                 switch mode {
                 case 0:
-                    field("Find", $find)
-                    field("Replace with", $replaceWith)
+                    field(L10n.tr("Find"), $find)
+                    field(L10n.tr("Replace with"), $replaceWith)
                 case 1:
-                    field("Text", $addText)
-                    SegmentedChoice(options: ["Before name", "After name"],
+                    field(L10n.tr("Text"), $addText)
+                    SegmentedChoice(options: [L10n.tr("Before name"), L10n.tr("After name")],
                                     selection: Binding(get: { addAfter ? 1 : 0 }, set: { addAfter = ($0 == 1) }), scale: s)
                 default:
-                    field("Name (empty keeps original)", $baseName)
+                    field(L10n.tr("Name (empty keeps original)"), $baseName)
                     HStack(spacing: 10) {
-                        Text("Start at")
+                        Text(L10n.tr("Start at"))
                         TextField("1", value: $start, format: .number)
                             .textFieldStyle(PathsTextFieldStyle(scale: s))
                             .frame(width: 80 * s)
@@ -82,7 +82,7 @@ struct BatchRenameSheet: View {
                 }
             }
 
-            Text("Preview").foregroundStyle(.secondary)
+            Text(L10n.tr("Preview")).foregroundStyle(.secondary)
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(zip(urls, newNames).enumerated()), id: \.offset) { _, pair in
@@ -106,10 +106,10 @@ struct BatchRenameSheet: View {
 
             HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L10n.tr("Cancel")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Rename") {
+                Button(L10n.tr("Rename")) {
                     app.applyBatchRename(Array(zip(urls, newNames)))
                     dismiss()
                 }

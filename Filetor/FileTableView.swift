@@ -41,7 +41,7 @@ struct FileTableView: NSViewRepresentable {
 
         func add(_ id: String, _ title: String, _ width: CGFloat, min: CGFloat, right: Bool = false) {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            col.title = title
+            col.title = L10n.key(title)
             col.width = Coordinator.savedWidth(id) ?? width
             col.minWidth = min
             col.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
@@ -406,9 +406,9 @@ struct FileTableView: NSViewRepresentable {
                         arrow.image = NSImage(systemSymbolName: open ? "chevron.down" : "chevron.right", accessibilityDescription: nil)?
                             .withSymbolConfiguration(.init(pointSize: 9 * s, weight: .semibold))
                         arrow.contentTintColor = .secondaryLabelColor
-                        arrow.toolTip = open ? "Collapse folder (Left Arrow)" : "Expand folder (Right Arrow)"
-                        arrow.setAccessibilityLabel((open ? "Collapse " : "Expand ") + item.name)
-                        arrow.setAccessibilityValue(open ? "Expanded" : "Collapsed")
+                        arrow.toolTip = open ? L10n.tr("Collapse folder (Left Arrow)") : L10n.tr("Expand folder (Right Arrow)")
+                        arrow.setAccessibilityLabel((open ? L10n.tr("Collapse ") : L10n.tr("Expand ")) + item.name)
+                        arrow.setAccessibilityValue(open ? L10n.tr("Expanded") : L10n.tr("Collapsed"))
                         arrow.focusRingType = .none
                         arrow.target = self
                         arrow.action = #selector(arrowClicked(_:))
@@ -512,8 +512,8 @@ struct FileTableView: NSViewRepresentable {
         private static func dateString(_ d: Date) -> String {
             let cal = Calendar.current
             let time = d.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute())
-            if cal.isDateInToday(d) { return "Today, " + time }
-            if cal.isDateInYesterday(d) { return "Yesterday, " + time }
+            if cal.isDateInToday(d) { return L10n.tr("Today, ") + time }
+            if cal.isDateInYesterday(d) { return L10n.tr("Yesterday, ") + time }
             return d.formatted(.dateTime.day().month(.abbreviated).year())
         }
 
@@ -691,7 +691,7 @@ struct FileTableView: NSViewRepresentable {
             if menu === headerMenu {
                 let visible = Self.visibleColumns()
                 for col in Self.optionalColumns {
-                    let mi = NSMenuItem(title: col.title, action: #selector(toggleColumn(_:)), keyEquivalent: "")
+                    let mi = NSMenuItem(title: L10n.key(col.title), action: #selector(toggleColumn(_:)), keyEquivalent: "")
                     mi.target = self
                     mi.representedObject = col.id
                     mi.state = visible.contains(col.id) ? .on : .off
@@ -715,10 +715,10 @@ struct FileTableView: NSViewRepresentable {
             }
             if row < 0 {
                 table.deselectAll(nil)
-                let folder = item("New Folder") { app.newFolder(in: pane, directory: destination) }
+                let folder = item(L10n.tr("New Folder")) { app.newFolder(in: pane, directory: destination) }
                 folder.isEnabled = canCreate
                 menu.addItem(folder)
-                let file = NSMenuItem(title: "New File", action: nil, keyEquivalent: "")
+                let file = NSMenuItem(title: L10n.tr("New File"), action: nil, keyEquivalent: "")
                 let types = NSMenu()
                 for kind in NewFileKind.allCases {
                     types.addItem(item(kind.title) { app.newFile(kind, in: pane, directory: destination) })
@@ -726,23 +726,23 @@ struct FileTableView: NSViewRepresentable {
                 file.submenu = types
                 file.isEnabled = canCreate
                 menu.addItem(file)
-                let project = item("New Project Folder…") { app.activate(pane); app.projectDialog = true }
+                let project = item(L10n.tr("New Project Folder…")) { app.activate(pane); app.projectDialog = true }
                 project.isEnabled = canCreate
                 menu.addItem(project)
                 menu.addItem(.separator())
-                let paste = item("Paste") { FileClipboard.shared.paste(into: destination, app: app) }
+                let paste = item(L10n.tr("Paste")) { FileClipboard.shared.paste(into: destination, app: app) }
                 paste.isEnabled = canCreate && FileClipboard.shared.canPaste
                 menu.addItem(paste)
                 menu.addItem(.separator())
-                let select = item("Select All") { [weak table] in table?.selectAll(nil) }
+                let select = item(L10n.tr("Select All")) { [weak table] in table?.selectAll(nil) }
                 select.isEnabled = !items.isEmpty
                 menu.addItem(select)
-                menu.addItem(item("Refresh") { pane.reloadKeepingSelection() })
+                menu.addItem(item(L10n.tr("Refresh")) { pane.reloadKeepingSelection() })
                 menu.addItem(.separator())
                 for axis in PaneSplitAxis.allCases {
                     let split = item(axis.title) { app.splitPane(pane, axis: axis) }
                     split.isEnabled = app.canSplitPane
-                    split.toolTip = app.canSplitPane ? nil : "Up to 16 panes per window"
+                    split.toolTip = app.canSplitPane ? nil : L10n.tr("Up to 16 panes per window")
                     menu.addItem(split)
                 }
                 return
@@ -751,22 +751,22 @@ struct FileTableView: NSViewRepresentable {
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             parent.app.activate(parent.pane)
             if urls.count == 1, let url = urls.first, items.first(where: { $0.url == url })?.expandable == true {
-                menu.addItem(item("Open in New Tab") { [weak self] in self?.parent.app.activeGroup.newTab(at: url) })
-                menu.addItem(item("Open in New Window") { [weak self] in self?.parent.app.openWindow?(url) })
+                menu.addItem(item(L10n.tr("Open in New Tab")) { [weak self] in self?.parent.app.activeGroup.newTab(at: url) })
+                menu.addItem(item(L10n.tr("Open in New Window")) { [weak self] in self?.parent.app.openWindow?(url) })
                 menu.addItem(.separator())
             }
-            menu.addItem(item("Open") { [weak self] in self?.parent.pane.open(urls) })
+            menu.addItem(item(L10n.tr("Open")) { [weak self] in self?.parent.pane.open(urls) })
             if urls.count == 1, let url = urls.first, FileItem(url: url).canShowPackageContents {
-                menu.addItem(item("Show Package Contents") { [weak self] in
+                menu.addItem(item(L10n.tr("Show Package Contents")) { [weak self] in
                     guard let self else { return }
                     self.parent.app.activate(self.parent.pane)
                     self.parent.pane.showPackageContents(url)
                 })
             }
-            menu.addItem(item("Quick Look") { [weak self] in self?.parent.app.quickLook(urls) })
+            menu.addItem(item(L10n.tr("Quick Look")) { [weak self] in self?.parent.app.quickLook(urls) })
             let apps = parent.app.openApps(for: urls)
             do {
-                let with = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+                let with = NSMenuItem(title: L10n.tr("Open With"), action: nil, keyEquivalent: "")
                 let sub = NSMenu()
                 for appURL in apps {
                     let mi = item(FileManager.default.displayName(atPath: appURL.path)) { [weak self] in
@@ -778,25 +778,25 @@ struct FileTableView: NSViewRepresentable {
                     sub.addItem(mi)
                 }
                 if !apps.isEmpty { sub.addItem(.separator()) }
-                sub.addItem(item("Other…") { [weak self] in self?.parent.app.chooseApplication(for: urls) })
+                sub.addItem(item(L10n.tr("Other…")) { [weak self] in self?.parent.app.chooseApplication(for: urls) })
                 with.submenu = sub
                 menu.addItem(with)
             }
             menu.addItem(.separator())
-            menu.addItem(item("Cut") { FileClipboard.shared.write(urls, cut: true) })
-            menu.addItem(item("Copy") { FileClipboard.shared.write(urls) })
-            let paste = item("Paste") { FileClipboard.shared.paste(into: destination, app: app) }
+            menu.addItem(item(L10n.tr("Cut")) { FileClipboard.shared.write(urls, cut: true) })
+            menu.addItem(item(L10n.tr("Copy")) { FileClipboard.shared.write(urls) })
+            let paste = item(L10n.tr("Paste")) { FileClipboard.shared.paste(into: destination, app: app) }
             paste.isEnabled = canCreate && FileClipboard.shared.canPaste
             menu.addItem(paste)
             menu.addItem(.separator())
-            menu.addItem(item("Rename…") { [weak self] in self?.parent.app.beginRename(urls) })
-            menu.addItem(item("Move to…") { [weak self] in
+            menu.addItem(item(L10n.tr("Rename…")) { [weak self] in self?.parent.app.beginRename(urls) })
+            menu.addItem(item(L10n.tr("Move to…")) { [weak self] in
                 guard let self else { return }
                 self.parent.app.activate(self.parent.pane)
                 self.parent.app.chooseFolderAndTransfer(urls, move: true)
             })
-            menu.addItem(item("Copy to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: false) })
-            menu.addItem(item("Move to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: true) })
+            menu.addItem(item(L10n.tr("Copy to Other Pane")) { [weak self] in self?.parent.app.transfer(urls, move: false) })
+            menu.addItem(item(L10n.tr("Move to Other Pane")) { [weak self] in self?.parent.app.transfer(urls, move: true) })
             menu.addItem(.separator())
             menu.addItem(tagsItem(urls))
             menu.addItem(.separator())
@@ -809,26 +809,26 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(entry)
             }
             if urls.count == 1, let only = urls.first, items.first(where: { $0.url == only })?.isDirectory == true {
-                menu.addItem(item("Archive Project…") { [weak self] in self?.parent.app.archiveFolder = only })
+                menu.addItem(item(L10n.tr("Archive Project…")) { [weak self] in self?.parent.app.archiveFolder = only })
             }
             if urls.contains(where: { FileTools.isImage($0) }) {
                 menu.addItem(.separator())
-                menu.addItem(item("Rotate Left") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })
-                menu.addItem(item("Rotate Right") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 90) })
-                menu.addItem(item("Convert Image…") { [weak self] in
+                menu.addItem(item(L10n.tr("Rotate Left")) { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })
+                menu.addItem(item(L10n.tr("Rotate Right")) { [weak self] in self?.parent.app.rotateImages(urls, degrees: 90) })
+                menu.addItem(item(L10n.tr("Convert Image…")) { [weak self] in
                     self?.parent.app.convertURLs = urls.filter { FileTools.isImage($0) }
                 })
-                menu.addItem(item("Optimize…") { [weak self] in self?.parent.app.optimizeImages(urls) })
-                menu.addItem(item("Strip Metadata") { [weak self] in self?.parent.app.stripMetadata(urls) })
+                menu.addItem(item(L10n.tr("Optimize…")) { [weak self] in self?.parent.app.optimizeImages(urls) })
+                menu.addItem(item(L10n.tr("Strip Metadata")) { [weak self] in self?.parent.app.stripMetadata(urls) })
             }
             menu.addItem(.separator())
-            menu.addItem(item("Copy Path") {
+            menu.addItem(item(L10n.tr("Copy Path")) {
                 let paths = urls.map(\.path).sorted().joined(separator: "\n")
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(paths, forType: .string)
             })
-            menu.addItem(item("Touch — Set Modified Date to Now") { [weak self] in self?.parent.app.touch(urls) })
-            menu.addItem(item("Get Info") { [weak self] in self?.parent.app.getInfo(urls) })
+            menu.addItem(item(L10n.tr("Touch — Set Modified Date to Now")) { [weak self] in self?.parent.app.touch(urls) })
+            menu.addItem(item(L10n.tr("Get Info")) { [weak self] in self?.parent.app.getInfo(urls) })
             let shareItems = urls.sorted { $0.path < $1.path }
             let shareMenu = NSMenu()
             for name in [NSSharingService.Name.sendViaAirDrop, .composeEmail, .composeMessage] {
@@ -840,12 +840,12 @@ struct FileTableView: NSViewRepresentable {
                 shareMenu.addItem(mi)
             }
             if shareMenu.items.isEmpty == false {
-                let shareItem = NSMenuItem(title: "Share", action: nil, keyEquivalent: "")
+                let shareItem = NSMenuItem(title: L10n.tr("Share"), action: nil, keyEquivalent: "")
                 shareItem.submenu = shareMenu
                 menu.addItem(shareItem)
             }
-            menu.addItem(item("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) })
-            menu.addItem(item("Open in Terminal") { [weak self] in
+            menu.addItem(item(L10n.tr("Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) })
+            menu.addItem(item(L10n.tr("Open in Terminal")) { [weak self] in
                 guard let first = urls.sorted(by: { $0.path < $1.path }).first else { return }
                 let isDir = self?.items.first { $0.url == first }?.isDirectory ?? false
                 let folder = isDir ? first : first.deletingLastPathComponent()
@@ -857,13 +857,13 @@ struct FileTableView: NSViewRepresentable {
             let folders = urls.filter { u in items.first { $0.url == u }?.isDirectory ?? false }
             if !folders.isEmpty {
                 menu.addItem(.separator())
-                menu.addItem(item("Add to Favorites") { [weak self] in
+                menu.addItem(item(L10n.tr("Add to Favorites")) { [weak self] in
                     self?.parent.app.favorites.insert(Array(folders), before: nil)
                 })
             }
             if parent.pane.searchActive || parent.pane.tagFilter != nil, urls.count == 1, let url = urls.first {
                 menu.addItem(.separator())
-                menu.addItem(item("Show in Folder") { [weak self] in
+                menu.addItem(item(L10n.tr("Show in Folder")) { [weak self] in
                     guard let pane = self?.parent.pane else { return }
                     pane.filter = ""
                     pane.navigate(to: url.deletingLastPathComponent())
@@ -872,9 +872,9 @@ struct FileTableView: NSViewRepresentable {
             }
             menu.addItem(.separator())
             if !urls.allSatisfy({ TrashLocation.contains($0) }) {
-                menu.addItem(item("Move to Trash") { [weak self] in self?.parent.app.trash(urls) })
+                menu.addItem(item(L10n.tr("Move to Trash")) { [weak self] in self?.parent.app.trash(urls) })
             }
-            menu.addItem(item("Delete Immediately…") { [weak self] in self?.parent.app.deleteImmediately(Set(urls)) })
+            menu.addItem(item(L10n.tr("Delete Immediately…")) { [weak self] in self?.parent.app.deleteImmediately(Set(urls)) })
         }
 
         var selectedURLs: [URL] {
@@ -895,7 +895,7 @@ struct FileTableView: NSViewRepresentable {
         private func tagsItem(_ urls: Set<URL>) -> NSMenuItem {
             let store = TagStore.shared
             let chosen = items.filter { urls.contains($0.url) }
-            let top = NSMenuItem(title: "Tags", action: nil, keyEquivalent: "")
+            let top = NSMenuItem(title: L10n.tr("Tags"), action: nil, keyEquivalent: "")
             let sub = NSMenu()
             for tag in store.all {
                 let n = chosen.filter { f in f.tags.contains { store.matches($0, tag.name) } }.count
@@ -905,9 +905,9 @@ struct FileTableView: NSViewRepresentable {
                 sub.addItem(mi)
             }
             sub.addItem(.separator())
-            sub.addItem(item("New Tag…") { [weak self] in self?.parent.app.newTag(for: urls) })
+            sub.addItem(item(L10n.tr("New Tag…")) { [weak self] in self?.parent.app.newTag(for: urls) })
             if chosen.contains(where: { !$0.tags.isEmpty }) {
-                sub.addItem(item("Remove All Tags") { [weak self] in self?.parent.app.removeAllTags(urls) })
+                sub.addItem(item(L10n.tr("Remove All Tags")) { [weak self] in self?.parent.app.removeAllTags(urls) })
             }
             top.submenu = sub
             return top

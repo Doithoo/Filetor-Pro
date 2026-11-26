@@ -16,53 +16,53 @@ struct AppCommand: Identifiable {
     @MainActor private static func hasArchive(_ app: AppModel) -> Bool { !app.active.selection.isEmpty && app.active.selection.allSatisfy { FileTools.isArchive($0) } }
 
     static let all: [AppCommand] = [
-        AppCommand(id: "newFolder", title: "New Folder", keys: "⇧ ⌘ N") { $0.newFolder() },
-        AppCommand(id: "projectFolder", title: "New Project Folder…") { $0.projectDialog = true },
-        AppCommand(id: "archiveProject", title: "Archive Project…") { app in
+        AppCommand(id: "newFolder", title: L10n.tr("New Folder"), keys: "⇧ ⌘ N") { $0.newFolder() },
+        AppCommand(id: "projectFolder", title: L10n.tr("New Project Folder…")) { $0.projectDialog = true },
+        AppCommand(id: "archiveProject", title: L10n.tr("Archive Project…")) { app in
             let selected = app.active.selection
             if selected.count == 1, let folder = selected.first,
                (try? folder.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
                 app.archiveFolder = folder
             }
         },
-        AppCommand(id: "savedSearch", title: "New Saved Search…") { $0.savedSearchDialog = SavedSearch(folder: $0.active.currentURL.path) },
-        AppCommand(id: "rename", title: "Rename…", keys: "F2", isEnabled: hasSelection) { $0.beginRename($0.active.selection) },
-        AppCommand(id: "duplicate", title: "Duplicate", keys: "⌘ D", isEnabled: hasSelection) { $0.duplicate($0.active.selection) },
-        AppCommand(id: "copyTo", title: "Copy to…", isEnabled: hasSelection) { $0.chooseFolderAndTransfer($0.active.selection, move: false) },
-        AppCommand(id: "moveTo", title: "Move to…", isEnabled: hasSelection) { $0.chooseFolderAndTransfer($0.active.selection, move: true) },
-        AppCommand(id: "trash", title: "Move to Trash", keys: "⌘ ⌫", isEnabled: hasSelection) { $0.trash($0.active.selection) },
-        AppCommand(id: "deleteNow", title: "Delete Immediately…", keys: "⌥ ⌘ ⌫", isEnabled: hasSelection) { $0.deleteImmediately($0.active.selection) },
-        AppCommand(id: "copyOther", title: "Copy to Other Pane", keys: "F5", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: false) },
-        AppCommand(id: "moveOther", title: "Move to Other Pane", keys: "F6", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: true) },
-        AppCommand(id: "info", title: "Get Info", keys: "⌘ I", isEnabled: hasSelection) { $0.getInfo($0.active.selection) },
-        AppCommand(id: "compress", title: "Compress to ZIP", isEnabled: hasSelection) { $0.compress($0.active.selection) },
-        AppCommand(id: "decompress", title: "Extract Archive", isEnabled: hasArchive) { $0.decompress($0.active.selection) },
-        AppCommand(id: "rotL", title: "Rotate Left", isEnabled: hasImage) { $0.rotateImages($0.active.selection, degrees: 270) },
-        AppCommand(id: "rotR", title: "Rotate Right", isEnabled: hasImage) { $0.rotateImages($0.active.selection, degrees: 90) },
-        AppCommand(id: "toPNG", title: "Convert Image to PNG", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "png", ext: "png") },
-        AppCommand(id: "toJPEG", title: "Convert Image to JPEG", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "jpeg", ext: "jpg") },
-        AppCommand(id: "toHEIC", title: "Convert Image to HEIC", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "heic", ext: "heic") },
-        AppCommand(id: "optimize", title: "Optimize Images…", isEnabled: hasImage) { $0.optimizeImages($0.active.selection) },
-        AppCommand(id: "stripMeta", title: "Strip Metadata", isEnabled: hasImage) { $0.stripMetadata($0.active.selection) },
-        AppCommand(id: "toWebP", title: "Convert Image to WebP", isEnabled: { hasImage($0) && FileTools.canWriteWebP }) { $0.convertImages($0.active.selection, format: "webp", ext: "webp") },
-        AppCommand(id: "toTIFF", title: "Convert Image to TIFF", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "tiff", ext: "tiff") },
-        AppCommand(id: "dupes", title: "Find Duplicates…") { $0.findDuplicates() },
-        AppCommand(id: "largeFiles", title: "Large Files…") { $0.findLargeFiles() },
-        AppCommand(id: "compare", title: "Compare Folders…") { $0.compareFolders() },
-        AppCommand(id: "sync", title: "Synchronize…") { $0.synchronize() },
-        AppCommand(id: "connect", title: "Connect to Server…") { $0.showConnect = true },
-        AppCommand(id: "copyPath", title: "Copy Path") { $0.copyPath() },
-        AppCommand(id: "reload", title: "Reload", keys: "⌥ ⌘ R") { $0.active.load() },
-        AppCommand(id: "hidden", title: "Show or Hide Hidden Files", keys: "⇧ ⌘ .") { $0.active.toggleHidden() },
-        AppCommand(id: "goToFolder", title: "Go to Folder…", keys: "⇧ ⌘ G") { $0.activateGoToFolder() },
-        AppCommand(id: "search", title: "Search", keys: "⌘ F") { $0.activateSearch() },
-        AppCommand(id: "newTab", title: "New Tab", keys: "⌘ T") { $0.newTab() },
-        AppCommand(id: "closeTab", title: "Close Tab", keys: "⌘ W") { $0.closeTab() },
-        AppCommand(id: "infoPanel", title: "Show or Hide Info Panel", keys: "⌥ ⌘ I") { $0.showInfo.toggle() },
-        AppCommand(id: "shortcuts", title: "Keyboard Shortcuts", keys: "⌥ ⌘ K") { $0.showShortcuts.toggle() },
-        AppCommand(id: "customize", title: "Customize Toolbar…") { $0.showCustomize = true },
-        AppCommand(id: "restoreToolbar", title: "Restore Toolbar Defaults") { $0.toolbarModel.restoreDefaults() },
-        AppCommand(id: "settings", title: "Settings…", keys: "⌘ ,") { $0.showSettings = true },
+        AppCommand(id: "savedSearch", title: L10n.tr("New Saved Search…")) { $0.savedSearchDialog = SavedSearch(folder: $0.active.currentURL.path) },
+        AppCommand(id: "rename", title: L10n.tr("Rename…"), keys: "F2", isEnabled: hasSelection) { $0.beginRename($0.active.selection) },
+        AppCommand(id: "duplicate", title: L10n.tr("Duplicate"), keys: "⌘ D", isEnabled: hasSelection) { $0.duplicate($0.active.selection) },
+        AppCommand(id: "copyTo", title: L10n.tr("Copy to…"), isEnabled: hasSelection) { $0.chooseFolderAndTransfer($0.active.selection, move: false) },
+        AppCommand(id: "moveTo", title: L10n.tr("Move to…"), isEnabled: hasSelection) { $0.chooseFolderAndTransfer($0.active.selection, move: true) },
+        AppCommand(id: "trash", title: L10n.tr("Move to Trash"), keys: "⌘ ⌫", isEnabled: hasSelection) { $0.trash($0.active.selection) },
+        AppCommand(id: "deleteNow", title: L10n.tr("Delete Immediately…"), keys: "⌥ ⌘ ⌫", isEnabled: hasSelection) { $0.deleteImmediately($0.active.selection) },
+        AppCommand(id: "copyOther", title: L10n.tr("Copy to Other Pane"), keys: "F5", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: false) },
+        AppCommand(id: "moveOther", title: L10n.tr("Move to Other Pane"), keys: "F6", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: true) },
+        AppCommand(id: "info", title: L10n.tr("Get Info"), keys: "⌘ I", isEnabled: hasSelection) { $0.getInfo($0.active.selection) },
+        AppCommand(id: "compress", title: L10n.tr("Compress to ZIP"), isEnabled: hasSelection) { $0.compress($0.active.selection) },
+        AppCommand(id: "decompress", title: L10n.tr("Extract Archive"), isEnabled: hasArchive) { $0.decompress($0.active.selection) },
+        AppCommand(id: "rotL", title: L10n.tr("Rotate Left"), isEnabled: hasImage) { $0.rotateImages($0.active.selection, degrees: 270) },
+        AppCommand(id: "rotR", title: L10n.tr("Rotate Right"), isEnabled: hasImage) { $0.rotateImages($0.active.selection, degrees: 90) },
+        AppCommand(id: "toPNG", title: L10n.tr("Convert Image to PNG"), isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "png", ext: "png") },
+        AppCommand(id: "toJPEG", title: L10n.tr("Convert Image to JPEG"), isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "jpeg", ext: "jpg") },
+        AppCommand(id: "toHEIC", title: L10n.tr("Convert Image to HEIC"), isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "heic", ext: "heic") },
+        AppCommand(id: "optimize", title: L10n.tr("Optimize Images…"), isEnabled: hasImage) { $0.optimizeImages($0.active.selection) },
+        AppCommand(id: "stripMeta", title: L10n.tr("Strip Metadata"), isEnabled: hasImage) { $0.stripMetadata($0.active.selection) },
+        AppCommand(id: "toWebP", title: L10n.tr("Convert Image to WebP"), isEnabled: { hasImage($0) && FileTools.canWriteWebP }) { $0.convertImages($0.active.selection, format: "webp", ext: "webp") },
+        AppCommand(id: "toTIFF", title: L10n.tr("Convert Image to TIFF"), isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "tiff", ext: "tiff") },
+        AppCommand(id: "dupes", title: L10n.tr("Find Duplicates…")) { $0.findDuplicates() },
+        AppCommand(id: "largeFiles", title: L10n.tr("Large Files…")) { $0.findLargeFiles() },
+        AppCommand(id: "compare", title: L10n.tr("Compare Folders…")) { $0.compareFolders() },
+        AppCommand(id: "sync", title: L10n.tr("Synchronize…")) { $0.synchronize() },
+        AppCommand(id: "connect", title: L10n.tr("Connect to Server…")) { $0.showConnect = true },
+        AppCommand(id: "copyPath", title: L10n.tr("Copy Path")) { $0.copyPath() },
+        AppCommand(id: "reload", title: L10n.tr("Reload"), keys: "⌥ ⌘ R") { $0.active.load() },
+        AppCommand(id: "hidden", title: L10n.tr("Show or Hide Hidden Files"), keys: "⇧ ⌘ .") { $0.active.toggleHidden() },
+        AppCommand(id: "goToFolder", title: L10n.tr("Go to Folder…"), keys: "⇧ ⌘ G") { $0.activateGoToFolder() },
+        AppCommand(id: "search", title: L10n.tr("Search"), keys: "⌘ F") { $0.activateSearch() },
+        AppCommand(id: "newTab", title: L10n.tr("New Tab"), keys: "⌘ T") { $0.newTab() },
+        AppCommand(id: "closeTab", title: L10n.tr("Close Tab"), keys: "⌘ W") { $0.closeTab() },
+        AppCommand(id: "infoPanel", title: L10n.tr("Show or Hide Info Panel"), keys: "⌥ ⌘ I") { $0.showInfo.toggle() },
+        AppCommand(id: "shortcuts", title: L10n.tr("Keyboard Shortcuts"), keys: "⌥ ⌘ K") { $0.showShortcuts.toggle() },
+        AppCommand(id: "customize", title: L10n.tr("Customize Toolbar…")) { $0.showCustomize = true },
+        AppCommand(id: "restoreToolbar", title: L10n.tr("Restore Toolbar Defaults")) { $0.toolbarModel.restoreDefaults() },
+        AppCommand(id: "settings", title: L10n.tr("Settings…"), keys: "⌘ ,") { $0.showSettings = true },
     ]
 }
 
@@ -105,7 +105,7 @@ struct CommandPalette: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search actions…", text: $query)
+                    TextField(L10n.tr("Search actions…"), text: $query)
                         .textFieldStyle(.plain)
                         .font(.system(size: 16 * s))
                         .focused($focused)
@@ -126,7 +126,7 @@ struct CommandPalette: View {
                                     .onTapGesture { run(i) }
                             }
                             if list.isEmpty {
-                                Text("No matching commands")
+                                Text(L10n.tr("No matching commands"))
                                     .font(.system(size: 13.5 * s))
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, minHeight: 60 * s)
@@ -141,9 +141,9 @@ struct CommandPalette: View {
                 }
                 Divider()
                 HStack(spacing: 18) {
-                    Text("↑ ↓ to move")
-                    Text("Return to run")
-                    Text("Esc to close")
+                    Text(L10n.tr("↑ ↓ to move"))
+                    Text(L10n.tr("Return to run"))
+                    Text(L10n.tr("Esc to close"))
                     Spacer(minLength: 0)
                 }
                 .font(.system(size: 12 * s))
@@ -209,12 +209,12 @@ struct ActionsHint: View {
             Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
             if visible {
                 HStack(spacing: 10) {
-                    Text("Press")
+                    Text(L10n.tr("Press"))
                     HStack(spacing: 4) {
                         key("⌘")
                         key("K")
                     }
-                    Text("to browse actions")
+                    Text(L10n.tr("to browse actions"))
                     Button { withAnimation { visible = false } } label: {
                         Text("✕")
                             .font(.system(size: 11 * s))

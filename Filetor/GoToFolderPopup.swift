@@ -33,14 +33,14 @@ struct GoToFolderPopup: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(showsPlaces ? "Go to Folder" : "Subfolders").font(.headline)
+                Text(showsPlaces ? L10n.tr("Go to Folder") : L10n.tr("Subfolders")).font(.headline)
                 Spacer()
                 Button { dismiss() } label: { Image(systemName: "xmark").frame(width: 20, height: 20) }
-                    .buttonStyle(.plain).help("Close").accessibilityLabel("Close folder browser")
+                    .buttonStyle(.plain).help(L10n.tr("Close")).accessibilityLabel(L10n.tr("Close folder browser"))
             }
             if showsPlaces {
                 HStack {
-                    TextField("Type or paste a path", text: Binding(get: { model.path }, set: {
+                    TextField(L10n.tr("Type or paste a path"), text: Binding(get: { model.path }, set: {
                         source = .folder; selected = nil; pathError = nil; action.stop(); model.edit($0)
                     }))
                     .textFieldStyle(.roundedBorder).focused($focused)
@@ -48,20 +48,20 @@ struct GoToFolderPopup: View {
                     .onKeyPress(.downArrow) { select(1); return .handled }
                     .onKeyPress(.upArrow) { select(-1); return .handled }
                     .onKeyPress(.tab) { complete(); return .handled }
-                    Button("Go") { submit() }.disabled(action.opening)
+                    Button(L10n.tr("Go")) { submit() }.disabled(action.opening)
                 }
-                Picker("Locations", selection: $source) {
-                    ForEach(Source.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                Picker(L10n.tr("Locations"), selection: $source) {
+                    ForEach(Source.allCases, id: \.self) { Text(L10n.key($0.rawValue)).tag($0) }
                 }.pickerStyle(.segmented).labelsHidden()
             }
             if source == .folder {
                 HStack(spacing: 8) {
                     Button { action.stop(); model.back(); selected = nil } label: { Image(systemName: "chevron.left") }
-                        .disabled(!model.canGoBack).help("Back in folder browser")
+                        .disabled(!model.canGoBack).help(L10n.tr("Back in folder browser"))
                     Button { browse(model.directory.deletingLastPathComponent()) } label: { Image(systemName: "arrow.up") }
-                        .disabled(model.directory.path == "/").help("Browse parent folder")
+                        .disabled(model.directory.path == "/").help(L10n.tr("Browse parent folder"))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(model.completing ? "Matching paths" : folderName(model.directory))
+                        Text(model.completing ? L10n.tr("Matching paths") : folderName(model.directory))
                             .fontWeight(.medium).lineLimit(1).truncationMode(.middle)
                         if !model.completing {
                             Text((model.directory.path as NSString).abbreviatingWithTildeInPath)
@@ -69,14 +69,14 @@ struct GoToFolderPopup: View {
                         }
                     }
                     Spacer(minLength: 0)
-                    if !model.completing { Button("Open") { open(model.directory) }.help("Open this folder") }
+                    if !model.completing { Button(L10n.tr("Open")) { open(model.directory) }.help(L10n.tr("Open this folder")) }
                 }.buttonStyle(.borderless)
             } else {
                 HStack {
-                    Text(source == .favorites ? "Your sidebar favorites" : "Recently opened folders").foregroundStyle(.secondary)
+                    Text(source == .favorites ? L10n.tr("Your sidebar favorites") : L10n.tr("Recently opened folders")).foregroundStyle(.secondary)
                     Spacer()
                     if source == .recent, !RecentFolders.shared.urls.isEmpty {
-                        Button("Clear") { RecentFolders.shared.clear() }.buttonStyle(.borderless)
+                        Button(L10n.tr("Clear")) { RecentFolders.shared.clear() }.buttonStyle(.borderless)
                     }
                 }.font(.caption)
             }
@@ -104,12 +104,12 @@ struct GoToFolderPopup: View {
                 HStack(alignment: .top) {
                     Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(3)
                     Spacer(minLength: 0)
-                    if source == .folder { Button("Retry") { model.refresh() }.controlSize(.small) }
+                    if source == .folder { Button(L10n.tr("Retry")) { model.refresh() }.controlSize(.small) }
                 }
             }
-            if action.opening { ProgressView("Opening…").controlSize(.small) }
+            if action.opening { ProgressView(L10n.tr("Opening…")).controlSize(.small) }
             Divider()
-            Text("Click a name to open. Click › to browse inside.")
+            Text(L10n.tr("Click a name to open. Click › to browse inside."))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(16)
@@ -126,9 +126,9 @@ struct GoToFolderPopup: View {
 
     private var emptyMessage: String {
         switch source {
-        case .folder: model.completing ? "No matching paths" : "No subfolders"
-        case .favorites: "Add folders to Favorites in the sidebar."
-        case .recent: "Folders you open will appear here."
+        case .folder: model.completing ? L10n.tr("No matching paths") : L10n.tr("No subfolders")
+        case .favorites: L10n.tr("Add folders to Favorites in the sidebar.")
+        case .recent: L10n.tr("Folders you open will appear here.")
         }
     }
 
@@ -152,15 +152,15 @@ struct GoToFolderPopup: View {
                 }
                 .padding(.horizontal, 8).padding(.vertical, 8).contentShape(Rectangle())
             }
-            .buttonStyle(.plain).help("Open " + entry.url.path)
+            .buttonStyle(.plain).help(L10n.tr("Open ") + entry.url.path)
             .accessibilityIdentifier("folder-open:" + entry.url.path)
             if entry.directory {
                 Button { browse(entry.url) } label: {
                     Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
                         .frame(width: 32, height: 32).contentShape(Rectangle())
                 }
-                .buttonStyle(.borderless).help("Browse subfolders of " + folderName(entry.url))
-                .accessibilityLabel("Browse subfolders of " + folderName(entry.url))
+                .buttonStyle(.borderless).help(L10n.tr("Browse subfolders of ") + folderName(entry.url))
+                .accessibilityLabel(L10n.tr("Browse subfolders of ") + folderName(entry.url))
                 .accessibilityIdentifier("folder-browse:" + entry.url.path)
             }
         }

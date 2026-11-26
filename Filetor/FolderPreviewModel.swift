@@ -20,7 +20,7 @@ nonisolated enum FolderPreviewReader {
         guard !cancelled() else { throw CancellationError() }
         guard FileItem(url: URL(fileURLWithPath: url.path)).expandable else {
             throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadUnsupportedSchemeError,
-                          userInfo: [NSLocalizedDescriptionKey: "This folder is no longer available. Refresh to try again."])
+                          userInfo: [NSLocalizedDescriptionKey: L10n.tr("This folder is no longer available. Refresh to try again.")])
         }
         var failure: Error?
         var options: FileManager.DirectoryEnumerationOptions = [.skipsSubdirectoryDescendants, .skipsPackageDescendants]
@@ -28,7 +28,7 @@ nonisolated enum FolderPreviewReader {
         guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: FileItem.keys,
                 options: options, errorHandler: { _, error in failure = error; return false }) else {
             throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadUnknownError,
-                          userInfo: [NSLocalizedDescriptionKey: "Could not read this folder. Check access permissions and disk availability."])
+                          userInfo: [NSLocalizedDescriptionKey: L10n.tr("Could not read this folder. Check access permissions and disk availability.")])
         }
         var items: [FileItem] = []
         var truncated = false
@@ -107,12 +107,12 @@ final class FolderPreviewModel {
         guard !node.loaded, !node.loading, let item = node.item, node === root || item.expandable else { return }
         let limit = min(Self.perFolderLimit, Self.totalLimit - loadedCount - reserved)
         guard limit > 0 else {
-            node.children = [.init(message: "Preview limit reached. Refresh or open this folder to see more.")]
+            node.children = [.init(message: L10n.tr("Preview limit reached. Refresh or open this folder to see more."))]
             changed?(node === root ? nil : node)
             return
         }
         node.loading = true
-        node.children = [.init(message: "Loading…")]
+        node.children = [.init(message: L10n.tr("Loading…"))]
         reserved += limit
         let generation = generation
         operations[item.url] = FolderPreviewReader.start(item.url, showHidden: showHidden, limit: limit) { [weak self, weak node] result in
@@ -127,13 +127,13 @@ final class FolderPreviewModel {
                 self.loadedCount += listing.items.count
                 node.children = listing.items.map { FolderPreviewNode(item: $0) }
                 if listing.truncated {
-                    node.children.append(.init(message: "Showing a limited preview (\(listing.items.count) items). Open the folder to see all items."))
+                    node.children.append(.init(message: L10n.tr("Showing a limited preview (\(listing.items.count) items). Open the folder to see all items.")))
                 } else if listing.items.isEmpty {
-                    node.children = [.init(message: self.showHidden ? "This folder is empty." : "No visible items. Hidden items may be present.")]
+                    node.children = [.init(message: self.showHidden ? L10n.tr("This folder is empty.") : L10n.tr("No visible items. Hidden items may be present."))]
                 }
             case .failure(let error):
                 node.error = error.localizedDescription
-                node.children = [.init(message: "Could not read folder: \(error.localizedDescription) Refresh to retry.")]
+                node.children = [.init(message: L10n.tr("Could not read folder: \(error.localizedDescription) Refresh to retry."))]
             }
             self.changed?(node === self.root ? nil : node)
         }

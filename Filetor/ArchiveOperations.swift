@@ -39,7 +39,7 @@ nonisolated enum ArchiveOperations {
         if control.cancelled { throw CancellationError() }
         let errors = staging.appending(path: ".command-errors-\(UUID().uuidString)")
         guard FileManager.default.createFile(atPath: errors.path, contents: nil) else {
-            throw FileOperationSafety.failure("Could not create the archive operation log.")
+            throw FileOperationSafety.failure(L10n.tr("Could not create the archive operation log."))
         }
         defer { try? FileManager.default.removeItem(at: errors) }
         let errorHandle = try FileHandle(forWritingTo: errors)
@@ -47,7 +47,7 @@ nonisolated enum ArchiveOperations {
         var outputHandle: FileHandle?
         if let output {
             guard FileManager.default.createFile(atPath: output.path, contents: nil) else {
-                throw FileOperationSafety.failure("Could not create the decompressed file.")
+                throw FileOperationSafety.failure(L10n.tr("Could not create the decompressed file."))
             }
             outputHandle = try FileHandle(forWritingTo: output)
         }
@@ -80,7 +80,7 @@ nonisolated enum ArchiveOperations {
             defer { try? handle.close() }
             let data = try handle.read(upToCount: 16_384) ?? Data()
             let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-            throw FileOperationSafety.failure(text.isEmpty ? "The archive operation failed." : text)
+            throw FileOperationSafety.failure(text.isEmpty ? L10n.tr("The archive operation failed.") : text)
         }
     }
 
@@ -108,7 +108,7 @@ nonisolated enum ArchiveOperations {
             for url in urls {
                 let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
                 if values.isDirectory == true, values.isSymbolicLink != true, FileOperationSafety.contains(url, directory) {
-                    throw FileOperationSafety.failure("Choose an output folder outside the folders being compressed.")
+                    throw FileOperationSafety.failure(L10n.tr("Choose an output folder outside the folders being compressed."))
                 }
             }
             let staging = try stage(in: directory)
@@ -150,7 +150,7 @@ nonisolated enum ArchiveOperations {
             do {
                 if control.cancelled { throw CancellationError() }
                 guard canExtract(url), let format = format(url), FileOperationSafety.validName(format.name) else {
-                    throw FileOperationSafety.failure("This format is not supported by built-in extraction. Use Open With to choose another application.")
+                    throw FileOperationSafety.failure(L10n.tr("This format is not supported by built-in extraction. Use Open With to choose another application."))
                 }
                 control.setName(url.lastPathComponent)
                 let staging = try stage(in: directory)

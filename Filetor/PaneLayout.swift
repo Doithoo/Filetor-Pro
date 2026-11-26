@@ -2,7 +2,7 @@ import SwiftUI
 
 enum PaneSplitAxis: String, Codable, CaseIterable {
     case horizontal, vertical
-    var title: String { self == .horizontal ? "Split Horizontally (Top / Bottom)" : "Split Vertically (Left / Right)" }
+    var title: String { self == .horizontal ? L10n.tr("Split Horizontally (Top / Bottom)") : L10n.tr("Split Vertically (Left / Right)") }
 }
 
 /// Stable group identities make nested layout edits independent of array indices.
@@ -122,7 +122,7 @@ struct PaneChoiceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(choice.title).font(.headline)
-            Text("Choose a destination pane").foregroundStyle(.secondary)
+            Text(L10n.tr("Choose a destination pane")).foregroundStyle(.secondary)
             ScrollView {
                 VStack(spacing: 6) {
                     ForEach(choice.destinations) { destination in
@@ -138,7 +138,7 @@ struct PaneChoiceView: View {
                     }
                 }
             }.frame(maxHeight: 320)
-            HStack { Spacer(); Button("Cancel") { app.pendingPaneChoice = nil }.keyboardShortcut(.cancelAction) }
+            HStack { Spacer(); Button(L10n.tr("Cancel")) { app.pendingPaneChoice = nil }.keyboardShortcut(.cancelAction) }
         }.padding(20).frame(width: 440)
     }
 }

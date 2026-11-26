@@ -40,7 +40,11 @@ The app keeps its native interface and small footprint: no Electron runtime, emb
 
 ## Install and update
 
-Current release: **Filetor Pro 0.14.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+**Languages / 语言**: English and 简体中文. Choose **Settings → General → Interface language** (Follow System, 简体中文, or English), then quit and reopen Filetor Pro. The default follows your system language; filenames, tags, paths and saved toolbar/workspace layouts stay unchanged.
+
+支持英文和简体中文，可在**设置 → 通用 → 界面语言**中选择“跟随系统 / English / 简体中文”，退出并重新打开后生效。菜单、设置、右键菜单、工具栏提示、内置预览和离线帮助均支持中文。
+
+Current release: **Filetor Pro 0.15.0**. Requires **Apple Silicon and macOS 26 or later** for the published build.
 
 Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
 

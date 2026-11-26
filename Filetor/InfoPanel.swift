@@ -73,33 +73,33 @@ struct InfoPanel: View {
                     .font(.system(size: 15 * s, weight: .semibold))
                     .textSelection(.enabled)
                 if isFolderView {
-                    Text("Current folder").foregroundStyle(.secondary)
+                    Text(L10n.tr("Current folder")).foregroundStyle(.secondary)
                 }
             }
             Divider()
-            row("Kind", item.kind)
-            row("Size", sizeText)
-            row("Where", url.deletingLastPathComponent().path)
+            row(L10n.tr("Kind"), item.kind)
+            row(L10n.tr("Size"), sizeText)
+            row(L10n.tr("Where"), url.deletingLastPathComponent().path)
             Divider()
-            row("Created", date(item.created))
-            row("Modified", date(item.modified))
-            row("Last opened", date(item.lastOpened))
+            row(L10n.tr("Created"), date(item.created))
+            row(L10n.tr("Modified"), date(item.modified))
+            row(L10n.tr("Last opened"), date(item.lastOpened))
         }
         .font(.system(size: 12.5 * s))
     }
 
     private func multiple(_ urls: [URL]) -> some View {
         VStack(alignment: .leading, spacing: 14 * s) {
-            Text("\(urls.count) items selected")
+            Text(L10n.tr("\(urls.count) items selected"))
                 .font(.system(size: 15 * s, weight: .semibold))
             Divider()
-            row("Total size", sizeText)
+            row(L10n.tr("Total size"), sizeText)
         }
         .font(.system(size: 12.5 * s))
     }
 
     private var sizeText: String {
-        guard let totalSize else { return "Calculating…" }
+        guard let totalSize else { return L10n.tr("Calculating…") }
         return ByteCountFormatter.string(fromByteCount: totalSize, countStyle: .file)
     }
 

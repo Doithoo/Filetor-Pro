@@ -70,22 +70,22 @@ nonisolated enum RenameTransaction {
     static func run(_ moves: [Move], move: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }) throws {
         guard !moves.isEmpty else { return }
         let sources = Set(moves.map { $0.from.standardizedFileURL.path })
-        guard sources.count == moves.count else { throw FileOperationSafety.failure("A file was selected more than once.") }
+        guard sources.count == moves.count else { throw FileOperationSafety.failure(L10n.tr("A file was selected more than once.")) }
         var destinations = Set<String>()
         for m in moves {
             let name = m.to.lastPathComponent
             guard FileOperationSafety.validName(name), m.from.deletingLastPathComponent().standardizedFileURL == m.to.deletingLastPathComponent().standardizedFileURL else {
-                throw FileOperationSafety.failure("Invalid file name.")
+                throw FileOperationSafety.failure(L10n.tr("Invalid file name."))
             }
             guard destinations.insert(m.to.standardizedFileURL.path).inserted else {
-                throw FileOperationSafety.failure("Two files would get the same name.")
+                throw FileOperationSafety.failure(L10n.tr("Two files would get the same name."))
             }
             if FileOperationSafety.exists(m.to), !moves.contains(where: { FileOperationSafety.sameItem($0.from, m.to) }) {
-                throw FileOperationSafety.failure("\"\(name)\" already exists.")
+                throw FileOperationSafety.failure(L10n.tr("\"\(name)\" already exists."))
             }
             if moves.contains(where: { other in
                 other.from != m.from && FileOperationSafety.contains(other.from, m.from.deletingLastPathComponent())
-            }) { throw FileOperationSafety.failure("Rename folders and their contents separately.") }
+            }) { throw FileOperationSafety.failure(L10n.tr("Rename folders and their contents separately.")) }
         }
         var staged: [(original: URL, temporary: URL, final: URL)] = []
         var committed = 0
@@ -109,9 +109,9 @@ nonisolated enum RenameTransaction {
             }
             for entry in staged.reversed() where FileOperationSafety.exists(entry.temporary) {
                 do { try move(entry.temporary, entry.original) }
-                catch { recovery.append("Recover \(entry.temporary.path) to \(entry.original.path): \(error.localizedDescription)") }
+                catch { recovery.append(L10n.tr("Recover \(entry.temporary.path) to \(entry.original.path): \(error.localizedDescription)")) }
             }
-            throw FileOperationSafety.failure(originalError + (recovery.isEmpty ? "\nOriginal names restored." : "\nRecovery needed:\n" + recovery.joined(separator: "\n")))
+            throw FileOperationSafety.failure(originalError + (recovery.isEmpty ? L10n.tr("\nOriginal names restored.") : L10n.tr("\nRecovery needed:\n") + recovery.joined(separator: "\n")))
         }
     }
 }

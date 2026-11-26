@@ -21,7 +21,7 @@ nonisolated enum FileTools {
         p.waitUntilExit()
         if p.terminationStatus == 0 { return nil }
         let text = String(data: data, encoding: .utf8) ?? ""
-        return text.isEmpty ? "The command failed." : text
+        return text.isEmpty ? L10n.tr("The command failed.") : text
     }
 
     static func exists(_ url: URL) -> Bool {
@@ -51,7 +51,7 @@ nonisolated enum FileTools {
     static func isArchive(_ url: URL) -> Bool { ArchiveOperations.canExtract(url) }
 
     static func decompress(_ urls: [URL], in dir: URL) -> String? {
-        guard !urls.isEmpty else { return "Select one or more archives." }
+        guard !urls.isEmpty else { return L10n.tr("Select one or more archives.") }
         let result = ArchiveOperations.extract(urls, in: dir, control: TransferControl())
         return result.failures.isEmpty ? nil : result.failures.joined(separator: "\n")
     }
@@ -66,7 +66,7 @@ nonisolated enum FileTools {
     /// Rotates images in place (90 = right, 270 = left), like Finder.
     static func rotate(_ urls: [URL], degrees: Int) -> String? {
         let images = urls.filter(isImage)
-        if images.isEmpty { return "Select one or more image files." }
+        if images.isEmpty { return L10n.tr("Select one or more image files.") }
         var errors: [String] = []
         for url in images {
             if let err = run("/usr/bin/sips", ["-r", String(degrees), url.path]) {
@@ -88,7 +88,7 @@ nonisolated enum FileTools {
     }
 
     private static func writeWebP(_ url: URL, to dest: URL) -> String? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return "Could not read the image." }
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return L10n.tr("Could not read the image.") }
         #if canImport(libwebp)
         let opts: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -96,18 +96,18 @@ nonisolated enum FileTools {
             kCGImageSourceThumbnailMaxPixelSize: 1 << 16,
         ]
         guard let image = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary),
-              let data = encodeWebP(image, quality: 85) else { return "Could not encode WebP." }
+              let data = encodeWebP(image, quality: 85) else { return L10n.tr("Could not encode WebP.") }
         do { try data.write(to: dest); return nil } catch { return error.localizedDescription }
         #else
-        guard let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return "Could not read the image." }
+        guard let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return L10n.tr("Could not read the image.") }
         guard let out = CGImageDestinationCreateWithURL(dest as CFURL, webPType as CFString, 1, nil) else {
-            return "This macOS cannot write WebP."
+            return L10n.tr("This macOS cannot write WebP.")
         }
         let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
         var options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.85]
         if let o = props?[kCGImagePropertyOrientation] { options[kCGImagePropertyOrientation] = o }
         CGImageDestinationAddImage(out, image, options as CFDictionary)
-        return CGImageDestinationFinalize(out) ? nil : "Could not write the image."
+        return CGImageDestinationFinalize(out) ? nil : L10n.tr("Could not write the image.")
         #endif
     }
 
@@ -148,7 +148,7 @@ nonisolated enum FileTools {
     /// Writes a converted copy next to each image and leaves the original untouched.
     static func convert(_ urls: [URL], format: String, ext: String) -> String? {
         let images = urls.filter(isImage)
-        if images.isEmpty { return "Select one or more image files." }
+        if images.isEmpty { return L10n.tr("Select one or more image files.") }
         var errors: [String] = []
         for url in images {
             let dest = unique(url.deletingLastPathComponent()
@@ -166,11 +166,11 @@ nonisolated enum FileTools {
     /// The orientation is kept, otherwise a rotated photo would show sideways.
     static func stripMetadata(_ urls: [URL]) -> String? {
         let images = urls.filter(isImage)
-        if images.isEmpty { return "Select one or more image files." }
+        if images.isEmpty { return L10n.tr("Select one or more image files.") }
         var errors: [String] = []
         for url in images {
             guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), let type = CGImageSourceGetType(src) else {
-                errors.append("\(url.lastPathComponent): Could not read the image.")
+                errors.append(L10n.tr("\(url.lastPathComponent): Could not read the image."))
                 continue
             }
             let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
@@ -205,7 +205,7 @@ nonisolated enum FileTools {
             }
             if !ok {
                 try? FileManager.default.removeItem(at: dest)
-                errors.append("\(url.lastPathComponent): Could not write the clean copy.")
+                errors.append(L10n.tr("\(url.lastPathComponent): Could not write the clean copy."))
             }
         }
         return errors.isEmpty ? nil : errors.joined(separator: "\n")
@@ -252,13 +252,13 @@ nonisolated extension FileTools {
         }
         let fm = FileManager.default
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), var type = CGImageSourceGetType(src) else {
-            return fail("Could not read the image.")
+            return fail(L10n.tr("Could not read the image."))
         }
         if let t = UTType(type as String), t.conforms(to: .bmp) { type = UTType.png.identifier as CFString }
         let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] ?? [:]
         let w = (props[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0
         let h = (props[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0
-        guard w > 0, h > 0 else { return fail("Could not read the size.") }
+        guard w > 0, h > 0 else { return fail(L10n.tr("Could not read the size.")) }
         let longSide = max(w, h)
         let target = min(options.maxSide ?? longSide, longSide)
         let thumbOptions: [CFString: Any] = [
@@ -267,7 +267,7 @@ nonisolated extension FileTools {
             kCGImageSourceThumbnailMaxPixelSize: target,
         ]
         guard var image = CGImageSourceCreateThumbnailAtIndex(src, 0, thumbOptions as CFDictionary) else {
-            return fail("Could not read the image.")
+            return fail(L10n.tr("Could not read the image."))
         }
 
         let isJPEG = UTType(type as String)?.conforms(to: .jpeg) == true
@@ -304,19 +304,19 @@ nonisolated extension FileTools {
         if UTType(type as String)?.conforms(to: .webP) == true {
             guard let data = encodeWebP(image, quality: Float(options.quality * 100)), (try? data.write(to: writeURL)) != nil else {
                 try? fm.removeItem(at: writeURL)
-                return fail("Could not write the image.")
+                return fail(L10n.tr("Could not write the image."))
             }
             wroteWebP = true
         }
         #endif
         if !wroteWebP {
             guard let out = CGImageDestinationCreateWithURL(writeURL as CFURL, type, 1, nil) else {
-                return fail("This format cannot be written.")
+                return fail(L10n.tr("This format cannot be written."))
             }
             CGImageDestinationAddImage(out, image, dict as CFDictionary)
             guard CGImageDestinationFinalize(out) else {
                 try? fm.removeItem(at: writeURL)
-                return fail("Could not write the image.")
+                return fail(L10n.tr("Could not write the image."))
             }
         }
         if options.pngPalette, options.strip, UTType(type as String)?.conforms(to: .png) == true,
@@ -330,7 +330,7 @@ nonisolated extension FileTools {
         do { try fm.trashItem(at: url, resultingItemURL: &trashed) }
         catch {
             try? fm.removeItem(at: writeURL)
-            return fail("The original could not be moved to the Trash. \(error.localizedDescription)")
+            return fail(L10n.tr("The original could not be moved to the Trash. \(error.localizedDescription)"))
         }
         let final = unique(dir.appending(path: base + "." + ext))
         do { try fm.moveItem(at: writeURL, to: final) }
@@ -339,7 +339,7 @@ nonisolated extension FileTools {
             let failure = error.localizedDescription
             if let trashed {
                 do { try fm.moveItem(at: trashed as URL, to: url) }
-                catch { return fail("\(failure) Original preserved at \((trashed as URL).path).") }
+                catch { return fail(L10n.tr("\(failure) Original preserved at \((trashed as URL).path).")) }
             }
             return fail(failure)
         }

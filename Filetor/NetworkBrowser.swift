@@ -57,7 +57,7 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
                 if let first = paths.first {
                     self.onMounted?(URL(filePath: first))
                 } else if rc != 0 && rc != -128 && rc != 17 {
-                    self.onError?("Couldn't connect to \(name) (error \(rc)).")
+                    self.onError?(L10n.tr("Couldn't connect to \(name) (error \(rc))."))
                 }
             }
         }
@@ -107,7 +107,7 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
         let key = ObjectIdentifier(sender)
         Task { @MainActor in
             self.resolving.removeAll { ObjectIdentifier($0) == key }
-            self.onError?("Couldn't reach \(name).")
+            self.onError?(L10n.tr("Couldn't reach \(name)."))
         }
     }
 }

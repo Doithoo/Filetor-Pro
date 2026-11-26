@@ -97,10 +97,10 @@ struct LargeFilesPanel: View {
     private var summary: String {
         guard let data = app.largeFiles else { return "" }
         let name = data.root.lastPathComponent.isEmpty ? "/" : data.root.lastPathComponent
-        if data.scanning { return "Scanning \(name)…" }
-        if data.files.isEmpty { return "No files found in \(name)." }
+        if data.scanning { return L10n.tr("Scanning \(name)…") }
+        if data.files.isEmpty { return L10n.tr("No files found in \(name).") }
         let total = ByteCountFormatter.string(fromByteCount: data.total, countStyle: .file)
-        return "The \(data.files.count) largest files in \(name), \(total) together."
+        return L10n.tr("The \(data.files.count) largest files in \(name), \(total) together.")
     }
 
     private func pick(_ key: SortKey) {
@@ -124,14 +124,14 @@ struct LargeFilesPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Large Files").font(.system(size: 22 * s))
+            Text(L10n.tr("Large Files")).font(.system(size: 22 * s))
             Text(summary).foregroundStyle(.secondary)
             if let data = app.largeFiles, !data.files.isEmpty {
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
-                        headerLabel("Name", .name)
-                        headerLabel("Date Modified", .date).frame(width: 120 * s)
-                        headerLabel("Size", .size, trailing: true).frame(width: 76 * s)
+                        headerLabel(L10n.tr("Name"), .name)
+                        headerLabel(L10n.tr("Date Modified"), .date).frame(width: 120 * s)
+                        headerLabel(L10n.tr("Size"), .size, trailing: true).frame(width: 76 * s)
                         Color.clear.frame(width: 62 * s, height: 1)
                     }
                     .font(.system(size: 12 * s, weight: .semibold))
@@ -151,7 +151,7 @@ struct LargeFilesPanel: View {
             }
             HStack {
                 Spacer()
-                Button("Done") { close() }
+                Button(L10n.tr("Done")) { close() }
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     .keyboardShortcut(.defaultAction)
                     .background { Button("") { close() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0) }
@@ -185,11 +185,11 @@ private struct LargeFileRow: View {
             Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
                 .frame(width: 76 * scale, alignment: .trailing)
             HStack(spacing: 6) {
-                RowIconButton(symbol: "magnifyingglass", size: 13.5, help: "Show in Folder", danger: false, scale: scale) {
+                RowIconButton(symbol: "magnifyingglass", size: 13.5, help: L10n.tr("Show in Folder"), danger: false, scale: scale) {
                     app.showLargeFile(file)
                     close()
                 }
-                RowIconButton(symbol: "trash", size: 10.5, help: "Move to Trash", danger: true, scale: scale) {
+                RowIconButton(symbol: "trash", size: 10.5, help: L10n.tr("Move to Trash"), danger: true, scale: scale) {
                     app.trashFromLargeFiles(file)
                 }
             }

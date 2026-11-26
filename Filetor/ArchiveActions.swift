@@ -6,14 +6,14 @@ enum ArchiveMenuAction: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .compress: return "Compress to ZIP"
-        case .extract: return "Extract Archive"
+        case .compress: return L10n.tr("Compress to ZIP")
+        case .extract: return L10n.tr("Extract Archive")
         }
     }
     var help: String {
         switch self {
-        case .compress: return "Create a ZIP in the current folder. Original files are kept."
-        case .extract: return "Extract into a new folder here. Original archives and existing files are kept."
+        case .compress: return L10n.tr("Create a ZIP in the current folder. Original files are kept.")
+        case .extract: return L10n.tr("Extract into a new folder here. Original archives and existing files are kept.")
         }
     }
     static func available(for urls: Set<URL>) -> [Self] {
@@ -46,12 +46,12 @@ struct OpenWithContextMenu: View {
     let app: AppModel
     var body: some View {
         let applications = app.openApps(for: urls)
-        Menu("Open With") {
+        Menu(L10n.tr("Open With")) {
             ForEach(applications, id: \.self) { url in
                 Button(FileManager.default.displayName(atPath: url.path)) { app.open(urls, with: url) }
             }
             if !applications.isEmpty { Divider() }
-            Button("Other…") { app.chooseApplication(for: urls) }
+            Button(L10n.tr("Other…")) { app.chooseApplication(for: urls) }
         }
     }
 }
@@ -64,8 +64,8 @@ extension AppModel {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.prompt = "Open"
-        panel.message = "Choose an application to open the selected files."
+        panel.prompt = L10n.tr("Open")
+        panel.message = L10n.tr("Choose an application to open the selected files.")
         guard panel.runModal() == .OK, let application = panel.url else { return }
         open(urls, with: application)
     }
@@ -75,11 +75,11 @@ extension AppModel {
         let pane = active
         let directory = pane.currentURL
         let list = urls.sorted { $0.path < $1.path }
-        let job = TransferJob(title: extracting ? "Extracting \(list.count) archive(s)" : "Compressing to ZIP")
+        let job = TransferJob(title: extracting ? L10n.tr("Extracting \(list.count) archive(s)") : L10n.tr("Compressing to ZIP"))
         job.indeterminate = true
         transfers.jobs.append(job)
         Task {
-            job.currentName = "Waiting for other file operations…"
+            job.currentName = L10n.tr("Waiting for other file operations…")
             let acquired = await TransferScheduler.shared.acquire(job.id)
             guard acquired, !job.control.cancelled else {
                 if acquired { TransferScheduler.shared.release(job.id) }
@@ -101,9 +101,9 @@ extension AppModel {
             job.indeterminate = false
             job.fraction = 1
             job.isFinished = true
-            job.currentName = result.cancelled ? "Cancelled; completed results were kept" : (result.failures.isEmpty ? "Completed" : "Completed with errors")
+            job.currentName = result.cancelled ? L10n.tr("Cancelled; completed results were kept") : (result.failures.isEmpty ? L10n.tr("Completed") : L10n.tr("Completed with errors"))
             pane.reloadKeepingSelection()
-            if !result.failures.isEmpty { alert = result.failures.joined(separator: "\n") + (extracting ? "\nEncrypted or unsupported archives can be opened with another application using Open With." : "") }
+            if !result.failures.isEmpty { alert = result.failures.joined(separator: "\n") + (extracting ? L10n.tr("\nEncrypted or unsupported archives can be opened with another application using Open With.") : "") }
             try? await Task.sleep(for: .seconds(1))
             transfers.jobs.removeAll { $0.id == job.id }
         }

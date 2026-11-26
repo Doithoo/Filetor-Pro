@@ -38,7 +38,7 @@ struct DropStackList: NSViewRepresentable {
         table.onDelete = { [weak c] in c?.removeSelected() }
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "Remove from Drop Stack", action: #selector(Coordinator.removeSelectedAction), keyEquivalent: "").target = c
+        menu.addItem(withTitle: L10n.tr("Remove from Drop Stack"), action: #selector(Coordinator.removeSelectedAction), keyEquivalent: "").target = c
         table.menu = menu
 
         let scroll = NSScrollView()
@@ -100,10 +100,10 @@ struct DropStackList: NSViewRepresentable {
 
             let remove = NSButton()
             remove.isBordered = false
-            remove.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Remove")?
+            remove.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: L10n.tr("Remove"))?
                 .withSymbolConfiguration(.init(pointSize: 9 * s, weight: .semibold))
             remove.contentTintColor = NSColor.secondaryLabelColor
-            remove.toolTip = "Remove from Drop Stack"
+            remove.toolTip = L10n.tr("Remove from Drop Stack")
             remove.target = self
             remove.action = #selector(removeOne(_:))
             remove.tag = row

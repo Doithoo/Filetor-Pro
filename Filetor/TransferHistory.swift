@@ -17,7 +17,7 @@ nonisolated final class TransferHistory: @unchecked Sendable {
 
     private func move(_ source: URL, to destination: URL) throws {
         guard !FileOperationSafety.exists(destination) else {
-            throw FileOperationSafety.failure("\(destination.path) already exists. Move it aside before retrying.")
+            throw FileOperationSafety.failure(L10n.tr("\(destination.path) already exists. Move it aside before retrying."))
         }
         try fm.moveItem(at: source, to: destination)
     }
@@ -26,7 +26,7 @@ nonisolated final class TransferHistory: @unchecked Sendable {
         var result: NSURL?
         do {
             try fm.trashItem(at: url, resultingItemURL: &result)
-            guard let result else { throw FileOperationSafety.failure("The system did not return a recovery location for \(url.path).") }
+            guard let result else { throw FileOperationSafety.failure(L10n.tr("The system did not return a recovery location for \(url.path).")) }
             return result as URL
         } catch {
             guard FileOperationSafety.exists(url) else { throw error }
@@ -58,7 +58,7 @@ nonisolated final class TransferHistory: @unchecked Sendable {
                 }
             } catch { errors.append("\(r.dst.path): \(error.localizedDescription)") }
         }
-        return errors.isEmpty ? nil : errors.joined(separator: "\n") + "\nCompleted items are remembered. Retry Undo after resolving the problem."
+        return errors.isEmpty ? nil : errors.joined(separator: "\n") + L10n.tr("\nCompleted items are remembered. Retry Undo after resolving the problem.")
     }
 
     func redo() -> String? {
@@ -77,7 +77,7 @@ nonisolated final class TransferHistory: @unchecked Sendable {
                 }
                 if !entries[i].resultAtDestination {
                     guard let source = r.moved ? r.src : entries[i].savedResult else {
-                        throw FileOperationSafety.failure("The undo recovery item is unavailable.")
+                        throw FileOperationSafety.failure(L10n.tr("The undo recovery item is unavailable."))
                     }
                     try move(source, to: r.dst)
                     entries[i].resultAtDestination = true
@@ -88,11 +88,11 @@ nonisolated final class TransferHistory: @unchecked Sendable {
                 if !entries[i].resultAtDestination, !entries[i].originalAtDestination,
                    let original = entries[i].record.trashed, !FileOperationSafety.exists(originalDestination) {
                     do { try move(original, to: originalDestination); entries[i].originalAtDestination = true }
-                    catch { errors.append("Original preserved at \(original.path).") }
+                    catch { errors.append(L10n.tr("Original preserved at \(original.path).")) }
                 }
                 errors.append("\(r.dst.path): \(error.localizedDescription)")
             }
         }
-        return errors.isEmpty ? nil : errors.joined(separator: "\n") + "\nCompleted items are remembered. Retry Redo after resolving the problem."
+        return errors.isEmpty ? nil : errors.joined(separator: "\n") + L10n.tr("\nCompleted items are remembered. Retry Redo after resolving the problem.")
     }
 }

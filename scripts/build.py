@@ -13,11 +13,16 @@ from build_support import APP_PATH, BUILD_DIR, BUNDLE_ID, CONFIG, EXECUTABLE, FE
 root = Path(__file__).resolve().parents[1]
 out = BUILD_DIR
 out.mkdir(parents=True, exist_ok=True)
+subprocess.run([sys.executable, str(root / "scripts/check_localization.py")], check=True)
 app = APP_PATH
 macos = app / "Contents" / "MacOS"
 resources = app / "Contents" / "Resources"
 macos.mkdir(parents=True, exist_ok=True)
 resources.mkdir(parents=True, exist_ok=True)
+# Shared by the app and command-line regression runner.
+for source in sorted((root / "Filetor").glob("*.lproj")):
+    shutil.copytree(source, resources / source.name, dirs_exist_ok=True)
+    shutil.copytree(source, out / "Resources" / source.name, dirs_exist_ok=True)
 sdk = subprocess.check_output(["xcrun", "--show-sdk-path"], text=True).strip()
 # The installed 27.x CLT SDK declares SwiftUI macros but omits their compiler
 # plugin. Use the installed stable SDK, or an explicit SDKROOT, for local builds.
@@ -42,9 +47,11 @@ if testing:
     command += [str(p) for p in sorted((root / "Tests").glob("*Regression.swift"))]
     subprocess.run(command, check=True)
     test_args = [arg for arg in sys.argv[1:] if arg != "--test"]
-    subprocess.run([str(out / "FiletorRegression")] + test_args, check=True, timeout=180)
+    subprocess.run([str(out / "FiletorRegression"), "-AppleLanguages", "(en)"] + test_args, check=True, timeout=180)
     if not test_args:
-        subprocess.run([str(out / "FiletorRegression"), "--navigation-scene"], check=True, timeout=60)
+        subprocess.run([str(out / "FiletorRegression"), "-AppleLanguages", "(en)", "--navigation-scene"], check=True, timeout=60)
+        subprocess.run([str(out / "FiletorRegression"), "-AppleLanguages", "(zh-Hans)", "--localization-only"], check=True, timeout=60)
+        subprocess.run([str(out / "FiletorRegression"), "-AppleLanguages", "(zh-Hans)", "--navigation-scene"], check=True, timeout=60)
     sys.exit(0)
 subprocess.run(command, check=True)
 info = {
@@ -52,6 +59,7 @@ info = {
     "CFBundleName": PRODUCT_NAME, "CFBundleDisplayName": PRODUCT_NAME,
     "CFBundlePackageType": "APPL", "CFBundleShortVersionString": CONFIG["version"],
     "CFBundleVersion": str(CONFIG["build"]), "LSMinimumSystemVersion": CONFIG["minimum_system_version"],
+    "CFBundleDevelopmentRegion": "en", "CFBundleLocalizations": ["en", "zh-Hans"],
     "NSHighResolutionCapable": True, "LSApplicationCategoryType": "public.app-category.utilities",
     "SUFeedURL": FEED_URL, "SUPublicEDKey": CONFIG["public_ed_key"],
     "SUEnableAutomaticChecks": True, "SUAutomaticallyUpdate": True,

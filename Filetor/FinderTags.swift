@@ -254,12 +254,12 @@ extension AppModel {
 
     func newTag(for urls: Set<URL>) {
         let dialog = NSAlert()
-        dialog.messageText = "New Tag"
-        dialog.informativeText = "Name of the tag, for example #project."
+        dialog.messageText = L10n.tr("New Tag")
+        dialog.informativeText = L10n.tr("Name of the tag, for example #project.")
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
         dialog.accessoryView = field
-        dialog.addButton(withTitle: "Add")
-        dialog.addButton(withTitle: "Cancel")
+        dialog.addButton(withTitle: L10n.tr("Add"))
+        dialog.addButton(withTitle: L10n.tr("Cancel"))
         dialog.window.initialFirstResponder = field
         guard dialog.runModal() == .alertFirstButtonReturn else { return }
         let name = field.stringValue
@@ -289,7 +289,7 @@ extension AppModel {
                 }
                 let before = result.before
                 let after = result.after
-                self.pushUndo("Tags", undo: { restore(before) }, redo: { [weak self] in
+                self.pushUndo(L10n.tr("Tags"), undo: { restore(before) }, redo: { [weak self] in
                     let error = restore(after)
                     self?.reloadPanesKeepingSelection()
                     return error

@@ -159,7 +159,7 @@ struct SidebarView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         HStack(spacing: 4) {
-            Text(title)
+            Text(L10n.key(title))
                 .font(.system(size: 11.5 * s, weight: .semibold))
             Image(systemName: isCollapsed(title) ? "chevron.right" : "chevron.down")
                 .font(.system(size: 8 * s, weight: .bold))
@@ -175,7 +175,7 @@ struct SidebarView: View {
             watchDragEnd()
             return NSItemProvider(object: title as NSString)
         } preview: {
-            dragCard(title)
+            dragCard(L10n.key(title))
         }
     }
 
@@ -203,7 +203,7 @@ struct SidebarView: View {
                                 .foregroundStyle(Color.primary.opacity(0.5))
                         }
                         .buttonStyle(.plain)
-                        .help("Eject")
+                        .help(L10n.tr("Eject"))
                     }
                 }
                 .padding(.horizontal, 8)
@@ -227,7 +227,7 @@ struct SidebarView: View {
                 Image(systemName: "trash")
                     .font(.system(size: 12.5 * s)).foregroundStyle(Color.filetor)
                     .frame(width: 20 * s)
-                Text("Trash").font(.system(size: 13 * s)).foregroundStyle(Color.primary)
+                Text(L10n.tr("Trash")).font(.system(size: 13 * s)).foregroundStyle(Color.primary)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8).padding(.vertical, 5 * s)
@@ -235,8 +235,8 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .toolbarHelp("Open this Mac’s Trash in the selected pane. Right-click for other disks.")
-        .accessibilityLabel("Trash")
+        .toolbarHelp(L10n.tr("Open this Mac’s Trash in the selected pane. Right-click for other disks."))
+        .accessibilityLabel(L10n.tr("Trash"))
         .accessibilityIdentifier("sidebar-trash")
         .task(id: "\(trashURL.path):\(trashRevision):\(app.active.revision)") {
             let root = trashURL
@@ -258,15 +258,15 @@ struct SidebarView: View {
             trashRevision += 1
         }
         .contextMenu {
-            Button("Open Trash") { app.openTrash(at: trashURL) }
-            Button("Open in New Tab") { app.activeGroup.newTab(at: trashURL) }
-            Button("Open in New Window") { app.openWindow?(trashURL) }
+            Button(L10n.tr("Open Trash")) { app.openTrash(at: trashURL) }
+            Button(L10n.tr("Open in New Tab")) { app.activeGroup.newTab(at: trashURL) }
+            Button(L10n.tr("Open in New Window")) { app.openWindow?(trashURL) }
             Divider()
-            Button("Empty Trash…") { app.requestTrashDeletion(root: trashURL) }
+            Button(L10n.tr("Empty Trash…")) { app.requestTrashDeletion(root: trashURL) }
                 .disabled(!trashHasItems || app.preparingTrashDeletion || app.trashDeletionJob != nil)
             let disks = devices.filter { $0.url.path != "/" }
             if !disks.isEmpty {
-                Menu("Trash on Disk") {
+                Menu(L10n.tr("Trash on Disk")) {
                     ForEach(disks) { disk in
                         Button(disk.name) { app.openTrash(on: disk.url) }
                     }
@@ -296,7 +296,7 @@ struct SidebarView: View {
                         .font(.system(size: 12.5 * s))
                         .foregroundStyle(Color.filetor)
                         .frame(width: 20 * s)
-                    Text("New Saved Search…").font(.system(size: 13 * s))
+                    Text(L10n.tr("New Saved Search…")).font(.system(size: 13 * s))
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 8)
@@ -329,8 +329,8 @@ struct SidebarView: View {
                         }
                     }
                     .contextMenu {
-                        Button("Edit…") { app.savedSearchDialog = search }
-                        Button("Remove from Sidebar") {
+                        Button(L10n.tr("Edit…")) { app.savedSearchDialog = search }
+                        Button(L10n.tr("Remove from Sidebar")) {
                             if on { app.active.clearTag(); app.active.load() }
                             store.remove(search.id)
                         }
@@ -371,7 +371,7 @@ struct SidebarView: View {
                     }
                     .contextMenu {
                         if tag.color == nil {
-                            Button("Remove from Sidebar") { store.remove(tag.name) }
+                            Button(L10n.tr("Remove from Sidebar")) { store.remove(tag.name) }
                         }
                     }
                 }
@@ -390,7 +390,7 @@ struct SidebarView: View {
                     .font(.system(size: 12.5 * s))
                     .foregroundStyle(Color.filetor)
                     .frame(width: 20 * s)
-                Text("Connect to Server").font(.system(size: 13 * s))
+                Text(L10n.tr("Connect to Server")).font(.system(size: 13 * s))
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
@@ -409,7 +409,7 @@ struct SidebarView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5 * s)
                 .contentShape(Rectangle())
-                .help("Connect to \(server.name)")
+                .help(L10n.tr("Connect to \(server.name)"))
                 .onTapGesture { app.network.connect(server) }
             }
             }
@@ -418,7 +418,7 @@ struct SidebarView: View {
 
     private var dropStack: some View {
         VStack(alignment: .leading, spacing: 6 * s) {
-            Text("Drop Stack")
+            Text(L10n.tr("Drop Stack"))
                 .font(.system(size: 11.5 * s, weight: .semibold))
                 .foregroundStyle(Color.primary.opacity(0.4))
                 .padding(.horizontal, 8)
@@ -426,7 +426,7 @@ struct SidebarView: View {
                 VStack(spacing: 4 * s) {
                     Image(systemName: "square.3.layers.3d")
                         .font(.system(size: 16 * s, weight: .light))
-                    Text("Drag files here to collect them")
+                    Text(L10n.tr("Drag files here to collect them"))
                         .font(.system(size: 13 * s))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -441,7 +441,7 @@ struct SidebarView: View {
                         app.dropStack.removeAll { removed.contains($0) }
                     }
                     .frame(height: DropStackList.rowHeight(s) * CGFloat(app.dropStack.count))
-                    Button("Clear") { app.dropStack.removeAll() }
+                    Button(L10n.tr("Clear")) { app.dropStack.removeAll() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11.5 * s))
                         .foregroundStyle(Color.primary.opacity(0.5))
@@ -486,7 +486,7 @@ struct FavoriteRowModifier<Card: View>: ViewModifier {
                 }
                 .onDrop(of: [.fileURL], delegate: FavoriteRowDropDelegate(url: url, dragging: $dragging, app: app))
                 .contextMenu {
-                    Button("Remove from Favorites") { app.favorites.remove(url) }
+                    Button(L10n.tr("Remove from Favorites")) { app.favorites.remove(url) }
                 }
         } else {
             content

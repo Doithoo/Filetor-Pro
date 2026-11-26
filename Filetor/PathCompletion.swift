@@ -26,7 +26,7 @@ nonisolated struct PathCandidate: Identifiable, Equatable, Sendable {
         if value.count >= 2, (value.first == "\"" && value.last == "\"") || (value.first == "'" && value.last == "'") {
             value = String(value.dropFirst().dropLast())
         }
-        guard !value.contains("\0") else { throw FileOperationSafety.failure("Enter a valid file path.") }
+        guard !value.contains("\0") else { throw FileOperationSafety.failure(L10n.tr("Enter a valid file path.")) }
         return value
     }
 
@@ -35,7 +35,7 @@ nonisolated struct PathCandidate: Identifiable, Equatable, Sendable {
         if value.hasPrefix("file://"), let url = URL(string: value), url.isFileURL {
             return url.standardizedFileURL
         }
-        guard !value.contains("://") else { throw FileOperationSafety.failure("Enter a local or mounted-volume path.") }
+        guard !value.contains("://") else { throw FileOperationSafety.failure(L10n.tr("Enter a local or mounted-volume path.")) }
         value = (value as NSString).expandingTildeInPath
         if value.isEmpty { return base.standardizedFileURL }
         return URL(fileURLWithPath: value, relativeTo: URL(fileURLWithPath: base.path, isDirectory: true)).standardizedFileURL

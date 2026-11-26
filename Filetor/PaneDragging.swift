@@ -6,11 +6,11 @@ enum PanePlacement: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .center: return "Swap Pane Positions"
-        case .left: return "Move Pane to Left"
-        case .right: return "Move Pane to Right"
-        case .top: return "Move Pane Above"
-        case .bottom: return "Move Pane Below"
+        case .center: return L10n.tr("Swap Pane Positions")
+        case .left: return L10n.tr("Move Pane to Left")
+        case .right: return L10n.tr("Move Pane to Right")
+        case .top: return L10n.tr("Move Pane Above")
+        case .bottom: return L10n.tr("Move Pane Below")
         }
     }
 
@@ -79,10 +79,10 @@ final class PaneDragHandleView: NSView, NSDraggingSource {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        toolTip = "Drag this pane: drop in the center to swap, or at an edge to reposition"
+        toolTip = L10n.tr("Drag this pane: drop in the center to swap, or at an edge to reposition")
         setAccessibilityElement(true)
         setAccessibilityRole(.image)
-        setAccessibilityLabel("Move Pane")
+        setAccessibilityLabel(L10n.tr("Move Pane"))
         setAccessibilityHelp(toolTip)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -110,7 +110,7 @@ final class PaneDragHandleView: NSView, NSDraggingSource {
               let app, let drag = app.startPaneDrag(groupID) else { return }
         guard let item = drag.pasteboardItem() else { app.endPaneDrag(drag); return }
         payload = drag
-        let title = app.groups.first { $0.id == groupID }?.current.title ?? "Pane"
+        let title = app.groups.first { $0.id == groupID }?.current.title ?? L10n.tr("Pane")
         let image = NSImage(size: NSSize(width: 200, height: 40), flipped: false) { rect in
             NSColor.windowBackgroundColor.withAlphaComponent(0.95).setFill()
             NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 8, yRadius: 8).fill()

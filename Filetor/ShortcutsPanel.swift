@@ -96,7 +96,7 @@ struct ShortcutsPanel: View {
             HStack(spacing: 6) {
                 ForEach(Shortcuts.groups) { g in
                     let on = selected == g.title
-                    Text(g.title)
+                    Text(L10n.key(g.title))
                         .font(.system(size: 13 * s, weight: on ? .semibold : .regular))
                         .foregroundStyle(on ? Color.primary : Color.primary.opacity(0.55))
                         .padding(.horizontal, 12)
@@ -109,7 +109,7 @@ struct ShortcutsPanel: View {
                         .onTapGesture { selected = g.title }
                 }
                 Spacer(minLength: 0)
-                Text("⌥ ⌘ K to close")
+                Text(L10n.tr("⌥ ⌘ K to close"))
                     .font(.system(size: 12 * s))
                     .foregroundStyle(Color.primary.opacity(0.5))
                 Button { app.showShortcuts = false } label: {
@@ -145,7 +145,7 @@ struct ShortcutsPanel: View {
 
     private func row(_ name: String, _ keys: String) -> some View {
         HStack(spacing: 0) {
-            Text(name)
+            Text(L10n.key(name))
                 .font(.system(size: 13.5 * s))
                 .lineLimit(1)
                 .frame(width: 190 * s, alignment: .leading)

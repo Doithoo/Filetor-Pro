@@ -67,7 +67,7 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
         let error = error as NSError
         if let item = error.userInfo[SPULatestAppcastItemFoundKey] as? SUAppcastItem,
            !item.minimumOperatingSystemVersionIsOK || !item.arm64HardwareRequirementIsOK {
-            state = .failed("The latest release requires a newer macOS version or different hardware.")
+            state = .failed(L10n.tr("The latest release requires a newer macOS version or different hardware."))
         } else { state = .upToDate }
     }
 
@@ -121,14 +121,14 @@ final class UpdateChecker: NSObject, SPUUpdaterDelegate {
 
     var message: String {
         switch state {
-        case .idle: return "Updates from the Filetor Pro release channel."
-        case .checking: return "Checking for updates…"
-        case .upToDate: return "\(ProductInfo.name) is up to date."
-        case .available(let version): return "Version \(version) is available."
-        case .downloading: return "Downloading and verifying the update…"
-        case .readyOnQuit: return "Update ready. It will install when you quit."
-        case .installing: return "Preparing to install and restart…"
-        case .waitingForOperations: return "Waiting for file operations to finish before restarting…"
+        case .idle: return L10n.tr("Updates from the Filetor Pro release channel.")
+        case .checking: return L10n.tr("Checking for updates…")
+        case .upToDate: return L10n.tr("\(ProductInfo.name) is up to date.")
+        case .available(let version): return L10n.tr("Version \(version) is available.")
+        case .downloading: return L10n.tr("Downloading and verifying the update…")
+        case .readyOnQuit: return L10n.tr("Update ready. It will install when you quit.")
+        case .installing: return L10n.tr("Preparing to install and restart…")
+        case .waitingForOperations: return L10n.tr("Waiting for file operations to finish before restarting…")
         case .failed(let message): return message
         }
     }

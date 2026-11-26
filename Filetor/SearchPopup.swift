@@ -23,34 +23,34 @@ struct SearchPopup: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Search").font(.title2.bold())
+            Text(L10n.tr("Search")).font(.title2.bold())
             Text(pane.currentURL.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-            TextField("Name contains", text: $name).textFieldStyle(.roundedBorder).focused($focused)
+            TextField(L10n.tr("Name contains"), text: $name).textFieldStyle(.roundedBorder).focused($focused)
                 .onSubmit { apply() }
             Form {
-                Picker("Scope", selection: $recursive) {
-                    Text("This folder").tag(false); Text("Include subfolders").tag(true)
+                Picker(L10n.tr("Scope"), selection: $recursive) {
+                    Text(L10n.tr("This folder")).tag(false); Text(L10n.tr("Include subfolders")).tag(true)
                 }
-                Picker("Kind", selection: $criteria.kind) {
-                    Text("Any").tag("")
-                    ForEach(SearchGroup.all, id: \.key) { Text($0.title).tag($0.key) }
+                Picker(L10n.tr("Kind"), selection: $criteria.kind) {
+                    Text(L10n.tr("Any")).tag("")
+                    ForEach(SearchGroup.all, id: \.key) { Text(L10n.key($0.title)).tag($0.key) }
                 }
-                TextField("Extensions", text: $criteria.extensions, prompt: Text("pdf, jpg, txt"))
-                Picker("Modified", selection: $criteria.days) {
-                    Text("Any time").tag(0); Text("Last 7 days").tag(7)
-                    Text("Last 30 days").tag(30); Text("Last year").tag(365)
+                TextField(L10n.tr("Extensions"), text: $criteria.extensions, prompt: Text(L10n.tr("pdf, jpg, txt")))
+                Picker(L10n.tr("Modified"), selection: $criteria.days) {
+                    Text(L10n.tr("Any time")).tag(0); Text(L10n.tr("Last 7 days")).tag(7)
+                    Text(L10n.tr("Last 30 days")).tag(30); Text(L10n.tr("Last year")).tag(365)
                 }
-                TextField("At least (MB)", text: $minimum, prompt: Text("Any size"))
-                TextField("At most (MB)", text: $maximum, prompt: Text("Any size"))
+                TextField(L10n.tr("At least (MB)"), text: $minimum, prompt: Text(L10n.tr("Any size")))
+                TextField(L10n.tr("At most (MB)"), text: $maximum, prompt: Text(L10n.tr("Any size")))
             }.formStyle(.grouped)
             if let error { Text(error).font(.callout).foregroundStyle(.red) }
-            Text("Search by name, type, modification date or file size.")
+            Text(L10n.tr("Search by name, type, modification date or file size."))
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
-                Button("Clear") { name = ""; criteria = SearchCriteria(); minimum = ""; maximum = ""; error = nil }
+                Button(L10n.tr("Clear")) { name = ""; criteria = SearchCriteria(); minimum = ""; maximum = ""; error = nil }
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Search") { apply() }.keyboardShortcut(.defaultAction)
+                Button(L10n.tr("Cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(L10n.tr("Search")) { apply() }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
@@ -66,7 +66,7 @@ struct SearchPopup: View {
             result.minBytes = try SearchCriteria.bytes(fromMB: minimum)
             result.maxBytes = try SearchCriteria.bytes(fromMB: maximum)
             if let minimum = result.minBytes, let maximum = result.maxBytes, minimum > maximum {
-                throw FileOperationSafety.failure("The minimum size must not exceed the maximum.")
+                throw FileOperationSafety.failure(L10n.tr("The minimum size must not exceed the maximum."))
             }
             pane.clearTag()
             pane.criteria = result

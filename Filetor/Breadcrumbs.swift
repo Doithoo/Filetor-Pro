@@ -63,35 +63,35 @@ struct BreadcrumbBar: View {
     /// Right-click menu of a crumb (folder or disk in the path).
     @ViewBuilder private func crumbMenu(_ url: URL, isRoot: Bool) -> some View {
         let ownGroup = app.groups.first { g in g.tabs.contains { $0 === pane } }
-        Button("Open") { pane.navigate(to: url) }
+        Button(L10n.tr("Open")) { pane.navigate(to: url) }
         if app.dual {
-            Button("Open in Other Pane") {
-                app.chooseOtherPane(from: pane, title: "Open in Other Pane") { target in
+            Button(L10n.tr("Open in Other Pane")) {
+                app.chooseOtherPane(from: pane, title: L10n.tr("Open in Other Pane")) { target in
                     app.groups.first { $0.id == target.id }?.current.navigate(to: url)
                 }
             }
         }
         if let ownGroup {
-            Button("Open in New Tab") { ownGroup.newTab(at: url) }
+            Button(L10n.tr("Open in New Tab")) { ownGroup.newTab(at: url) }
         }
-        Button("Open in New Window") { app.openWindow?(url) }
+        Button(L10n.tr("Open in New Window")) { app.openWindow?(url) }
         Divider()
-        Button("Copy Path") {
+        Button(L10n.tr("Copy Path")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(url.path, forType: .string)
         }
-        Button("Get Info") { app.getInfo([url]) }
-        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-        Button("Open in Terminal") {
+        Button(L10n.tr("Get Info")) { app.getInfo([url]) }
+        Button(L10n.tr("Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        Button(L10n.tr("Open in Terminal")) {
             NSWorkspace.shared.open([url],
                                     withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
                                     configuration: NSWorkspace.OpenConfiguration())
         }
         Divider()
-        Button("Add to Favorites") { app.favorites.insert([url], before: nil) }
+        Button(L10n.tr("Add to Favorites")) { app.favorites.insert([url], before: nil) }
         if isRoot, let v = volumeRoot {
             Divider()
-            Button("Eject") { app.eject(v) }
+            Button(L10n.tr("Eject")) { app.eject(v) }
         }
     }
 
@@ -128,8 +128,8 @@ struct BreadcrumbBar: View {
                     .frame(width: 30 * s, height: 30 * s)
             }
             .buttonStyle(.borderless)
-            .help("Search this folder…")
-            .accessibilityLabel("Search this folder")
+            .help(L10n.tr("Search this folder…"))
+            .accessibilityLabel(L10n.tr("Search this folder"))
             .padding(.trailing, 6 * s)
         }
         .font(.system(size: 13 * s))
@@ -147,8 +147,8 @@ struct BreadcrumbBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Click to edit the full path")
-        .accessibilityLabel("Edit path")
+        .help(L10n.tr("Click to edit the full path"))
+        .accessibilityLabel(L10n.tr("Edit path"))
     }
 
     private var breadcrumbs: some View {
@@ -233,8 +233,8 @@ private struct BreadcrumbFoldersButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
-        .help("Browse subfolders of " + (url.path == "/" ? "/" : url.lastPathComponent))
-        .accessibilityLabel("Browse subfolders of " + url.lastPathComponent)
+        .help(L10n.tr("Browse subfolders of ") + (url.path == "/" ? "/" : url.lastPathComponent))
+        .accessibilityLabel(L10n.tr("Browse subfolders of ") + url.lastPathComponent)
         .accessibilityIdentifier("breadcrumb-folders:" + url.path)
         .popover(isPresented: $presented, arrowEdge: .bottom) {
             GoToFolderPopup(app: app, pane: pane, initialURL: url, showsPlaces: false).id(url)

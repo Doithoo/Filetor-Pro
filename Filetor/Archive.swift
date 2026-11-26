@@ -31,7 +31,7 @@ extension FileTools {
         }
         if let err = run("/usr/bin/unzip", ["-tqq", dest.path]) {
             try? FileManager.default.removeItem(at: dest)
-            return "The archive did not pass its check and was removed. The original folder is untouched.\n\(err)"
+            return L10n.tr("The archive did not pass its check and was removed. The original folder is untouched.\n\(err)")
         }
         return nil
     }
@@ -41,7 +41,7 @@ extension AppModel {
     /// Zips the folder into the archive folder, then (when asked) moves the original to the Trash.
     func archiveProject(_ folder: URL, name: String, to destDir: URL, trashOriginal: Bool, expectedBytes: Int64) {
         let dest = FileTools.unique(destDir.appending(path: name))
-        let job = TransferJob(title: "Archiving \(folder.lastPathComponent)")
+        let job = TransferJob(title: L10n.tr("Archiving \(folder.lastPathComponent)"))
         job.currentName = dest.lastPathComponent
         transfers.jobs.append(job)
         Task {
@@ -74,7 +74,7 @@ struct ArchiveSheet: View {
     @AppStorage("archiveTrashOriginal") private var trashOriginal = true
     @State private var name: String
     @State private var dest: URL
-    @State private var info = "Counting files…"
+    @State private var info = L10n.tr("Counting files…")
     @State private var bytes: Int64 = 0
 
     init(app: AppModel, folder: URL) {
@@ -94,11 +94,11 @@ struct ArchiveSheet: View {
 
     private var problem: String? {
         let n = name.trimmingCharacters(in: .whitespaces)
-        if n.isEmpty { return "The name cannot be empty." }
-        if n.contains("/") || n.contains(":") { return "The name cannot contain \"/\" or \":\"." }
+        if n.isEmpty { return L10n.tr("The name cannot be empty.") }
+        if n.contains("/") || n.contains(":") { return L10n.tr("The name cannot contain \"/\" or \":\".") }
         let d = dest.standardizedFileURL.path
         let f = folder.standardizedFileURL.path
-        if d == f || d.hasPrefix(f + "/") { return "The archive folder cannot be inside the folder being archived." }
+        if d == f || d.hasPrefix(f + "/") { return L10n.tr("The archive folder cannot be inside the folder being archived.") }
         return nil
     }
 
@@ -109,7 +109,7 @@ struct ArchiveSheet: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Choose"
+        panel.prompt = L10n.tr("Choose")
         var isDir: ObjCBool = false
         panel.directoryURL = FileManager.default.fileExists(atPath: dest.path, isDirectory: &isDir) ? dest : dest.deletingLastPathComponent()
         if panel.runModal() == .OK, let url = panel.url { dest = url }
@@ -124,9 +124,9 @@ struct ArchiveSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Archive Project").font(.system(size: 22 * s))
+            Text(L10n.tr("Archive Project")).font(.system(size: 22 * s))
 
-            row("Folder") {
+            row(L10n.tr("Folder")) {
                 Text(abbreviated(folder))
                     .lineLimit(1).truncationMode(.middle)
                     .padding(.horizontal, 10 * s).padding(.vertical, 6 * s)
@@ -134,15 +134,15 @@ struct ArchiveSheet: View {
                     .background(RoundedRectangle(cornerRadius: 7).fill(Color.primary.opacity(0.03)))
                     .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.primary.opacity(0.15)))
             }
-            row("Archive name") {
+            row(L10n.tr("Archive name")) {
                 TextField("", text: $name).textFieldStyle(PathsTextFieldStyle(scale: s))
             }
-            row("Save to") {
+            row(L10n.tr("Save to")) {
                 HStack(spacing: 8) {
                     Text(abbreviated(dest))
                         .lineLimit(1).truncationMode(.middle)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Button("Choose…") { chooseDestination() }
+                    Button(L10n.tr("Choose…")) { chooseDestination() }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 10 * s).padding(.vertical, 6 * s)
@@ -150,7 +150,7 @@ struct ArchiveSheet: View {
                 .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.primary.opacity(0.18)))
             }
             row("") {
-                Toggle("Move the original folder to Trash", isOn: $trashOriginal)
+                Toggle(L10n.tr("Move the original folder to Trash"), isOn: $trashOriginal)
                     .toggleStyle(PathsCheckboxStyle(scale: s))
             }
 
@@ -158,7 +158,7 @@ struct ArchiveSheet: View {
                 if let problem {
                     Text(problem).foregroundStyle(Color.orange)
                 } else {
-                    Text("\(info). The zip is checked before the original is moved.")
+                    Text(L10n.tr("\(info). The zip is checked before the original is moved."))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -167,10 +167,10 @@ struct ArchiveSheet: View {
 
             HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L10n.tr("Cancel")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Archive") {
+                Button(L10n.tr("Archive")) {
                     app.archiveProject(folder, name: finalName, to: dest, trashOriginal: trashOriginal, expectedBytes: bytes)
                     dismiss()
                 }
@@ -187,7 +187,7 @@ struct ArchiveSheet: View {
             let r = await Task.detached(priority: .utility) { FileTools.stats(of: folder) }.value
             bytes = r.bytes
             let size = ByteCountFormatter.string(fromByteCount: r.bytes, countStyle: .file)
-            info = (r.files == 1 ? "1 file" : "\(r.files) files") + ", " + size
+            info = (r.files == 1 ? L10n.tr("1 file") : L10n.tr("\(r.files) files")) + ", " + size
         }
     }
 }

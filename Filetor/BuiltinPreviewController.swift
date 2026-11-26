@@ -66,7 +66,7 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
         panel.hidesOnDeactivate = false
         panel.isFloatingPanel = true
         panel.minSize = NSSize(width: 580, height: 340)
-        panel.title = "Folder Preview"
+        panel.title = L10n.tr("Folder Preview")
         panel.delegate = self
         panel.dismissPreview = { [weak self] in self?.closePreview?() }
         panel.findInPreview = { [weak self] in
@@ -76,13 +76,13 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
         }
         panel.setAccessibilityIdentifier("filetor-builtin-preview")
 
-        previous = button("chevron.left", "Previous selected item", #selector(previousItem))
-        next = button("chevron.right", "Next selected item", #selector(nextItem))
-        hidden = button("eye.slash", "Show hidden items", #selector(toggleHidden))
-        refresh = button("arrow.clockwise", "Refresh folder preview", #selector(reload))
-        open = NSButton(title: "Open Folder", target: self, action: #selector(openCurrentFolder))
+        previous = button("chevron.left", L10n.tr("Previous selected item"), #selector(previousItem))
+        next = button("chevron.right", L10n.tr("Next selected item"), #selector(nextItem))
+        hidden = button("eye.slash", L10n.tr("Show hidden items"), #selector(toggleHidden))
+        refresh = button("arrow.clockwise", L10n.tr("Refresh folder preview"), #selector(reload))
+        open = NSButton(title: L10n.tr("Open Folder"), target: self, action: #selector(openCurrentFolder))
         open.bezelStyle = .rounded
-        open.toolTip = "Open this folder in Filetor Pro"
+        open.toolTip = L10n.tr("Open this folder in Filetor Pro")
         heading.font = .systemFont(ofSize: 16, weight: .semibold)
         heading.lineBreakMode = .byTruncatingMiddle
         path.font = .systemFont(ofSize: 11)
@@ -136,10 +136,10 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
         outline.indentationPerLevel = 16
         outline.dataSource = self
         outline.delegate = self
-        outline.setAccessibilityLabel("Folder contents")
+        outline.setAccessibilityLabel(L10n.tr("Folder contents"))
         for (id, title, width) in [("name", "Name", 370.0), ("size", "Size", 80.0), ("kind", "Kind", 120.0), ("modified", "Date Modified", 150.0)] {
             let column = NSTableColumn(identifier: .init(id))
-            column.title = title
+            column.title = L10n.key(title)
             column.width = width
             column.minWidth = id == "name" ? 200 : 65
             outline.addTableColumn(column)
@@ -241,7 +241,7 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
         let item = FileItem(url: url)
         previewKind = BuiltinPreviewKind.forURL(url)
         let folder = previewKind == .folder
-        panel.title = "Preview — \(item.name)"
+        panel.title = L10n.tr("Preview — \(item.name)")
         heading.stringValue = item.name.isEmpty || item.name == "/" ? FileManager.default.displayName(atPath: "/") : item.name
         path.stringValue = url.path
         path.toolTip = url.path
@@ -252,18 +252,18 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
         next.isEnabled = currentIndex + 1 < urls.count
         hidden.isHidden = !folder
         refresh.isHidden = previewKind == .system
-        refresh.toolTip = folder ? "Refresh folder preview" : "Refresh preview"
+        refresh.toolTip = folder ? L10n.tr("Refresh folder preview") : L10n.tr("Refresh preview")
         open.isHidden = !folder
         hidden.image = NSImage(systemSymbolName: showHidden ? "eye" : "eye.slash", accessibilityDescription: nil)
-        hidden.toolTip = showHidden ? "Hide hidden items" : "Show hidden items"
+        hidden.toolTip = showHidden ? L10n.tr("Hide hidden items") : L10n.tr("Show hidden items")
         hidden.setAccessibilityLabel(hidden.toolTip)
         if folder {
-            outline.setAccessibilityLabel("Folder contents")
+            outline.setAccessibilityLabel(L10n.tr("Folder contents"))
             embed(scroll)
             model.show(url, showHidden: showHidden)
             panel.makeFirstResponder(outline)
         } else if previewKind == .zip {
-            outline.setAccessibilityLabel("ZIP contents")
+            outline.setAccessibilityLabel(L10n.tr("ZIP contents"))
             embed(scroll)
             outline.reloadData()
             startZip(url)
@@ -278,7 +278,7 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
             embed(preview)
             filePreview = preview
             preview.previewItem = url as NSURL
-            status.stringValue = "System Quick Look"
+            status.stringValue = L10n.tr("System Quick Look")
         }
     }
 
@@ -293,7 +293,7 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
         textPreview = nil
         zipRoot = nil
         outline.reloadData()
-        status.stringValue = "Could not preview file · Refresh to retry"
+        status.stringValue = L10n.tr("Could not preview file · Refresh to retry")
         let message = NSTextField(wrappingLabelWithString: error.localizedDescription)
         message.textColor = .secondaryLabelColor
         message.alignment = .center
@@ -308,7 +308,7 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
 
     private func startZip(_ url: URL) {
         loading = true
-        status.stringValue = "Reading ZIP directory…"
+        status.stringValue = L10n.tr("Reading ZIP directory…")
         let generation = readGeneration
         readOperation = PreviewWork.start({ operation in try ZipPreviewReader.read(url, cancelled: { operation.isCancelled }) }) { [weak self] result in
             guard let self, self.readGeneration == generation else { return }
@@ -320,9 +320,11 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
                 self.zipRoot = tree.root
                 self.outline.reloadData()
                 let encrypted = listing.entries.contains { $0.encrypted }
-                self.status.stringValue = "\(listing.entries.count) / \(listing.total) entries · \(tree.limited ? "Limited preview · " : "")\(encrypted ? "Encrypted entries · " : "")Nothing extracted"
+                let limited = tree.limited ? L10n.tr("Limited preview · ") : ""
+                let encryption = encrypted ? L10n.tr("Encrypted entries · ") : ""
+                self.status.stringValue = L10n.tr("\(listing.entries.count) / \(listing.total) entries · \(limited)\(encryption)Nothing extracted")
                 self.status.toolTip = self.status.stringValue
-                if listing.total == 0 { self.status.stringValue = "Empty ZIP archive" }
+                if listing.total == 0 { self.status.stringValue = L10n.tr("Empty ZIP archive") }
                 self.panel.makeFirstResponder(self.outline)
             case .failure(let error): self.showReadError(error)
             }
@@ -331,7 +333,7 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
 
     private func startText(_ url: URL, kind: BuiltinPreviewKind) {
         loading = true
-        status.stringValue = "Reading file…"
+        status.stringValue = L10n.tr("Reading file…")
         let generation = readGeneration
         readOperation = PreviewWork.start({ operation in try TextPreviewReader.read(url, kind: kind, cancelled: { operation.isCancelled }) }) { [weak self] result in
             guard let self, self.readGeneration == generation else { return }
@@ -341,8 +343,8 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
             case .success(let document):
                 self.textPreview?.show(document, language: kind == .json ? "json" : url.pathExtension.lowercased())
                 let lineCount = document.source.reduce(1) { $0 + ($1.isNewline ? 1 : 0) }
-                var summary = document.notice ?? "\(lineCount) lines · Read only"
-                if document.truncated { summary += " · Limited preview (1 MB / 160,000 characters / 10,000 lines)" }
+                var summary = document.notice ?? L10n.tr("\(lineCount) lines · Read only")
+                if document.truncated { summary += L10n.tr(" · Limited preview (1 MB / 160,000 characters / 10,000 lines)") }
                 self.status.stringValue = summary
                 self.status.toolTip = summary
                 if let text = self.textPreview?.textView { self.panel.makeFirstResponder(text) }
@@ -353,11 +355,13 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
 
     private func updateStatus() {
         guard let root = model.root else { return }
-        if root.loading { status.stringValue = "Loading folder…" }
-        else if root.error != nil { status.stringValue = "Unable to read folder · Check permissions and refresh" }
+        if root.loading { status.stringValue = L10n.tr("Loading folder…") }
+        else if root.error != nil { status.stringValue = L10n.tr("Unable to read folder · Check permissions and refresh") }
         else {
             let count = root.children.filter { $0.item != nil }.count
-            status.stringValue = "\(root.truncated ? "First " : "")\(count) items\(root.truncated ? " · Limited preview" : "") · \(showHidden ? "Hidden items shown" : "Hidden items excluded")"
+            let countLabel = root.truncated ? L10n.tr("First \(count) items · Limited preview") : L10n.tr("\(count) items")
+            let hiddenLabel = showHidden ? L10n.tr("Hidden items shown") : L10n.tr("Hidden items excluded")
+            status.stringValue = countLabel + " · " + hiddenLabel
         }
     }
 
@@ -400,13 +404,13 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
             switch id.rawValue {
             case "name": text = node.name
             case "size": text = node.entry.map { $0.directory ? "—" : ByteCountFormatter.string(fromByteCount: Int64(clamping: $0.size), countStyle: .file) } ?? "—"
-            case "kind": text = (node.entry?.encrypted == true ? "Encrypted " : "") + (node.entry?.symbolicLink == true ? "Link" : folder ? "Folder" : "File")
+            case "kind": text = (node.entry?.encrypted == true ? L10n.tr("Encrypted ") : "") + (node.entry?.symbolicLink == true ? L10n.tr("Link") : folder ? L10n.tr("Folder") : L10n.tr("File"))
             default: text = node.entry?.modified?.formatted(date: .abbreviated, time: .shortened) ?? "—"
             }
             cell.textField?.stringValue = text
             cell.textField?.textColor = .labelColor
             cell.imageView?.image = NSImage(systemSymbolName: folder ? "folder" : "doc", accessibilityDescription: nil)
-            cell.toolTip = node.path + (node.entry.map { "\nSize: \($0.size) bytes · Compressed: \($0.packedSize) bytes" } ?? "")
+            cell.toolTip = node.path + (node.entry.map { L10n.tr("\nSize: \($0.size) bytes · Compressed: \($0.packedSize) bytes") } ?? "")
             cell.setAccessibilityLabel(text)
             return cell
         }
@@ -417,7 +421,7 @@ final class BuiltinPreviewController: NSObject, NSWindowDelegate, NSOutlineViewD
             switch id.rawValue {
             case "name": text = entry.name
             case "size": text = entry.isDirectory ? "—" : ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file)
-            case "kind": text = entry.isSymbolicLink ? "Symbolic Link" : entry.kind
+            case "kind": text = entry.isSymbolicLink ? L10n.tr("Symbolic Link") : entry.kind
             default: text = entry.modified == .distantPast ? "—" : entry.modified.formatted(date: .abbreviated, time: .shortened)
             }
             cell.imageView?.image = NSWorkspace.shared.icon(forFile: entry.url.path)

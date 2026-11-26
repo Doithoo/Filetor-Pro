@@ -35,7 +35,7 @@ struct ContentView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .help("Show Sidebar")
+                            .help(L10n.tr("Show Sidebar"))
                             .padding(.leading, 10)
                             .padding(.top, 16)
                         }
@@ -52,7 +52,7 @@ struct ContentView: View {
                         get: { app.alert != nil },
                         set: { if !$0 { app.alert = nil } }
                     )) {
-                        Button("OK") {}
+                        Button(L10n.tr("OK")) {}
                     } message: {
                         Text(app.alert ?? "")
                     }
@@ -88,17 +88,17 @@ struct ContentView: View {
         .background {
             // Keyboard shortcuts (the toolbar buttons are drawn by CustomToolbar).
             Group {
-                Button("Back") { app.active.goBack() }.keyboardShortcut(.leftArrow, modifiers: .command)
-                Button("Forward") { app.active.goForward() }.keyboardShortcut(.rightArrow, modifiers: .command)
-                Button("Back ") { app.active.goBack() }.keyboardShortcut("[", modifiers: .command)
-                Button("Forward ") { app.active.goForward() }.keyboardShortcut("]", modifiers: .command)
-                Button("Enclosing") { app.active.goUp() }.keyboardShortcut(.upArrow, modifiers: .command)
-                Button("Hidden") { app.active.toggleHidden() }.keyboardShortcut(".", modifiers: [.command, .shift])
-                Button("Reload") { app.active.load() }.keyboardShortcut("r", modifiers: [.command, .option])
+                Button(L10n.tr("Back")) { app.active.goBack() }.keyboardShortcut(.leftArrow, modifiers: .command)
+                Button(L10n.tr("Forward")) { app.active.goForward() }.keyboardShortcut(.rightArrow, modifiers: .command)
+                Button(L10n.tr("Back ")) { app.active.goBack() }.keyboardShortcut("[", modifiers: .command)
+                Button(L10n.tr("Forward ")) { app.active.goForward() }.keyboardShortcut("]", modifiers: .command)
+                Button(L10n.tr("Enclosing")) { app.active.goUp() }.keyboardShortcut(.upArrow, modifiers: .command)
+                Button(L10n.tr("Hidden")) { app.active.toggleHidden() }.keyboardShortcut(".", modifiers: [.command, .shift])
+                Button(L10n.tr("Reload")) { app.active.load() }.keyboardShortcut("r", modifiers: [.command, .option])
                 if app.showPalette {
-                    Button("Close Palette") { app.showPalette = false }.keyboardShortcut(.escape, modifiers: [])
+                    Button(L10n.tr("Close Palette")) { app.showPalette = false }.keyboardShortcut(.escape, modifiers: [])
                 } else if app.showShortcuts {
-                    Button("Close Shortcuts") { app.showShortcuts = false }.keyboardShortcut(.escape, modifiers: [])
+                    Button(L10n.tr("Close Shortcuts")) { app.showShortcuts = false }.keyboardShortcut(.escape, modifiers: [])
                 }
             }
             .opacity(0)
@@ -177,7 +177,7 @@ struct TabStrip: View {
     let app: AppModel
     @AppStorage("textSize") private var textSize = 1
     private var closeTitle: String {
-        group.tabs.count > 1 ? "Close Tab" : (app.groups.count > 1 ? "Close Pane" : "Close Window")
+        group.tabs.count > 1 ? L10n.tr("Close Tab") : (app.groups.count > 1 ? L10n.tr("Close Pane") : L10n.tr("Close Window"))
     }
 
     var body: some View {
@@ -217,9 +217,9 @@ struct TabStrip: View {
                                 return true
                             }
                             .contextMenu {
-                                Button("Open in New Window") { app.openWindow?(tab.currentURL) }
+                                Button(L10n.tr("Open in New Window")) { app.openWindow?(tab.currentURL) }
                                 Button(closeTitle) { app.closeTab(in: group, at: i) }
-                                Button("Reopen Closed Tab") { group.reopen() }.disabled(!group.canReopen)
+                                Button(L10n.tr("Reopen Closed Tab")) { group.reopen() }.disabled(!group.canReopen)
                             }
                             .id(tab.id)
                         }
@@ -241,8 +241,8 @@ struct TabStrip: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("New Tab")
-            .help("New Tab (⌘T)")
+            .accessibilityLabel(L10n.tr("New Tab"))
+            .help(L10n.tr("New Tab (⌘T)"))
         }
         .font(.system(size: 12 * UIScale.value(textSize)))
         .background(.bar)
@@ -306,26 +306,26 @@ struct AppAlerts: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .alert("Delete Immediately?", isPresented: Binding(
+            .alert(L10n.tr("Delete Immediately?"), isPresented: Binding(
             get: { app.pendingDelete != nil },
             set: { if !$0 { app.pendingDelete = nil } }
         )) {
-            Button("Delete", role: .destructive) { app.confirmDelete() }
-            Button("Cancel", role: .cancel) { app.pendingDelete = nil }.keyboardShortcut(.defaultAction)
+            Button(L10n.tr("Delete"), role: .destructive) { app.confirmDelete() }
+            Button(L10n.tr("Cancel"), role: .cancel) { app.pendingDelete = nil }.keyboardShortcut(.defaultAction)
         } message: {
             let urls = app.pendingDelete ?? []
             Text(urls.count == 1
-                 ? "\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this."
-                 : "\(urls.count) items will be deleted right away. You can't undo this.")
+                 ? L10n.tr("\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this.")
+                 : L10n.tr("\(urls.count) items will be deleted right away. You can't undo this."))
         }
-        .alert(app.pendingTrashDeletion?.title ?? "Empty Trash?", isPresented: Binding(
+        .alert(app.pendingTrashDeletion?.title ?? L10n.tr("Empty Trash?"), isPresented: Binding(
             get: { app.pendingTrashDeletion != nil },
             set: { if !$0 { app.pendingTrashDeletion = nil } }
         )) {
-            Button(app.pendingTrashDeletion?.emptying == true ? "Empty Trash" : "Delete Permanently", role: .destructive) {
+            Button(app.pendingTrashDeletion?.emptying == true ? L10n.tr("Empty Trash") : L10n.tr("Delete Permanently"), role: .destructive) {
                 app.confirmTrashDeletion()
             }
-            Button("Cancel", role: .cancel) { app.pendingTrashDeletion = nil }
+            Button(L10n.tr("Cancel"), role: .cancel) { app.pendingTrashDeletion = nil }
                 .keyboardShortcut(.defaultAction)
         } message: {
             Text(app.pendingTrashDeletion?.message ?? "")

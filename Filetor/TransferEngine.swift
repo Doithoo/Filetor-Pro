@@ -124,7 +124,7 @@ nonisolated final class TransferEngine: @unchecked Sendable {
         if sourceValues.isDirectory == true, sourceValues.isSymbolicLink != true,
            FileOperationSafety.contains(src, dstDir) {
             throw NSError(domain: "Filetor", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "A folder cannot be copied into itself."])
+                          userInfo: [NSLocalizedDescriptionKey: L10n.tr("A folder cannot be copied into itself.")])
         }
 
         var replace = false
@@ -187,7 +187,7 @@ nonisolated final class TransferEngine: @unchecked Sendable {
                 try fm.moveItem(at: tmp, to: dst)
             } catch {
                 do { try fm.moveItem(at: backup, to: dst) }
-                catch { throw FileOperationSafety.failure("Replacement failed. Original preserved at \(backup.path); staged copy at \(tmp.path).") }
+                catch { throw FileOperationSafety.failure(L10n.tr("Replacement failed. Original preserved at \(backup.path); staged copy at \(tmp.path).")) }
                 try? fm.removeItem(at: tmp)
                 throw error
             }
@@ -203,11 +203,11 @@ nonisolated final class TransferEngine: @unchecked Sendable {
                 do { cleanup = try SourceRetirement.run(src); didMove = true }
                 catch {
                     records.append(TransferRecord(src: src, dst: dst, moved: false, trashed: original))
-                    throw FileOperationSafety.failure("Copied successfully, but the source could not be removed: \(error.localizedDescription)")
+                    throw FileOperationSafety.failure(L10n.tr("Copied successfully, but the source could not be removed: \(error.localizedDescription)"))
                 }
             }
             records.append(TransferRecord(src: src, dst: dst, moved: didMove, trashed: original))
-            if let cleanup { throw FileOperationSafety.failure("Move completed. A source cleanup remainder was preserved at \(cleanup.path).") }
+            if let cleanup { throw FileOperationSafety.failure(L10n.tr("Move completed. A source cleanup remainder was preserved at \(cleanup.path).")) }
         } else {
             var cleanup: URL?
             if move, sameVolume(src, dst.deletingLastPathComponent()) {
@@ -227,12 +227,12 @@ nonisolated final class TransferEngine: @unchecked Sendable {
                     do { cleanup = try SourceRetirement.run(src) }
                     catch {
                         records.append(TransferRecord(src: src, dst: dst, moved: false, trashed: nil))
-                        throw FileOperationSafety.failure("Copied successfully, but the source could not be removed: \(error.localizedDescription)")
+                        throw FileOperationSafety.failure(L10n.tr("Copied successfully, but the source could not be removed: \(error.localizedDescription)"))
                     }
                 }
             }
             records.append(TransferRecord(src: src, dst: dst, moved: move, trashed: nil))
-            if let cleanup { throw FileOperationSafety.failure("Move completed. A source cleanup remainder was preserved at \(cleanup.path).") }
+            if let cleanup { throw FileOperationSafety.failure(L10n.tr("Move completed. A source cleanup remainder was preserved at \(cleanup.path).")) }
         }
     }
 

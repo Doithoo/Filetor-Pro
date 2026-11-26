@@ -60,7 +60,7 @@ nonisolated enum FolderAnalysis {
 
     static func rows(_ items: [(String, URL)], trashable: Bool = false) -> [ReportRow] {
         var list = items.prefix(rowLimit).map { ReportRow(text: $0.0, url: $0.1, trashable: trashable) }
-        if items.count > rowLimit { list.append(ReportRow(text: "… and \(items.count - rowLimit) more")) }
+        if items.count > rowLimit { list.append(ReportRow(text: L10n.tr("… and \(items.count - rowLimit) more"))) }
         return list
     }
 
@@ -81,18 +81,18 @@ nonisolated enum FolderAnalysis {
                 wasted += size * Int64(sorted.count - 1)
                 let sizeText = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
                 sections.append(ReportSection(
-                    title: "\(URL(filePath: sorted[0]).lastPathComponent) · \(sizeText) · \(sorted.count) copies",
+                    title: L10n.tr("\(URL(filePath: sorted[0]).lastPathComponent) · \(sizeText) · \(sorted.count) copies"),
                     rows: sorted.map { ReportRow(text: $0, url: files[$0]!.url, trashable: true) }))
             }
         }
         sections.sort { $0.title < $1.title }
         let name = root.lastPathComponent.isEmpty ? "/" : root.lastPathComponent
         if sections.isEmpty {
-            return Report(title: "Find Duplicates", summary: "No duplicate files found in \(name).", sections: [])
+            return Report(title: L10n.tr("Find Duplicates"), summary: L10n.tr("No duplicate files found in \(name)."), sections: [])
         }
         let w = ByteCountFormatter.string(fromByteCount: wasted, countStyle: .file)
-        return Report(title: "Find Duplicates",
-                      summary: "\(sections.count) groups of identical files in \(name). Removing the extra copies frees \(w).",
+        return Report(title: L10n.tr("Find Duplicates"),
+                      summary: L10n.tr("\(sections.count) groups of identical files in \(name). Removing the extra copies frees \(w)."),
                       sections: sections)
     }
 
@@ -110,13 +110,13 @@ nonisolated enum FolderAnalysis {
         for (rel, e) in r where l[rel] == nil { rightOnly.append((rel, e.url)) }
         let sort: ((String, URL), (String, URL)) -> Bool = { $0.0 < $1.0 }
         var sections: [ReportSection] = []
-        if !leftOnly.isEmpty { sections.append(ReportSection(title: "Only in left pane (\(leftOnly.count))", rows: rows(leftOnly.sorted(by: sort)))) }
-        if !rightOnly.isEmpty { sections.append(ReportSection(title: "Only in right pane (\(rightOnly.count))", rows: rows(rightOnly.sorted(by: sort)))) }
-        if !different.isEmpty { sections.append(ReportSection(title: "Different size or date (\(different.count))", rows: rows(different.sorted(by: sort)))) }
+        if !leftOnly.isEmpty { sections.append(ReportSection(title: L10n.tr("Only in left pane (\(leftOnly.count))"), rows: rows(leftOnly.sorted(by: sort)))) }
+        if !rightOnly.isEmpty { sections.append(ReportSection(title: L10n.tr("Only in right pane (\(rightOnly.count))"), rows: rows(rightOnly.sorted(by: sort)))) }
+        if !different.isEmpty { sections.append(ReportSection(title: L10n.tr("Different size or date (\(different.count))"), rows: rows(different.sorted(by: sort)))) }
         let summary = sections.isEmpty
-            ? "\(same) visible regular files match by size and date. Hidden files, packages and empty folders are excluded. Contents were not verified."
-            : "\(same) visible regular files match by size and date. Contents were not verified."
-        return Report(title: "Compare Folders", summary: summary, sections: sections)
+            ? L10n.tr("\(same) visible regular files match by size and date. Hidden files, packages and empty folders are excluded. Contents were not verified.")
+            : L10n.tr("\(same) visible regular files match by size and date. Contents were not verified.")
+        return Report(title: L10n.tr("Compare Folders"), summary: summary, sections: sections)
     }
 }
 
@@ -131,8 +131,8 @@ extension AppModel {
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.treatsFilePackagesAsDirectories = false
-        panel.prompt = move ? "Move" : "Copy"
-        panel.message = move ? "Choose the folder to move the selection to" : "Choose the folder to copy the selection to"
+        panel.prompt = move ? L10n.tr("Move") : L10n.tr("Copy")
+        panel.message = move ? L10n.tr("Choose the folder to move the selection to") : L10n.tr("Choose the folder to copy the selection to")
         panel.directoryURL = active.currentURL
         guard panel.runModal() == .OK, let dir = panel.url else { return }
         dropTransfer(Array(urls), into: dir, move: move)
@@ -150,7 +150,7 @@ extension AppModel {
 
     func findDuplicates() {
         let root = active.currentURL
-        report = Report(title: "Find Duplicates", summary: "Scanning…", sections: [])
+        report = Report(title: L10n.tr("Find Duplicates"), summary: L10n.tr("Scanning…"), sections: [])
         Task {
             let result = await Task.detached { FolderAnalysis.duplicates(root) }.value
             if report != nil { report = result }
@@ -159,13 +159,13 @@ extension AppModel {
 
     func compareFolders() {
         let left = active.currentURL
-        chooseOtherPane(from: active, title: "Compare Folders") { [weak self] target in
+        chooseOtherPane(from: active, title: L10n.tr("Compare Folders")) { [weak self] target in
             self?.compareFolders(left: left, right: target.directory)
         }
     }
 
     private func compareFolders(left: URL, right: URL) {
-        report = Report(title: "Compare Folders", summary: "Comparing…", sections: [])
+        report = Report(title: L10n.tr("Compare Folders"), summary: L10n.tr("Comparing…"), sections: [])
         Task {
             let result = await Task.detached { FolderAnalysis.compare(left, right) }.value
             if report != nil { report = result }
@@ -206,10 +206,10 @@ struct ReportPanel: View {
                                         Text(row.text).lineLimit(1).truncationMode(.middle)
                                         Spacer(minLength: 8)
                                         if let url = row.url {
-                                            Button("Show") { app.active.navigate(to: url.deletingLastPathComponent()); close() }
+                                            Button(L10n.tr("Show")) { app.active.navigate(to: url.deletingLastPathComponent()); close() }
                                                 .buttonStyle(.plain).foregroundStyle(Color.filetor)
                                             if row.trashable {
-                                                Button("Trash") { app.trashFromReport(row) }
+                                                Button(L10n.tr("Trash")) { app.trashFromReport(row) }
                                                     .buttonStyle(.plain).foregroundStyle(Color.filetor)
                                             }
                                         }
@@ -224,12 +224,12 @@ struct ReportPanel: View {
                 .frame(height: 380 * s)
             }
             HStack {
-                if report?.title == "Compare Folders", report?.sections.isEmpty == false {
-                    Button("Synchronize…") { close(); app.synchronize() }
+                if report?.title == L10n.tr("Compare Folders"), report?.sections.isEmpty == false {
+                    Button(L10n.tr("Synchronize…")) { close(); app.synchronize() }
                         .buttonStyle(PathsButtonStyle(scale: s, prominent: false))
                 }
                 Spacer()
-                Button("Done") { close() }
+                Button(L10n.tr("Done")) { close() }
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     .keyboardShortcut(.defaultAction)
                     .background { Button("") { close() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0) }
@@ -334,14 +334,14 @@ final class SyncSession {
 extension AppModel {
     func synchronize() {
         let left = active.currentURL
-        chooseOtherPane(from: active, title: "Synchronize Folders") { [weak self] target in
+        chooseOtherPane(from: active, title: L10n.tr("Synchronize Folders")) { [weak self] target in
             self?.synchronize(left: left, right: target.directory)
         }
     }
 
     private func synchronize(left: URL, right: URL) {
         guard left.standardizedFileURL != right.standardizedFileURL else {
-            alert = "Both panes show the same folder."
+            alert = L10n.tr("Both panes show the same folder.")
             return
         }
         let session = SyncSession(left: left, right: right)
@@ -402,7 +402,7 @@ struct SyncContent: View {
         switch a {
         case .toRight: return "→"
         case .toLeft: return "←"
-        case .skip: return "Skip"
+        case .skip: return L10n.tr("Skip")
         }
     }
 
@@ -447,10 +447,10 @@ struct SyncContent: View {
     var body: some View {
         let toRight = session.count(.toRight), toLeft = session.count(.toLeft)
         VStack(alignment: .leading, spacing: 12) {
-            Text("Synchronize").font(.system(size: 22 * s))
+            Text(L10n.tr("Synchronize")).font(.system(size: 22 * s))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Left: \(session.leftRoot.path)")
-                Text("Right: \(session.rightRoot.path)")
+                Text(L10n.tr("Left: \(session.leftRoot.path)"))
+                Text(L10n.tr("Right: \(session.rightRoot.path)"))
             }
             .font(.system(size: 12.5 * s))
             .foregroundStyle(.secondary)
@@ -458,10 +458,10 @@ struct SyncContent: View {
             .truncationMode(.middle)
 
             HStack {
-                Text("Direction")
+                Text(L10n.tr("Direction"))
                 Picker("", selection: Binding(get: { session.direction },
                                               set: { session.direction = $0; session.applyDirection() })) {
-                    ForEach(SyncDirection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    ForEach(SyncDirection.allCases, id: \.self) { Text(L10n.key($0.rawValue)).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -469,39 +469,39 @@ struct SyncContent: View {
             }
 
             if session.loading {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Comparing…").foregroundStyle(.secondary) }
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L10n.tr("Comparing…")).foregroundStyle(.secondary) }
                     .frame(maxWidth: .infinity, minHeight: 80 * s)
             } else if session.rows.isEmpty {
-                Text("Visible regular files match by size and date. Hidden files, packages and empty folders are excluded.").foregroundStyle(.secondary)
+                Text(L10n.tr("Visible regular files match by size and date. Hidden files, packages and empty folders are excluded.")).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 80 * s)
             } else {
-                columns(Text("Path"), Text("Left size"), Text("Left modified"), Text("Action"),
-                        Text("Right size"), Text("Right modified"))
+                columns(Text(L10n.tr("Path")), Text(L10n.tr("Left size")), Text(L10n.tr("Left modified")), Text(L10n.tr("Action")),
+                        Text(L10n.tr("Right size")), Text(L10n.tr("Right modified")))
                     .font(.system(size: 12 * s))
                     .foregroundStyle(.secondary)
                 Divider()
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2 * s) {
-                        section("Only on one side", session.rows.filter(\.isOneSided))
-                        section("Different", session.rows.filter { !$0.isOneSided })
+                        section(L10n.tr("Only on one side"), session.rows.filter(\.isOneSided))
+                        section(L10n.tr("Different"), session.rows.filter { !$0.isOneSided })
                     }
                 }
                 .frame(height: 320 * s)
-                Text("Visible regular files only. Newer files replace older ones. Replaced files are kept in Trash or in a hidden .filetor-backup file beside the destination. Equal-date differences require a direction.")
+                Text(L10n.tr("Visible regular files only. Newer files replace older ones. Replaced files are kept in Trash or in a hidden .filetor-backup file beside the destination. Equal-date differences require a direction."))
                     .font(.system(size: 12 * s))
                     .foregroundStyle(.secondary)
             }
 
             HStack {
                 if !session.loading && !session.rows.isEmpty {
-                    Text("\(toRight) copy to the right, \(toLeft) copy to the left, \(session.count(.skip)) skipped")
+                    Text(L10n.tr("\(toRight) copy to the right, \(toLeft) copy to the left, \(session.count(.skip)) skipped"))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Cancel") { close() }
+                Button(L10n.tr("Cancel")) { close() }
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: false))
                     .keyboardShortcut(.cancelAction)
-                Button("Synchronize") { app.runSync(session) }
+                Button(L10n.tr("Synchronize")) { app.runSync(session) }
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     .keyboardShortcut(.defaultAction)
                     .disabled(session.loading || toRight + toLeft == 0)
@@ -519,8 +519,8 @@ extension AppModel {
     func recordTransferUndo(move: Bool, records: [TransferRecord], batch: UUID? = nil) {
         if let batch { recordBatchPart(batch, records: records); return }
         guard !records.isEmpty else { return }
-        let verb = move ? "Move" : "Copy"
-        let title = records.count == 1 ? "\(verb) \"\(records[0].dst.lastPathComponent)\"" : "\(verb) \(records.count) items"
+        let verb = move ? L10n.tr("Move") : L10n.tr("Copy")
+        let title = records.count == 1 ? "\(verb) \"\(records[0].dst.lastPathComponent)\"" : L10n.tr("\(verb) \(records.count) items")
         let c = Self.transferClosures(records)
         pushUndo(title, undo: c.undo, redo: c.redo)
     }
@@ -538,7 +538,7 @@ extension AppModel {
         guard !b.parts.isEmpty else { return }
         let parts = b.parts
         let total = parts.reduce(0) { $0 + $1.count }
-        pushUndo(total == 1 ? "Synchronize 1 item" : "Synchronize \(total) items", undo: {
+        pushUndo(total == 1 ? L10n.tr("Synchronize 1 item") : L10n.tr("Synchronize \(total) items"), undo: {
             var errors: [String] = []
             for part in parts.reversed() { if let error = await part.undo() { errors.append(error) } }
             return errors.isEmpty ? nil : errors.joined(separator: "\n")
@@ -562,12 +562,12 @@ extension AppModel {
 extension AppModel {
     func optimizeImages(_ urls: Set<URL>) {
         let images = urls.filter { FileTools.isImage($0) }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        guard !images.isEmpty else { alert = "Select one or more image files."; return }
+        guard !images.isEmpty else { alert = L10n.tr("Select one or more image files."); return }
         optimizeURLs = images
     }
 
     func runOptimize(_ urls: [URL], options: OptimizeOptions) {
-        let job = TransferJob(title: urls.count == 1 ? "Optimizing \(urls[0].lastPathComponent)" : "Optimizing \(urls.count) images")
+        let job = TransferJob(title: urls.count == 1 ? L10n.tr("Optimizing \(urls[0].lastPathComponent)") : L10n.tr("Optimizing \(urls.count) images"))
         transfers.jobs.append(job)
         Task {
             var done: [OptimizedItem] = []
@@ -589,7 +589,7 @@ extension AppModel {
         }
     }
 
-    func recordOptimizeUndo(_ done: [OptimizedItem], title: String = "Optimize Images") {
+    func recordOptimizeUndo(_ done: [OptimizedItem], title: String = L10n.tr("Optimize Images")) {
         let records = done.map { TransferRecord(src: $0.original, dst: $0.result, moved: false, trashed: $0.trashedOriginal, originalURL: $0.original) }
         let steps = Self.transferClosures(records)
         pushUndo(title, undo: steps.undo, redo: steps.redo)
@@ -623,51 +623,51 @@ struct OptimizeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16 * s) {
-            Text(urls.count == 1 ? "Optimize Image" : "Optimize \(urls.count) Images").font(.system(size: 22 * s))
+            Text(urls.count == 1 ? L10n.tr("Optimize Image") : L10n.tr("Optimize \(urls.count) Images")).font(.system(size: 22 * s))
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Size (longest side, never enlarged)").foregroundStyle(.secondary)
+                Text(L10n.tr("Size (longest side, never enlarged)")).foregroundStyle(.secondary)
                 HStack(spacing: 12) {
-                    SegmentedChoice(options: ["Original", "1920", "1280", "Custom"], selection: $sizeChoice, scale: s, accent: true)
+                    SegmentedChoice(options: [L10n.tr("Original"), "1920", "1280", L10n.tr("Custom")], selection: $sizeChoice, scale: s, accent: true)
                     if sizeChoice == 3 {
                         TextField("", value: $custom, format: .number.grouping(.never))
                             .textFieldStyle(PathsTextFieldStyle(scale: s))
                             .frame(width: 80 * s)
-                        Text("px").foregroundStyle(.secondary)
+                        Text(L10n.tr("px")).foregroundStyle(.secondary)
                     }
                 }
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Quality").foregroundStyle(.secondary)
+                    Text(L10n.tr("Quality")).foregroundStyle(.secondary)
                     Spacer()
                     Text("\(Int((quality * 100).rounded())) %").foregroundStyle(.secondary)
                 }
                 Slider(value: $quality, in: 0.3...1.0)
-                Text("Applies to JPEG, HEIC and WebP.").font(.system(size: 12 * s)).foregroundStyle(.secondary)
+                Text(L10n.tr("Applies to JPEG, HEIC and WebP.")).font(.system(size: 12 * s)).foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Toggle("Convert to sRGB", isOn: $srgb)
-                Toggle("Remove metadata", isOn: $strip)
-                Toggle("Reduce PNG to 256 colors", isOn: $palette).disabled(!strip)
+                Toggle(L10n.tr("Convert to sRGB"), isOn: $srgb)
+                Toggle(L10n.tr("Remove metadata"), isOn: $strip)
+                Toggle(L10n.tr("Reduce PNG to 256 colors"), isOn: $palette).disabled(!strip)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Result").foregroundStyle(.secondary)
-                SegmentedChoice(options: ["Next to original", "Replace"], selection: $replace, scale: s, accent: true)
-                Text(replace == 0 ? "Saved as name-web next to each original."
-                                  : "The originals are moved to the Trash. You can undo this with \u{2318}Z.")
+                Text(L10n.tr("Result")).foregroundStyle(.secondary)
+                SegmentedChoice(options: [L10n.tr("Next to original"), L10n.tr("Replace")], selection: $replace, scale: s, accent: true)
+                Text(replace == 0 ? L10n.tr("Saved as name-web next to each original.")
+                                  : L10n.tr("The originals are moved to the Trash. You can undo this with \u{2318}Z."))
                     .font(.system(size: 12 * s)).foregroundStyle(.secondary)
             }
 
             HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L10n.tr("Cancel")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Optimize") {
+                Button(L10n.tr("Optimize")) {
                     app.runOptimize(urls, options: OptimizeOptions(maxSide: maxSide, quality: quality, srgb: srgb, strip: strip, replace: replace == 1, pngPalette: palette && strip))
                     dismiss()
                 }
@@ -700,19 +700,19 @@ struct ConvertSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16 * s) {
-            Text(urls.count == 1 ? "Convert Image" : "Convert \(urls.count) Images").font(.system(size: 22 * s))
+            Text(urls.count == 1 ? L10n.tr("Convert Image") : L10n.tr("Convert \(urls.count) Images")).font(.system(size: 22 * s))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Format").foregroundStyle(.secondary)
+                Text(L10n.tr("Format")).foregroundStyle(.secondary)
                 SegmentedChoice(options: formats.map(\.name), selection: $format, scale: s, accent: true)
-                Text("Saved next to each original. The originals stay untouched.")
+                Text(L10n.tr("Saved next to each original. The originals stay untouched."))
                     .font(.system(size: 12 * s)).foregroundStyle(.secondary)
             }
             HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L10n.tr("Cancel")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Convert") {
+                Button(L10n.tr("Convert")) {
                     let f = formats[min(max(format, 0), formats.count - 1)]
                     app.convertImages(urls, format: f.fmt, ext: f.ext)
                     dismiss()
@@ -809,7 +809,7 @@ extension AppModel {
     func createProject(name: String, folders: [String]) {
         guard FileOperationSafety.validName(name), folders.allSatisfy({ path in
             !path.hasPrefix("/") && path.split(separator: "/", omittingEmptySubsequences: false).allSatisfy { FileOperationSafety.validName(String($0)) }
-        }) else { alert = "Project folders must use relative paths without empty names or '..'."; return }
+        }) else { alert = L10n.tr("Project folders must use relative paths without empty names or '..'."); return }
         let pane = active
         let root = pane.currentURL.appending(path: name)
         let fm = FileManager.default
@@ -822,7 +822,7 @@ extension AppModel {
                 throw error
             }
             let steps = Self.createdSteps(root)
-            pushUndo("New Project Folder", undo: steps.undo, redo: steps.redo)
+            pushUndo(L10n.tr("New Project Folder"), undo: steps.undo, redo: steps.redo)
             refresh()
             pane.selection = [root]
         } catch {
@@ -849,19 +849,19 @@ struct ProjectFolderSheet: View {
 
     private var problem: String? {
         let n = name.trimmingCharacters(in: .whitespaces)
-        if n.isEmpty { return "The name cannot be empty." }
-        if n.contains("/") || n.contains(":") { return "The name cannot contain \"/\" or \":\"." }
-        if FileManager.default.fileExists(atPath: location.appending(path: n).path) { return "\"\(n)\" already exists in this folder." }
-        if plan.contains(where: { $0.contains(":") }) { return "A folder name cannot contain \":\"." }
-        if Set(plan).count != plan.count { return "Two folders have the same name." }
+        if n.isEmpty { return L10n.tr("The name cannot be empty.") }
+        if n.contains("/") || n.contains(":") { return L10n.tr("The name cannot contain \"/\" or \":\".") }
+        if FileManager.default.fileExists(atPath: location.appending(path: n).path) { return L10n.tr("\"\(n)\" already exists in this folder.") }
+        if plan.contains(where: { $0.contains(":") }) { return L10n.tr("A folder name cannot contain \":\".") }
+        if Set(plan).count != plan.count { return L10n.tr("Two folders have the same name.") }
         return nil
     }
 
     private var summary: String {
         switch plan.count {
-        case 0: return "with no folders"
-        case 1: return "with 1 folder"
-        default: return "with \(plan.count) folders"
+        case 0: return L10n.tr("with no folders")
+        case 1: return L10n.tr("with 1 folder")
+        default: return L10n.tr("with \(plan.count) folders")
         }
     }
 
@@ -875,29 +875,29 @@ struct ProjectFolderSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New Project Folder").font(.system(size: 22 * s))
+            Text(L10n.tr("New Project Folder")).font(.system(size: 22 * s))
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Template").foregroundStyle(.secondary)
-                SegmentedChoice(options: templates.map(\.name) + ["+ New"],
+                Text(L10n.tr("Template")).foregroundStyle(.secondary)
+                SegmentedChoice(options: templates.map { $0.builtIn ? L10n.key($0.name) : $0.name } + [L10n.tr("+ New")],
                                 selection: Binding(get: { idx }, set: { new in
                                     if new >= templates.count { addTemplate() } else { selected = new }
                                 }), scale: s, accent: true)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Name").foregroundStyle(.secondary)
+                Text(L10n.tr("Name")).foregroundStyle(.secondary)
                 TextField("", text: $name).textFieldStyle(PathsTextFieldStyle(scale: s))
-                Text("Replace Client and Project. The current month is added for you.")
+                Text(L10n.tr("Replace Client and Project. The current month is added for you."))
                     .font(.system(size: 12 * s)).foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Folders to create").foregroundStyle(.secondary)
+                    Text(L10n.tr("Folders to create")).foregroundStyle(.secondary)
                     Spacer()
                     if templates[idx].builtIn {
-                        Button("Reset template") {
+                        Button(L10n.tr("Reset template")) {
                             if var d = ProjectTemplates.defaults.first(where: { $0.name == templates[idx].name }) {
                                 d.id = templates[idx].id
                                 templates[idx] = d
@@ -905,7 +905,7 @@ struct ProjectFolderSheet: View {
                         }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
                     } else {
-                        Button("Delete template") {
+                        Button(L10n.tr("Delete template")) {
                             templates.remove(at: idx)
                             selected = max(0, idx - 1)
                         }
@@ -914,7 +914,7 @@ struct ProjectFolderSheet: View {
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     if templates[idx].folders.isEmpty {
-                        Text("No folders. Only the project folder is created.")
+                        Text(L10n.tr("No folders. Only the project folder is created."))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 14 * s).padding(.top, 18 * s)
                     }
@@ -926,7 +926,7 @@ struct ProjectFolderSheet: View {
                                     .resizable()
                                     .interpolation(.high)
                                     .frame(width: 18 * s, height: 18 * s)
-                                TextField("Folder name", text: $f.name).textFieldStyle(.plain)
+                                TextField(L10n.tr("Folder name"), text: $f.name).textFieldStyle(.plain)
                                 Spacer(minLength: 4)
                                 Button {
                                     f.level = f.level == 0 ? 1 : 0
@@ -934,13 +934,13 @@ struct ProjectFolderSheet: View {
                                     Image(systemName: f.level == 0 ? "arrow.turn.down.right" : "arrow.turn.up.left")
                                 }
                                 .buttonStyle(.plain).foregroundStyle(.secondary)
-                                .help(f.level == 0 ? "Make sub-folder" : "Move out of sub-folder")
+                                .help(f.level == 0 ? L10n.tr("Make sub-folder") : L10n.tr("Move out of sub-folder"))
                                 Button {
                                     let id = f.id
                                     templates[idx].folders.removeAll { $0.id == id }
                                 } label: { Image(systemName: "xmark") }
                                 .buttonStyle(.plain).foregroundStyle(.secondary)
-                                .help("Remove from template")
+                                .help(L10n.tr("Remove from template"))
                             }
                             .padding(.leading, f.level == 1 ? 26 * s : 0)
                             .padding(.vertical, 5 * s)
@@ -955,7 +955,7 @@ struct ProjectFolderSheet: View {
                     .scrollContentBackground(.hidden)
                     .environment(\.defaultMinListRowHeight, 0)
                     .padding(.top, templates[idx].folders.isEmpty ? 0 : 7 * s)
-                    Button("+ Add folder") {
+                    Button(L10n.tr("+ Add folder")) {
                         templates[idx].folders.append(ProjectFolder(name: "New Folder"))
                     }
                     .buttonStyle(.plain).foregroundStyle(Color.filetor)
@@ -964,12 +964,12 @@ struct ProjectFolderSheet: View {
                 .frame(height: 250 * s)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.03)))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.15)))
-                Text("Click a name to rename, drag to reorder.")
+                Text(L10n.tr("Click a name to rename, drag to reorder."))
                     .font(.system(size: 12 * s)).foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Location").foregroundStyle(.secondary)
+                Text(L10n.tr("Location")).foregroundStyle(.secondary)
                 Text((location.path as NSString).abbreviatingWithTildeInPath)
                     .lineLimit(1).truncationMode(.middle)
                     .padding(.horizontal, 10 * s).padding(.vertical, 6 * s)
@@ -979,17 +979,17 @@ struct ProjectFolderSheet: View {
                 if let problem {
                     Text(problem).foregroundStyle(Color.orange)
                 } else {
-                    Text("Creates **\(name.trimmingCharacters(in: .whitespaces))** \(summary) in the active pane.")
+                    Text(L10n.tr("Creates “\(name.trimmingCharacters(in: .whitespaces))” \(summary) in the active pane."))
                         .font(.system(size: 12 * s)).foregroundStyle(.secondary)
                 }
             }
 
             HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L10n.tr("Cancel")) { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
-                Button("Create") {
+                Button(L10n.tr("Create")) {
                     app.createProject(name: name.trimmingCharacters(in: .whitespaces), folders: plan)
                     dismiss()
                 }
