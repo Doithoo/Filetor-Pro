@@ -95,22 +95,58 @@ extension SavedSearch {
 /// Runs a Spotlight query with mdfind in the background.
 enum SpotlightSearch {
     static func run(_ query: String, onlyIn folder: String) async -> [URL] {
-        await Task.detached(priority: .userInitiated) { search(query, folder) }.value
+        await results(executable: URL(filePath: "/usr/bin/mdfind"),
+                      arguments: ["-0"] + (folder.isEmpty ? [] : ["-onlyin", folder]) + [query])
     }
 
-    nonisolated private static func search(_ query: String, _ folder: String) -> [URL] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/mdfind")
-        process.arguments = ["-0"] + (folder.isEmpty ? [] : ["-onlyin", folder]) + [query]
-        let pipe = Pipe()
+    nonisolated static func results(executable: URL, arguments: [String], limit: Int = 3000) async -> [URL] {
+        let worker = Task.detached(priority: .userInitiated) {
+            readResults(executable: executable, arguments: arguments, limit: limit)
+        }
+        return await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+    }
+
+    nonisolated private static func readResults(executable: URL, arguments: [String], limit: Int) -> [URL] {
+        guard limit > 0, !Task.isCancelled else { return [] }
+        let process = Process(), pipe = Pipe()
+        process.executableURL = executable
+        process.arguments = arguments
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
         do { try process.run() } catch { return [] }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return data.split(separator: 0).prefix(3000).compactMap { chunk in
-            String(data: Data(chunk), encoding: .utf8).map { URL(fileURLWithPath: $0) }
+        let handle = pipe.fileHandleForReading
+        defer {
+            if process.isRunning { process.terminate() }
+            try? handle.close()
+            process.waitUntilExit()
         }
+        var descriptor = pollfd(fd: handle.fileDescriptor, events: Int16(POLLIN), revents: 0)
+        var buffer = [UInt8](repeating: 0, count: 16384), path = [UInt8]()
+        var urls: [URL] = [], oversized = false
+        while !Task.isCancelled {
+            // A silent Spotlight query must still respond to cancellation.
+            let ready = poll(&descriptor, 1, 100)
+            if ready == 0 || (ready < 0 && errno == EINTR) { continue }
+            guard ready > 0 else { break }
+            let count = read(descriptor.fd, &buffer, buffer.count)
+            if count < 0 && errno == EINTR { continue }
+            guard count > 0 else { break }
+            for byte in buffer.prefix(count) {
+                if byte == 0 {
+                    if !oversized, !path.isEmpty, let name = String(bytes: path, encoding: .utf8) {
+                        urls.append(URL(fileURLWithPath: name, isDirectory: false))
+                        if urls.count == limit { return urls }
+                    }
+                    path.removeAll(keepingCapacity: true)
+                    oversized = false
+                } else if path.count < Int(PATH_MAX) {
+                    path.append(byte)
+                } else {
+                    oversized = true
+                }
+            }
+        }
+        return Task.isCancelled ? [] : urls
     }
 }
 

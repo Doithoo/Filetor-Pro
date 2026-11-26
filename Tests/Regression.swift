@@ -435,6 +435,9 @@ struct Regression {
             try fm.createDirectory(at: root, withIntermediateDirectories: false)
             if CommandLine.arguments.contains("--localization-only") {
                 try await localizationTests(root)
+                try duplicateReportTests(root)
+            } else if CommandLine.arguments.contains("--quality-only") {
+                try await qualityTests(root)
             } else if CommandLine.arguments.contains("--help-only") {
                 try await helpTests()
             } else if CommandLine.arguments.contains("--folder-expansion-only") {
@@ -465,6 +468,7 @@ struct Regression {
                 try await navigationTests(root)
             } else {
                 try await localizationTests(root)
+                try await qualityTests(root)
                 try renameTests(root)
                 try await transferTests(root)
                 try archiveTests(root)

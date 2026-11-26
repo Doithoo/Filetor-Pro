@@ -3,6 +3,24 @@ import Darwin
 
 /// Shared filesystem rules for list, tree, search and drag selections.
 nonisolated enum FileOperationSafety {
+    /// Lexical path relative to a standardized enumeration root, including "/" itself.
+    struct RelativeRoot {
+        private let path: String
+        private let prefix: String
+
+        init(_ root: URL) {
+            path = root.standardizedFileURL.path
+            prefix = path == "/" ? "/" : path + "/"
+        }
+
+        func relative(_ url: URL) -> String? {
+            let full = url.standardizedFileURL.path
+            if full == path { return "" }
+            guard let match = full.range(of: prefix, options: [.anchored, .literal]) else { return nil }
+            return String(full[match.upperBound...])
+        }
+    }
+
     static func validName(_ name: String) -> Bool {
         !name.isEmpty && name != "." && name != ".." && !name.contains("/") && !name.contains("\0")
     }

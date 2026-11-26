@@ -13,7 +13,8 @@ nonisolated struct LargeFile: Identifiable, Sendable {
 }
 
 struct LargeFiles {
-    var root: URL
+    let id = UUID()
+    let root: URL
     var files: [LargeFile] = []
     var scanning = true
 
@@ -30,12 +31,12 @@ nonisolated enum LargeFileScan {
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
         guard let en = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys,
                                                       options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
-        let base = root.standardizedFileURL.path
+        let base = FileOperationSafety.RelativeRoot(root)
         var best: [LargeFile] = []
         for case let url as URL in en {
+            if Task.isCancelled { return [] }
             guard let v = try? url.resourceValues(forKeys: Set(keys)), v.isRegularFile == true else { continue }
-            let full = url.deletingLastPathComponent().standardizedFileURL.path
-            let rel = full.hasPrefix(base + "/") ? String(full.dropFirst(base.count + 1)) : ""
+            guard let rel = base.relative(url.deletingLastPathComponent()) else { continue }
             best.append(LargeFile(url: url, folder: rel, size: Int64(v.fileSize ?? 0), date: v.contentModificationDate ?? .distantPast))
             // Keep the list short while scanning huge folders.
             if best.count > limit * 10 {
@@ -51,17 +52,25 @@ nonisolated enum LargeFileScan {
 extension AppModel {
     func findLargeFiles() {
         let root = active.currentURL
-        largeFiles = LargeFiles(root: root)
-        Task {
-            let result = await Task.detached(priority: .userInitiated) { LargeFileScan.run(root) }.value
-            guard largeFiles?.root == root else { return }
-            largeFiles = LargeFiles(root: root, files: result, scanning: false)
+        let initial = LargeFiles(root: root)
+        largeFiles = initial
+        let worker = Task.detached(priority: .userInitiated) { LargeFileScan.run(root) }
+        largeFileWorker = worker
+        Task { [weak self] in
+            let result = await worker.value
+            guard let self, self.largeFiles?.id == initial.id else { return }
+            self.largeFiles?.files = result
+            self.largeFiles?.scanning = false
+            self.largeFileWorker = nil
         }
     }
 
     func trashFromLargeFiles(_ file: LargeFile) {
-        trash([file.url])
-        largeFiles?.files.removeAll { $0.id == file.id }
+        guard let id = largeFiles?.id else { return }
+        trash([file.url]) { [weak self] moved in
+            guard let self, self.largeFiles?.id == id, moved.contains(file.url) else { return }
+            self.largeFiles?.files.removeAll { $0.id == file.id }
+        }
     }
 
     func showLargeFile(_ file: LargeFile) {

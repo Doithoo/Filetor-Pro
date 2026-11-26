@@ -167,11 +167,19 @@ final class AppModel {
     /// Images in the Convert dialog.
     var convertURLs: Set<URL>?
     /// Result of Find Duplicates or Compare Folders.
-    var report: Report?
+    @ObservationIgnored var reportWorker: Task<Report, Never>?
+    var report: Report? {
+        didSet { if oldValue?.id != report?.id { reportWorker?.cancel(); reportWorker = nil } }
+    }
     /// Large Files panel.
-    var largeFiles: LargeFiles?
+    @ObservationIgnored var largeFileWorker: Task<[LargeFile], Never>?
+    var largeFiles: LargeFiles? {
+        didSet { if oldValue?.id != largeFiles?.id { largeFileWorker?.cancel(); largeFileWorker = nil } }
+    }
     var showFolderAccess = false
-    var sync: SyncSession?
+    var sync: SyncSession? {
+        didSet { if oldValue !== sync { oldValue?.worker?.cancel() } }
+    }
     var renameTarget: URL?
     var renameText = ""
     /// Steps that ⌘Z can undo, and steps that ⇧⌘Z can do again (newest last).
@@ -255,6 +263,9 @@ final class AppModel {
     // MARK: Session restore
 
     func stop() {
+        report = nil
+        largeFiles = nil
+        sync = nil
         paneDrag = nil
         SystemQuickLook.shared.close(owner: self)
         saveSession()
@@ -551,7 +562,7 @@ final class AppModel {
         transferClosures([TransferRecord(src: url, dst: url, moved: false, trashed: nil)])
     }
 
-    func trash(_ urls: Set<URL>) {
+    func trash(_ urls: Set<URL>, completion: ((Set<URL>) -> Void)? = nil) {
         // Off the main thread: on a network disk trashItem can take a while before it fails, which showed the spinning wheel.
         // The toolbar progress ring only shows up when it takes longer than a moment, so quick trashing causes no flicker.
         let job = TransferJob(title: L10n.tr("Moving to Trash"))
@@ -566,6 +577,7 @@ final class AppModel {
             shower.cancel()
             transfers.jobs.removeAll { $0.id == job.id }
             finishTrash(failed: r.failed, noTrash: r.noTrash, moved: r.moved)
+            completion?(Set(r.moved.map(\.original)))
         }
     }
 

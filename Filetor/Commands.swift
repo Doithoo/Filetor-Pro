@@ -15,12 +15,42 @@ nonisolated struct ReportSection: Identifiable, Sendable {
     let id = UUID()
     var title: String
     var rows: [ReportRow]
+    var copySize: Int64?
+    var trashPending = false
+
+    mutating func updateDuplicateTitle() {
+        guard let size = copySize, let name = rows.first?.url?.lastPathComponent else { return }
+        let sizeText = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+        title = L10n.tr("\(name) · \(sizeText) · \(rows.count) copies")
+    }
 }
 
 nonisolated struct Report: Sendable {
+    enum Kind: Equatable { case duplicates(URL), comparison }
+    var id = UUID()
+    let kind: Kind
     var title: String
     var summary: String
     var sections: [ReportSection]
+
+    mutating func updateDuplicateSummary() {
+        guard case .duplicates(let root) = kind else { return }
+        let name = root.lastPathComponent.isEmpty ? "/" : root.lastPathComponent
+        let bytes = sections.reduce(Int64(0)) { $0 + ($1.copySize ?? 0) * Int64($1.rows.count - 1) }
+        let w = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        summary = sections.isEmpty ? L10n.tr("No duplicate files found in \(name).")
+            : L10n.tr("\(sections.count) groups of identical files in \(name). Removing the extra copies frees \(w).")
+    }
+
+    mutating func finishTrash(row: UUID, section: UUID, moved: Bool) {
+        guard let i = sections.firstIndex(where: { $0.id == section }) else { return }
+        sections[i].trashPending = false
+        guard moved else { return }
+        sections[i].rows.removeAll { $0.id == row }
+        if sections[i].rows.count < 2 { sections.remove(at: i) }
+        else { sections[i].updateDuplicateTitle() }
+        updateDuplicateSummary()
+    }
 }
 
 // MARK: - Folder analysis (runs off the main thread)
@@ -35,11 +65,11 @@ nonisolated enum FolderAnalysis {
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
         guard let en = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys,
                                                       options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return out }
-        let base = root.standardizedFileURL.path
+        let base = FileOperationSafety.RelativeRoot(root)
         for case let url as URL in en {
+            if Task.isCancelled { break }
             guard let v = try? url.resourceValues(forKeys: Set(keys)), v.isRegularFile == true else { continue }
-            let full = url.standardizedFileURL.path
-            let rel = full.hasPrefix(base + "/") ? String(full.dropFirst(base.count + 1)) : url.lastPathComponent
+            guard let rel = base.relative(url), !rel.isEmpty else { continue }
             out[rel] = Entry(url: url, size: Int64(v.fileSize ?? 0), date: v.contentModificationDate ?? .distantPast)
         }
         return out
@@ -67,33 +97,32 @@ nonisolated enum FolderAnalysis {
     static func duplicates(_ root: URL) -> Report {
         let files = scan(root)
         var bySize: [Int64: [String]] = [:]
-        for (rel, e) in files where e.size > 0 { bySize[e.size, default: []].append(rel) }
+        for (rel, e) in files {
+            if Task.isCancelled { break }
+            if e.size > 0 { bySize[e.size, default: []].append(rel) }
+        }
 
         var sections: [ReportSection] = []
-        var wasted: Int64 = 0
         for (size, rels) in bySize where rels.count > 1 {
+            if Task.isCancelled { break }
             var byHash: [String: [String]] = [:]
             for rel in rels {
+                if Task.isCancelled { break }
                 if let h = hash(files[rel]!.url) { byHash[h, default: []].append(rel) }
             }
             for (_, group) in byHash where group.count > 1 {
                 let sorted = group.sorted()
-                wasted += size * Int64(sorted.count - 1)
-                let sizeText = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
-                sections.append(ReportSection(
-                    title: L10n.tr("\(URL(filePath: sorted[0]).lastPathComponent) · \(sizeText) · \(sorted.count) copies"),
-                    rows: sorted.map { ReportRow(text: $0, url: files[$0]!.url, trashable: true) }))
+                var section = ReportSection(title: "", rows: sorted.map {
+                    ReportRow(text: $0, url: files[$0]!.url, trashable: true)
+                }, copySize: size)
+                section.updateDuplicateTitle()
+                sections.append(section)
             }
         }
         sections.sort { $0.title < $1.title }
-        let name = root.lastPathComponent.isEmpty ? "/" : root.lastPathComponent
-        if sections.isEmpty {
-            return Report(title: L10n.tr("Find Duplicates"), summary: L10n.tr("No duplicate files found in \(name)."), sections: [])
-        }
-        let w = ByteCountFormatter.string(fromByteCount: wasted, countStyle: .file)
-        return Report(title: L10n.tr("Find Duplicates"),
-                      summary: L10n.tr("\(sections.count) groups of identical files in \(name). Removing the extra copies frees \(w)."),
-                      sections: sections)
+        var report = Report(kind: .duplicates(root), title: L10n.tr("Find Duplicates"), summary: "", sections: sections)
+        report.updateDuplicateSummary()
+        return report
     }
 
     static func compare(_ left: URL, _ right: URL) -> Report {
@@ -101,13 +130,17 @@ nonisolated enum FolderAnalysis {
         var leftOnly: [(String, URL)] = [], rightOnly: [(String, URL)] = [], different: [(String, URL)] = []
         var same = 0
         for (rel, e) in l {
+            if Task.isCancelled { break }
             if let o = r[rel] {
                 if e.size != o.size || abs(e.date.timeIntervalSince(o.date)) > 2 { different.append((rel, e.url)) } else { same += 1 }
             } else {
                 leftOnly.append((rel, e.url))
             }
         }
-        for (rel, e) in r where l[rel] == nil { rightOnly.append((rel, e.url)) }
+        for (rel, e) in r {
+            if Task.isCancelled { break }
+            if l[rel] == nil { rightOnly.append((rel, e.url)) }
+        }
         let sort: ((String, URL), (String, URL)) -> Bool = { $0.0 < $1.0 }
         var sections: [ReportSection] = []
         if !leftOnly.isEmpty { sections.append(ReportSection(title: L10n.tr("Only in left pane (\(leftOnly.count))"), rows: rows(leftOnly.sorted(by: sort)))) }
@@ -116,7 +149,7 @@ nonisolated enum FolderAnalysis {
         let summary = sections.isEmpty
             ? L10n.tr("\(same) visible regular files match by size and date. Hidden files, packages and empty folders are excluded. Contents were not verified.")
             : L10n.tr("\(same) visible regular files match by size and date. Contents were not verified.")
-        return Report(title: L10n.tr("Compare Folders"), summary: summary, sections: sections)
+        return Report(kind: .comparison, title: L10n.tr("Compare Folders"), summary: summary, sections: sections)
     }
 }
 
@@ -150,10 +183,8 @@ extension AppModel {
 
     func findDuplicates() {
         let root = active.currentURL
-        report = Report(title: L10n.tr("Find Duplicates"), summary: L10n.tr("Scanning…"), sections: [])
-        Task {
-            let result = await Task.detached { FolderAnalysis.duplicates(root) }.value
-            if report != nil { report = result }
+        startReport(Report(kind: .duplicates(root), title: L10n.tr("Find Duplicates"), summary: L10n.tr("Scanning…"), sections: [])) {
+            FolderAnalysis.duplicates(root)
         }
     }
 
@@ -165,20 +196,34 @@ extension AppModel {
     }
 
     private func compareFolders(left: URL, right: URL) {
-        report = Report(title: L10n.tr("Compare Folders"), summary: L10n.tr("Comparing…"), sections: [])
-        Task {
-            let result = await Task.detached { FolderAnalysis.compare(left, right) }.value
-            if report != nil { report = result }
+        startReport(Report(kind: .comparison, title: L10n.tr("Compare Folders"), summary: L10n.tr("Comparing…"), sections: [])) {
+            FolderAnalysis.compare(left, right)
+        }
+    }
+
+    func startReport(_ initial: Report, scan: @escaping @Sendable () -> Report) {
+        report = initial
+        let worker = Task.detached(priority: .userInitiated, operation: scan)
+        reportWorker = worker
+        Task { [weak self] in
+            var result = await worker.value
+            guard let self, self.report?.id == initial.id else { return }
+            result.id = initial.id
+            self.report = result
+            self.reportWorker = nil
         }
     }
 
     func trashFromReport(_ row: ReportRow) {
-        guard let url = row.url else { return }
-        trash([url])
-        guard var r = report else { return }
-        for i in r.sections.indices { r.sections[i].rows.removeAll { $0.id == row.id } }
-        r.sections.removeAll { $0.rows.count < 2 && $0.title.contains("copies") }
-        report = r
+        guard let url = row.url, let current = report,
+              let i = current.sections.firstIndex(where: { $0.rows.contains(where: { $0.id == row.id && $0.trashable }) }),
+              !current.sections[i].trashPending else { return }
+        let id = current.id, section = current.sections[i].id
+        report?.sections[i].trashPending = true
+        trash([url]) { [weak self] moved in
+            guard let self, self.report?.id == id else { return }
+            self.report?.finishTrash(row: row.id, section: section, moved: moved.contains(url))
+        }
     }
 }
 
@@ -209,7 +254,7 @@ struct ReportPanel: View {
                                             Button(L10n.tr("Show")) { app.active.navigate(to: url.deletingLastPathComponent()); close() }
                                                 .buttonStyle(.plain).foregroundStyle(Color.filetor)
                                             if row.trashable {
-                                                Button(L10n.tr("Trash")) { app.trashFromReport(row) }
+                                                Button(L10n.tr("Trash")) { app.trashFromReport(row) }.disabled(section.trashPending)
                                                     .buttonStyle(.plain).foregroundStyle(Color.filetor)
                                             }
                                         }
@@ -224,7 +269,7 @@ struct ReportPanel: View {
                 .frame(height: 380 * s)
             }
             HStack {
-                if report?.title == L10n.tr("Compare Folders"), report?.sections.isEmpty == false {
+                if report?.kind == .comparison, report?.sections.isEmpty == false {
                     Button(L10n.tr("Synchronize…")) { close(); app.synchronize() }
                         .buttonStyle(PathsButtonStyle(scale: s, prominent: false))
                 }
@@ -298,6 +343,7 @@ nonisolated extension FolderAnalysis {
         let l = scan(leftRoot), r = scan(rightRoot)
         var rows: [SyncRow] = []
         for rel in Set(l.keys).union(r.keys) {
+            if Task.isCancelled { return [] }
             let le = l[rel].map { SyncSide(url: $0.url, size: $0.size, date: $0.date) }
             let re = r[rel].map { SyncSide(url: $0.url, size: $0.size, date: $0.date) }
             if let a = le, let b = re, a.size == b.size, abs(a.date.timeIntervalSince(b.date)) <= 2 { continue }
@@ -312,6 +358,7 @@ final class SyncSession {
     let leftRoot: URL
     let rightRoot: URL
     var rows: [SyncRow] = []
+    @ObservationIgnored var worker: Task<[SyncRow], Never>?
     var loading = true
     var direction = SyncDirection.both
 
@@ -346,9 +393,12 @@ extension AppModel {
         }
         let session = SyncSession(left: left, right: right)
         sync = session
-        Task {
-            let rows = await Task.detached { FolderAnalysis.syncRows(left, right) }.value
-            guard sync === session else { return }
+        let worker = Task.detached { FolderAnalysis.syncRows(left, right) }
+        session.worker = worker
+        Task { [weak self] in
+            let rows = await worker.value
+            guard self?.sync === session else { return }
+            session.worker = nil
             session.rows = rows
             session.applyDirection()
             session.loading = false

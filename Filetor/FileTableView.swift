@@ -111,6 +111,10 @@ struct FileTableView: NSViewRepresentable {
         c.lastLoadingFolders = pane.loadingFolders
         c.lastSettings = settings
         let oldItems = c.items
+        if itemsChanged {
+            c.rowByURL.removeAll(keepingCapacity: true)
+            for (index, item) in items.enumerated() { c.rowByURL[item.url] = index }
+        }
         c.items = items
 
         table.usesAlternatingRowBackgroundColors = striped
@@ -145,7 +149,7 @@ struct FileTableView: NSViewRepresentable {
            pane === app.active || !app.active.items.contains(where: { $0.url == target }) {
             DispatchQueue.main.async { c.beginInlineRename(target) }
         }
-        let rows = IndexSet(items.indices.filter { selection.contains(items[$0].url) })
+        let rows = IndexSet(selection.compactMap { c.rowByURL[$0] })
         if table.selectedRowIndexes != rows { table.selectRowIndexes(rows, byExtendingSelection: false) }
         c.syncing = false
         c.styleHeaders()
@@ -157,6 +161,7 @@ struct FileTableView: NSViewRepresentable {
         var parent: FileTableView
         weak var table: NSTableView?
         var items: [FileItem] = []
+        var rowByURL: [URL: Int] = [:]
         var lastSettings: [CGFloat] = []
         var syncing = false
         var lastTreeState = Set<URL>()

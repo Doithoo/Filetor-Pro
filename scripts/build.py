@@ -30,9 +30,14 @@ stable_sdk = Path("/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk")
 sdk = os.environ.get("SDKROOT", str(stable_sdk) if stable_sdk.exists() else sdk)
 testing = "--test" in sys.argv
 sparkle_dir = sparkle()
+binary_dir = out / "Symbols" / CONFIG["version"] / str(CONFIG["build"])
+if not testing:
+    binary_dir.mkdir(parents=True, exist_ok=True)
 command = ["xcrun", "swiftc", "-Onone" if testing else "-O", "-whole-module-optimization", "-swift-version", "5", "-default-isolation", "MainActor",
            "-target", f"{platform.machine()}-apple-macosx26.0", "-sdk", sdk, "-module-name", EXECUTABLE,
-           "-module-cache-path", str(out / "ModuleCache"), "-o", str(out / "FiletorRegression" if testing else macos / EXECUTABLE)]
+           "-module-cache-path", str(out / "ModuleCache"), "-o", str(out / "FiletorRegression" if testing else binary_dir / EXECUTABLE)]
+if not testing:
+    command += ["-gline-tables-only", "-debug-prefix-map", f"{root}=."]
 command += ["-F", str(sparkle_dir), "-framework", "Sparkle", "-Xlinker", "-rpath", "-Xlinker",
             str(sparkle_dir) if testing else "@executable_path/../Frameworks"]
 # Preserve WebP support when Homebrew's existing static libraries are available.
@@ -54,6 +59,14 @@ if testing:
         subprocess.run([str(out / "FiletorRegression"), "-AppleLanguages", "(zh-Hans)", "--navigation-scene"], check=True, timeout=60)
     sys.exit(0)
 subprocess.run(command, check=True)
+# swiftc emits the matching dSYM beside the executable. Keep it outside the app.
+binary = macos / EXECUTABLE
+shutil.copy2(binary_dir / EXECUTABLE, binary)
+subprocess.run(["xcrun", "strip", "-x", str(binary)], check=True)
+def uuid(path):
+    return subprocess.check_output(["xcrun", "dwarfdump", "--uuid", str(path)], text=True).split()[1]
+if uuid(binary) != uuid(binary_dir / (EXECUTABLE + ".dSYM")):
+    raise RuntimeError("The release binary does not match its debug symbols")
 info = {
     "CFBundleExecutable": EXECUTABLE, "CFBundleIdentifier": BUNDLE_ID,
     "CFBundleName": PRODUCT_NAME, "CFBundleDisplayName": PRODUCT_NAME,

@@ -35,7 +35,11 @@ struct InfoPanel: View {
                     scale: NSScreen.main?.backingScaleFactor ?? 2,
                     representationTypes: .thumbnail
                 )
-                if let rep = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request) {
+                let cancel: @MainActor @Sendable () -> Void = { QLThumbnailGenerator.shared.cancel(request) }
+                let rep = await withTaskCancellationHandler {
+                    try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request)
+                } onCancel: { Task { @MainActor in cancel() } }
+                if !Task.isCancelled, let rep {
                     thumbnail = rep.nsImage
                 }
             }
@@ -43,10 +47,21 @@ struct InfoPanel: View {
         .task(id: urls + [pane.currentURL]) {
             totalSize = nil
             let list = urls.isEmpty ? [pane.currentURL] : urls
-            totalSize = await Task.detached(priority: .userInitiated) {
-                list.map { FileTools.size(of: $0) }.reduce(0, +)
-            }.value
+            if let size = await Self.selectionSize(list), !Task.isCancelled { totalSize = size }
         }
+    }
+
+    nonisolated static func selectionSize(_ urls: [URL], measure: @escaping @Sendable (URL) -> Int64 = { FileTools.size(of: $0) }) async -> Int64? {
+        let worker = Task.detached(priority: .userInitiated) {
+            var size: Int64 = 0
+            for url in urls {
+                if Task.isCancelled { break }
+                size += measure(url)
+            }
+            return size
+        }
+        let size = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+        return Task.isCancelled ? nil : size
     }
 
     private func single(_ url: URL, isFolderView: Bool) -> some View {

@@ -5,11 +5,11 @@ import Observation
 final class PaneModel: Identifiable {
     let id = UUID()
     var currentURL: URL = FileManager.default.homeDirectoryForCurrentUser
-    var items: [FileItem] = []
+    var items: [FileItem] = [] { didSet { invalidateRows() } }
     var selection = Set<URL>()
     var sortOrder: [KeyPathComparator<FileItem>] = [
         KeyPathComparator(\FileItem.name, comparator: .localizedStandard)
-    ]
+    ] { didSet { if oldValue != sortOrder { invalidateRows() } } }
     var errorMessage: String?
     private(set) var trashAccessDenied = false
     var loading = false
@@ -19,32 +19,33 @@ final class PaneModel: Identifiable {
     @ObservationIgnored private var loadGeneration = UUID()
     @ObservationIgnored private var lastRecordedDirectory: URL?
     var revision = 0
-    var criteria = SearchCriteria() { didSet { if !treeActive { cancelExpandAll() }; if searchSubfolders { restartSearch() } } }
+    var criteria = SearchCriteria() { didSet { invalidateRows(); if !treeActive { cancelExpandAll() }; if searchSubfolders { restartSearch() } } }
     var hasSearchFilters: Bool { !filter.isEmpty || !criteria.isEmpty }
     @ObservationIgnored private var pendingSelection: URL?
-    var filter = "" { didSet { if !treeActive { cancelExpandAll() }; if searchSubfolders { restartSearch() } } }
+    var filter = "" { didSet { invalidateRows(); if !treeActive { cancelExpandAll() }; if searchSubfolders { restartSearch() } } }
     /// Search the filter text in all subfolders instead of only filtering the current folder.
     var searchSubfolders = UserDefaults.standard.bool(forKey: "searchSubfolders") {
         didSet {
+            invalidateRows()
             UserDefaults.standard.set(searchSubfolders, forKey: "searchSubfolders")
             restartSearch()
         }
     }
-    var searchResults: [FileItem] = []
+    var searchResults: [FileItem] = [] { didSet { invalidateRows() } }
     var searching = false
     var foldersScanned = 0
     /// Name of the tag whose files are shown (a Spotlight search over the whole Mac), nil in a normal folder.
-    var tagFilter: String? { didSet { if !treeActive { cancelExpandAll() } } }
+    var tagFilter: String? { didSet { invalidateRows(); if !treeActive { cancelExpandAll() } } }
     /// Set when the list shows a saved search (tagFilter then holds its name).
     var savedSearchID: UUID?
-    var tagResults: [FileItem] = []
+    var tagResults: [FileItem] = [] { didSet { invalidateRows() } }
     var tagSearching = false
     @ObservationIgnored private var tagTask: Task<Void, Never>?
     var title: String { tagFilter ?? (TrashLocation.isRoot(currentURL) ? L10n.tr("Trash") : CloudLocation.title(for: currentURL)) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     var searchActive: Bool { tagFilter == nil && searchSubfolders && hasSearchFilters }
     /// 0 = list, 1 = icons
-    var viewMode = 0 { didSet { if !treeActive { cancelExpandAll() } } }
+    var viewMode = 0 { didSet { invalidateRows(); if !treeActive { cancelExpandAll() } } }
     var showHidden = UserDefaults.standard.bool(forKey: "showHidden") { didSet { cancelExpandAll() } }
 
     private var backStack: [URL] = []
@@ -54,7 +55,18 @@ final class PaneModel: Identifiable {
     var canGoForward: Bool { !forwardStack.isEmpty }
     var canGoUp: Bool { currentURL.path != "/" }
 
+    // Views must observe row changes even on a cache hit. Selection is independent.
+    private var rowRevision = 0
+    @ObservationIgnored private var cachedRows: (foldersFirst: Bool, items: [FileItem])?
+    private func invalidateRows() {
+        cachedRows = nil
+        rowRevision &+= 1
+    }
+
     var sortedItems: [FileItem] {
+        _ = rowRevision
+        let foldersFirst = UserDefaults.standard.object(forKey: "foldersFirst") as? Bool ?? true
+        if let cachedRows, cachedRows.foldersFirst == foldersFirst { return cachedRows.items }
         let visible: [FileItem]
         if tagFilter != nil {
             visible = filter.isEmpty ? tagResults : tagResults.filter { $0.name.localizedCaseInsensitiveContains(filter) }
@@ -62,13 +74,14 @@ final class PaneModel: Identifiable {
             visible = searchActive ? searchResults
                 : hasSearchFilters ? items.filter { criteria.matches($0, name: filter) } : items
         }
-        let top = ordered(visible)
-        return treeActive && !expanded.isEmpty ? flatten(top) : top
+        let top = ordered(visible, foldersFirst: foldersFirst)
+        let result = treeActive && !expanded.isEmpty ? flatten(top, foldersFirst: foldersFirst) : top
+        cachedRows = (foldersFirst, result)
+        return result
     }
 
-    private func ordered(_ list: [FileItem]) -> [FileItem] {
+    private func ordered(_ list: [FileItem], foldersFirst: Bool) -> [FileItem] {
         let sorted = list.sorted(using: sortOrder)
-        let foldersFirst = UserDefaults.standard.object(forKey: "foldersFirst") as? Bool ?? true
         guard foldersFirst else { return sorted }
         return sorted.filter { $0.isDirectory } + sorted.filter { !$0.isDirectory }
     }
@@ -76,8 +89,8 @@ final class PaneModel: Identifiable {
     // MARK: Folders opened in place (list view)
 
     /// Folders that are open in the list. Kept while moving between folders, cleared only by closing them.
-    var expanded = Set<URL>()
-    private var children: [URL: [FileItem]] = [:]
+    var expanded = Set<URL>() { didSet { invalidateRows() } }
+    private var children: [URL: [FileItem]] = [:] { didSet { invalidateRows() } }
     var loadingFolders = Set<URL>()
     var expansionErrors: [URL: String] = [:]
     @ObservationIgnored private var expansionTasks: [URL: Task<Void, Never>] = [:]
@@ -142,12 +155,12 @@ final class PaneModel: Identifiable {
         return max(0, url.pathComponents.count - currentURL.pathComponents.count - 1)
     }
 
-    private func flatten(_ list: [FileItem]) -> [FileItem] {
+    private func flatten(_ list: [FileItem], foldersFirst: Bool) -> [FileItem] {
         var out: [FileItem] = []
         for item in list {
             out.append(item)
             if item.expandable, expanded.contains(item.url), let kids = children[item.url] {
-                out += flatten(ordered(kids))
+                out += flatten(ordered(kids, foldersFirst: foldersFirst), foldersFirst: foldersFirst)
             }
         }
         return out
@@ -536,11 +549,10 @@ final class PaneModel: Identifiable {
             }
             for await batch in stream {
                 guard let self, !Task.isCancelled else { return }
-                let rootPath = root.path
+                let base = FileOperationSafety.RelativeRoot(root)
                 self.searchResults.append(contentsOf: batch.urls.map { url in
                     var item = FileItem(url: url)
-                    let parent = url.deletingLastPathComponent().path
-                    item.folder = parent == rootPath ? "" : String(parent.dropFirst(rootPath.count + 1))
+                    item.folder = base.relative(url.deletingLastPathComponent()) ?? ""
                     return item
                 })
                 self.foldersScanned = batch.folders

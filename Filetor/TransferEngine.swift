@@ -45,9 +45,11 @@ nonisolated final class TransferControl: @unchecked Sendable {
 
 nonisolated private final class CopyContext {
     let control: TransferControl
+    let countsBytes: Bool
     var last: Int64 = 0
-    init(control: TransferControl) { self.control = control }
+    init(control: TransferControl, countsBytes: Bool) { self.control = control; self.countsBytes = countsBytes }
     func report(_ copied: Int64) {
+        guard countsBytes else { return }
         let delta = copied - last
         last = copied
         if delta > 0 { control.add(delta) }
@@ -70,6 +72,7 @@ nonisolated final class TransferEngine: @unchecked Sendable {
     private let move: Bool
     private let control: TransferControl
     private let ask: @Sendable (ConflictInfo) async -> ConflictAnswer
+    private var countsItems = false
     private var sticky: ConflictChoice?
     /// Everything that was copied or moved so far (read after `run` has finished).
     private(set) var records: [TransferRecord] = []
@@ -91,8 +94,14 @@ nonisolated final class TransferEngine: @unchecked Sendable {
         var seen = Set<String>()
         let items = items.filter { roots.contains($0.src.standardizedFileURL.path) && seen.insert($0.src.standardizedFileURL.path + "\0" + $0.dstDir.standardizedFileURL.path).inserted }
         var failures: [String] = []
-        var total: Int64 = 0
-        for item in items {
+        // Ordinary local moves rename directory entries. Counting every descendant
+        // beforehand can take much longer than the move itself.
+        countsItems = move && items.allSatisfy {
+            !control.cancelled && sameVolume($0.src, $0.dstDir)
+                && !exists($0.dstDir.appending(path: $0.src.lastPathComponent))
+        }
+        var total: Int64 = countsItems ? Int64(items.count) : 0
+        for item in items where !countsItems {
             if control.cancelled { return [] }
             total += size(of: item.src)
         }
@@ -102,6 +111,7 @@ nonisolated final class TransferEngine: @unchecked Sendable {
             if control.cancelled { break }
             do {
                 try await process(item.src, into: item.dstDir)
+                if countsItems { control.add(1) }
             } catch is CancellationError {
                 control.cancelled = true
                 break
@@ -130,13 +140,13 @@ nonisolated final class TransferEngine: @unchecked Sendable {
         var replace = false
         if src.standardizedFileURL.path == dst.standardizedFileURL.path || FileOperationSafety.sameItem(src, dst) {
             // Same place: a copy becomes a duplicate, a move does nothing.
-            if move { control.add(size(of: src)); return }
+            if move { if !countsItems { control.add(size(of: src)) }; return }
             dst = uniqueURL(for: dst)
         } else if exists(dst) {
             let choice = await resolve(src: src, dst: dst)
             switch choice {
             case .skip:
-                control.add(size(of: src))
+                if !countsItems { control.add(size(of: src)) }
                 return
             case .stop:
                 throw CancellationError()
@@ -211,7 +221,9 @@ nonisolated final class TransferEngine: @unchecked Sendable {
         } else {
             var cleanup: URL?
             if move, sameVolume(src, dst.deletingLastPathComponent()) {
-                try doTransfer(src, to: dst)
+                let bytes = countsItems ? 0 : size(of: src)
+                try fm.moveItem(at: src, to: dst)
+                if !countsItems { control.add(bytes) }
             } else {
                 // A cancelled directory copy never leaves a plausible-looking partial result.
                 let tmp = dst.deletingLastPathComponent().appending(path: ".filetor-\(UUID().uuidString)")
@@ -236,21 +248,6 @@ nonisolated final class TransferEngine: @unchecked Sendable {
         }
     }
 
-    private func doTransfer(_ src: URL, to dst: URL) throws {
-        if move {
-            if sameVolume(src, dst.deletingLastPathComponent()) {
-                let s = size(of: src)
-                try fm.moveItem(at: src, to: dst)
-                control.add(s)
-            } else {
-                try copyTree(src, to: dst)
-                try fm.removeItem(at: src)
-            }
-        } else {
-            try copyTree(src, to: dst)
-        }
-    }
-
     // MARK: Copying
 
     private func copyTree(_ src: URL, to dst: URL) throws {
@@ -272,7 +269,7 @@ nonisolated final class TransferEngine: @unchecked Sendable {
     }
 
     private func copyFile(_ src: URL, to dst: URL) throws {
-        let ctx = CopyContext(control: control)
+        let ctx = CopyContext(control: control, countsBytes: !countsItems)
         let state = copyfile_state_alloc()
         defer { copyfile_state_free(state) }
 
@@ -300,6 +297,7 @@ nonisolated final class TransferEngine: @unchecked Sendable {
             throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
         }
         // Make sure bytes of very small files are counted too.
+        guard !countsItems else { return }
         let final = size(of: src)
         if ctx.last < final { control.add(final - ctx.last) }
     }
