@@ -193,7 +193,11 @@ extension Regression {
             window.sendEvent(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                 windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
         }
-        try await until("native drag cancelled") { sawNativeDrag && app.paneDrag == nil && liveSource.payload == nil }
+        // SwiftUI removes the native drop surfaces on the render pass after
+        // AppKit clears the drag payload; wait for both observable outcomes.
+        try await until("native drag cancelled and overlays removed") {
+            sawNativeDrag && app.paneDrag == nil && liveSource.payload == nil && surfaces().isEmpty
+        }
         try check(app.layout == beforeNative && surfaces().isEmpty, "Escape cancels an actual native pane drag and clears its overlays without changing layout")
         cancelTimer.invalidate(); fallback.invalidate()
 
