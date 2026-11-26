@@ -1,82 +1,73 @@
+<img src="docs/images/filetor-pro.png" width="72" height="72" alt="">
+
 # Filetor Pro
 
-A lightweight, native file manager for macOS, maintained by **Doithoo**. Built with SwiftUI and AppKit, with independent windows, tabs, flexible multi-pane layouts and inline folder expansion.
+**English** · [简体中文](README.zh-CN.md)
 
-Filetor Pro is developed independently by Doithoo, building on [Filetor by David Praznik](https://github.com/davidpraznik/Filetor). It preserves the original project's native approach, commit history, MIT license and author attribution while maintaining its own roadmap and releases.
+Filetor Pro is a native macOS file manager for working in several folders at once. Keep source files in one pane and a destination in another, expand a folder without losing your place, and press Space to see what’s inside a file or ZIP archive. The interface is built with SwiftUI and AppKit.
 
-## Everyday browsing
+**[Download for Apple Silicon](https://github.com/Doithoo/Filetor-Pro/releases/latest)** · [Release notes](https://github.com/Doithoo/Filetor-Pro/releases) · [Report an issue](https://github.com/Doithoo/Filetor-Pro/issues)
 
-- **Inline folder expansion** in list view: open the disclosure triangle, use the Right/Left arrow keys, or expand selected folders from the View menu. Browse nested folders without leaving the current list.
-- **Independent windows** with `⌘N`. Each window has its own folders, tabs, selections and undo history.
-- **Tabs in each pane**: one always-visible New Tab button, plus create, reorder, close and reopen actions; restore folders, views, sorting and expansion state across launches.
-- **Drag whole panes** using the small grip at the start of each tab bar. Drop in another pane’s center to exchange positions, or along an edge to place it above, below, left or right. A highlight previews the placement; all tabs travel with the pane. Escape cancels. Pane rearrangement stays within its window, and regular tab/file dragging stays separate.
-- **A customizable toolbar** with your choice of tools, order and labels. A fixed right-edge panel button shows or hides file information, even when other tools overflow. The separate **Get Info** tool opens Finder’s information windows for selected items.
-- **Trash in the sidebar** opens this Mac’s Trash in the selected pane. Use **Move Out…** to choose a recovery folder; right-click Trash to browse another disk’s Trash. **Empty Trash…** permanently clears the displayed disk’s Trash after confirmation, including hidden items regardless of filters; **Delete Immediately…** removes selected items only. macOS may require Full Disk Access.
-- **Native toolbar hover tips** describe icon-only actions, view modes and disabled actions without changing your toolbar layout.
-- **Flexible multi-pane layouts**: right-click empty space to split the current pane horizontally (top/bottom) or vertically (left/right), up to 16 panes per window. Hover over a divider for the directional resize cursor and subtle highlight; drag to resize or double-click to balance. Close a pane by closing its last tab; the last pane closes the window. Layout, proportions and tabs restore across launches. The existing Pane Layout toolbar tool focuses the active pane or restores all panes.
-- List/icon views, breadcrumbs, favorites, mounted disks and network locations.
-- Finder tags, saved searches, subfolder search, Quick Look and an optional information panel.
-- **Local search** with `⌘F`: combine name, kind, extension, modification date and size, in the current folder or its subfolders.
-- **Go To toolbar button**: browse folders, sidebar favorites and recent locations in a native popover. Click a folder name to open it or its arrow to browse deeper; each breadcrumb also has a subfolder dropdown. Path entry, `⇧⌘G` and Tab completion remain available.
-- Categorized settings with independent list row height and grid icon size, safe extension hiding, and optional native file thumbnails (off by default).
+![Filetor Pro with two panes: the Field Guide tab shows an expanded Manuscript folder beside a separate Delivery folder.](docs/images/workspace-en.png)
 
-Press **Space** for built-in previews of folders, ZIP archives, common source/text files, Markdown, JSON and property lists — no Looq required for these formats. Folders expand on demand; ZIP previews browse the archive directory without extracting or decompressing contents. Code uses native selectable text with lightweight syntax highlighting; Markdown has Reading/Source modes, and JSON is formatted without rewriting numeric tokens. Text previews support copying and Find. Unicode UTF-8 and BOM-marked UTF-16/32 are supported; binary plists are displayed as XML.
+## Install on macOS
 
-Mixed selections share one preview window. Space or Escape closes it, and changing the selection updates it. Images, PDFs, media and other formats retain system Quick Look. Large inputs display explicit preview limits. Markdown displays common text blocks and inline formatting; it does not render HTML, load images or open links. ZIP previews list metadata only, including encrypted-entry markers; they do not preview/extract member contents or support multi-volume archives. Packages and symbolic links retain system preview. No Finder preview extension is installed.
+The published app requires **macOS 26 or later** and a **Mac with Apple silicon**. There is no Intel download. The interface and built-in help are available in English and Simplified Chinese.
 
-In **Customize Toolbar**, add **Expand All** and **Collapse All** to recursively open or close folders in the active list pane. Expand All becomes **Stop Expanding** while reading. These actions are also in the View menu. Hidden folders follow Show Hidden Files; packages and symbolic links remain closed. Expansion is capped at 2,000 folders, 20,000 items and 64 levels, with an explicit notice when a limit is reached. Existing customized toolbar layouts are preserved; the former Enclosing Folder toolbar item is removed.
+1. Open the [latest release](https://github.com/Doithoo/Filetor-Pro/releases/latest). Under **Assets**, download `Filetor-Pro-<version>-arm64.zip`. The *Source code* archives do not contain the app.
+2. Unzip the download, move **Filetor Pro.app** to **Applications**, then open it from there.
+3. If macOS blocks the first launch, see [First launch and folder access](#first-launch-and-folder-access). To change the interface language, open **Settings → General → Interface language**, choose a language, then quit and reopen the app.
 
-## File tools
+For subsequent releases, choose **Filetor Pro → Check for Updates…**, or enable **Settings → Updates → Automatically check for and install updates**. Sparkle verifies the signed update feed and download. Automatic updates install when you quit; you don’t have to replace the app by hand.
 
-Copy, move, rename, duplicate, Trash, batch rename, compress and extract archives. Transfers include progress, cancellation and conflict handling. With three or more visible panes, copy, move, compare and synchronize ask you to choose the other pane and show its full path. File operations use a shared queue across windows, staged copying and recovery paths for failed replacements.
+## Try a two-pane workflow
 
-**Compress to ZIP** and **Extract Archive** are available consistently in list and icon context menus. Built-in extraction handles ZIP, TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, TAR.XZ/TXZ, and individual GZIP/BZIP2 streams. Results go into a new folder in the active pane, existing names are kept, and originals are retained. Archive jobs use the shared operations queue with activity and cancellation; failed or cancelled items do not leave partially extracted result folders.
+| What you want to do | How to do it |
+| --- | --- |
+| See a folder and its contents together | In **List View**, click the triangle beside a folder. Use **View → Expand All Folders** to open the tree in the active pane. |
+| Put another folder alongside it | Right-click empty space and choose **Split Vertically (Left / Right)**. Choose **Split Horizontally (Top / Bottom)** to stack panes instead. Each pane has its own tabs. |
+| Rearrange your workspace | Drag the grip at the start of a tab bar. Drop in another pane’s center to swap, or at its edge to move there. Closing a pane’s last tab closes that pane. |
+| Go to a path or find a file | Click the blank area of the path bar to edit the full path; Tab completes a suggestion. The magnifying glass searches by name, kind, extension, date and size, optionally including subfolders. |
+| Inspect an item without opening it | Select it and press **Space**. Press Space again to close. For details that stay visible as you browse, use the information panel button at the right edge of the toolbar. |
 
-**Open With** automatically lists installed applications registered with macOS for the selected file types, including compatible archive tools. The default application appears first; duplicates and removed applications are filtered, and multi-selection lists only applications associated with every selected file. **Other…** always lets you choose an application manually, including one that does not register its supported types. No product-specific archive actions or Finder extension integration are required. Raw XZ, 7z, RAR, password-protected and split archives currently require an external tool; they are not advertised as built-in extraction support.
+A window supports up to 16 panes. Tabs, folder locations and split proportions restore across launches. Open a separate window with **⌘N** or another tab in the current pane with **⌘T**.
 
-Image conversion and optimization, metadata removal, duplicate finding, folder comparison, synchronization and project-folder templates are also available. `⌘K` opens the action palette; `⌥⌘K` shows keyboard shortcuts.
+## File operations and format support
 
-The app keeps its native interface and small footprint: no Electron runtime, embedded browser or always-running update service.
+| Tool | What it does |
+| --- | --- |
+| Organize files | Copy, cut, paste, move to a chosen folder, batch rename or create a text file from the context menu. The sidebar provides favorites, mounted volumes, Finder tags and Trash. |
+| Compare and synchronize | Compare visible regular files by relative path, size and modification date. Review the proposed copy direction before syncing; a two-way sync is one undo step. Hidden files, package contents and empty folders are excluded. This is not a content-verified backup. |
+| Preview | Built-in previews cover folders, ZIP listings, common text and source files, Markdown, JSON and property lists. Images, PDFs and other supported media use macOS Quick Look. A ZIP preview lists entries without extracting them. |
+| Compress and extract | Create ZIPs. Extract ZIP, TAR, gzip/bzip2/xz-compressed TARs, and individual gzip or bzip2 files. For 7z, RAR, encrypted or split archives, use **Open With** to choose a compatible installed app, or **Other…** to select one manually. |
 
-## Install and update
+For more tools, including duplicate detection, saved searches and image conversion, open **Help → Filetor Pro Help**. The guide and keyboard shortcut reference work offline.
 
-**Languages / 语言**: English and 简体中文. Choose **Settings → General → Interface language** (Follow System, 简体中文, or English), then quit and reopen Filetor Pro. The default follows your system language; filenames, tags, paths and saved toolbar/workspace layouts stay unchanged.
+## First launch and folder access
 
-支持英文和简体中文，可在**设置 → 通用 → 界面语言**中选择“跟随系统 / English / 简体中文”，退出并重新打开后生效。菜单、设置、右键菜单、工具栏提示、内置预览和离线帮助均支持中文。
+**macOS blocked the app.** Published builds use the maintainer’s persistent signing certificate; they are not Developer ID signed or notarized by Apple. If you downloaded the release from this repository and trust it, try opening it once, then look for **Open Anyway** in **System Settings → Privacy & Security**. There is no need to disable Gatekeeper.
 
-Current release: **Filetor Pro 0.15.2**. Requires **Apple Silicon and macOS 26 or later** for the published build.
+**Trash or a protected folder won’t open.** In **Filetor Pro → Settings → Folder Access**, use **Reveal Current App** to identify the installed copy. If the location requires Full Disk Access, add that copy in **System Settings → Privacy & Security → Full Disk Access**, then quit and reopen Filetor Pro. macOS controls these permissions.
 
-Download `Filetor-Pro-<version>-arm64.zip` from [this repository's Releases](https://github.com/Doithoo/Filetor-Pro/releases/latest), unzip it, and move **Filetor Pro.app** to Applications.
+File operations run locally. Update checks contact GitHub; the updater does not upload file contents or send a system profile. **Help → Report an Issue…** opens an editable GitHub draft with app and macOS versions. Nothing is submitted until you send it.
 
-Existing `0.2.0-personal.2` users can choose **Check for Updates…** in the app. Filetor Pro preserves the existing preferences identity, including toolbar layout, labels, sidebar and workspaces. The installed filename may stay unchanged during an in-app update; the product shown in menus and settings becomes Filetor Pro.
+## Build from source
 
-Settings has one **Automatically check for and install updates** switch. When enabled, updates download in the background and install when you quit. The manual check can install and restart immediately. Updates are downloaded, verified, installed and relaunched by Sparkle; relaunch waits for active file operations. Only Filetor Pro releases from **Doithoo/Filetor-Pro** are offered. Committing code alone does not publish an update: each release must be built, signed and published.
-
-Starting with 0.6.2, releases use a persistent local code signing certificate, without Developer ID signing or notarization. A first installation may need approval under **System Settings → Privacy & Security → Open Anyway**. The first migration from the old ad hoc signature requires removing the old Full Disk Access entry and granting access to the current installed copy once. Subsequent releases are required to preserve the same certificate-bound code identity; privacy grants are still controlled by macOS. The update archive and feed are separately protected by Ed25519 signatures.
-
-## Development
+On a Mac with Python 3, a Swift toolchain and a compatible macOS SDK, run:
 
 ```sh
-python3 scripts/build.py --test
-python3 scripts/test-updater.py
-python3 scripts/build.py
+git clone https://github.com/Doithoo/Filetor-Pro.git
+cd Filetor-Pro
+FILETOR_ADHOC_BUILD=1 python3 scripts/build.py
 open ".build/pro/Filetor Pro.app"
 ```
 
-Release builds require the maintainer’s signing identity in Keychain. Contributors can explicitly use `FILETOR_ADHOC_BUILD=1 python3 scripts/build.py` for a local development build; these builds cannot be published by the release script.
+The build script downloads and verifies a pinned Sparkle dependency on its first run. The command above signs a development copy locally; it does not require the maintainer’s certificate. The development app uses the same preferences domain as the installed release. To run the regression suite with temporary fixtures instead, use `python3 scripts/build.py --test`.
 
-See the [development and verification guide](docs/DEVELOPMENT.md) for prerequisites and current limitations, and the [release workflow](docs/UPDATES.md) for publishing signed updates. The source includes the application icon; a clean build does not require an existing installation.
+See the [development guide (Chinese)](docs/DEVELOPMENT.md) for SDK selection and Xcode instructions, or the [release guide (English)](docs/UPDATES.md) for signing and distribution.
 
-The [repository layout and cleanup guide](docs/DEVELOPMENT.md#项目目录与清理) explains which files belong in source control and where generated files and local backups should live.
+## Contributing and license
 
-Versions use `MAJOR.MINOR.PATCH`, starting with `0.3.0` under the Filetor Pro name. Each release also increments its numeric build. The independent repository is **Doithoo/Filetor-Pro**. Version `0.3.3` uses its new update address; older versions reach it through GitHub's redirect from `Doithoo/Filetor`. The internal bundle identifier and update signing key remain stable so existing installations retain settings and can keep updating.
+[Open an issue](https://github.com/Doithoo/Filetor-Pro/issues) for a reproducible bug or a feature proposal. For a bug, include the app and macOS versions, steps to reproduce, and what you expected. For a code change, target **Doithoo/Filetor-Pro** and describe how you tested it.
 
-## Privacy, attribution and feedback
-
-File operations run locally. Update checks and downloads contact GitHub; the updater does not upload file contents or send Sparkle system profiles. Network file access and external applications run only as requested by the user.
-
-The **Help** menu opens a searchable offline user guide and the full keyboard shortcut reference in a native window, including when no workspace is open. It also provides issue reporting, feature suggestions, release notes and the project homepage. Feedback opens an editable GitHub draft containing only app/build and macOS versions; it is submitted only when you choose to submit it on GitHub. **Copy App Information** copies those versions for support.
-
-Please report Filetor Pro issues in [this repository's issue tracker](https://github.com/Doithoo/Filetor-Pro/issues).
-
-Original Filetor and its icon: **David Praznik**. Filetor Pro modifications: **Doithoo**. Source is provided under the [MIT license](LICENSE). Sparkle and optional libwebp retain their respective bundled licenses.
+Filetor Pro is independently maintained by **Doithoo**, based on [Filetor](https://github.com/davidpraznik/Filetor) by **David Praznik**, who also created the original app icon. Filetor Pro is distributed under the [MIT License](LICENSE). Sparkle and optional libwebp retain their own licenses.
