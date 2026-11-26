@@ -14,6 +14,7 @@ struct PaneDivider: NSViewRepresentable {
     func makeNSView(context: Context) -> PaneDividerView { PaneDividerView() }
 
     func updateNSView(_ view: PaneDividerView, context: Context) {
+        let axisChanged = view.axis != axis
         view.axis = axis
         view.fraction = fraction
         view.available = available
@@ -21,7 +22,7 @@ struct PaneDivider: NSViewRepresentable {
         view.onFinish = onFinish
         view.onBalance = onBalance
         view.setAccessibilityLabel(axis == .vertical ? L10n.tr("Resize Left and Right Panes") : L10n.tr("Resize Top and Bottom Panes"))
-        view.window?.invalidateCursorRects(for: view)
+        if axisChanged { view.window?.invalidateCursorRects(for: view) }
     }
 }
 
@@ -54,9 +55,11 @@ final class PaneDividerView: NSView {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
+        // inVisibleRect follows resizing. Replacing a live tracking area can
+        // discard its pending exit when another split changes the layout.
+        guard tracking == nil else { return }
         let area = NSTrackingArea(rect: .zero,
-            options: [.mouseEnteredAndExited, .cursorUpdate, .activeInKeyWindow, .inVisibleRect, .enabledDuringMouseDrag],
+            options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeInKeyWindow, .inVisibleRect, .enabledDuringMouseDrag],
             owner: self, userInfo: nil)
         addTrackingArea(area)
         tracking = area
@@ -64,10 +67,13 @@ final class PaneDividerView: NSView {
 
     override func resetCursorRects() { addCursorRect(visibleRect, cursor: resizeCursor) }
     override func cursorUpdate(with event: NSEvent) { resizeCursor.set() }
-    override func mouseEntered(with event: NSEvent) {
-        isHovering = true
-        needsDisplay = true
-        resizeCursor.set()
+    override func mouseEntered(with event: NSEvent) { updateHover(with: event) }
+    override func mouseMoved(with event: NSEvent) { updateHover(with: event) }
+
+    private func updateHover(with event: NSEvent) {
+        let inside = visibleRect.contains(convert(event.locationInWindow, from: nil))
+        if isHovering != inside { isHovering = inside; needsDisplay = true }
+        if inside || isDragging { resizeCursor.set() }
     }
     override func mouseExited(with event: NSEvent) {
         isHovering = false
