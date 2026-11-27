@@ -8,7 +8,7 @@ final class DirectoryMonitor {
     private var streams: [String: Stream] = [:]
 
     func observe(_ url: URL, changed: @escaping ([String]) -> Void) -> UUID {
-        let path = url.standardizedFileURL.path
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
         let id = UUID()
         let stream = streams[path] ?? Stream(path: path)
         streams[path] = stream
@@ -27,24 +27,45 @@ final class DirectoryMonitor {
         var listeners: [UUID: ([String]) -> Void] = [:]
         private var stream: FSEventStreamRef?
         private var pending: Task<Void, Never>?
+        private var retry: Task<Void, Never>?
         private var changedPaths = Set<String>()
         private var needsFullRefresh = false
 
         init(path: String) {
+            guard !start(path: path) else { return }
+            // Some volumes cannot start a recursive event stream. Reconcile only
+            // these visible roots and retry so a transient failure heals itself.
+            retry = Task { [weak self] in
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(4)) } catch { return }
+                    guard let self else { return }
+                    let started = self.start(path: path)
+                    self.changed(paths: [], full: true)
+                    if started { return }
+                }
+            }
+        }
+
+        private func start(path: String) -> Bool {
             var context = FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
             stream = FSEventStreamCreate(nil, { _, info, count, eventPaths, flags, _ in
                 guard let info else { return }
                 let paths = Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue() as? [String] ?? []
-                let full = (0..<count).contains { flags[$0] & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged) != 0 }
+                let full = (0..<count).contains { flags[$0] & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged | kFSEventStreamEventFlagUserDropped | kFSEventStreamEventFlagKernelDropped) != 0 }
                 MainActor.assumeIsolated {
                     Unmanaged<Stream>.fromOpaque(info).takeUnretainedValue().changed(paths: paths, full: full)
                 }
             }, &context, [path] as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.3,
             FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagUseCFTypes))
-            if let stream {
-                FSEventStreamSetDispatchQueue(stream, .main)
-                FSEventStreamStart(stream)
+            guard let stream else { return false }
+            FSEventStreamSetDispatchQueue(stream, .main)
+            guard FSEventStreamStart(stream) else {
+                FSEventStreamInvalidate(stream)
+                FSEventStreamRelease(stream)
+                self.stream = nil
+                return false
             }
+            return true
         }
 
         func changed(paths: [String], full: Bool) {
@@ -63,6 +84,7 @@ final class DirectoryMonitor {
         }
 
         func stop() {
+            retry?.cancel()
             pending?.cancel()
             if let stream {
                 FSEventStreamStop(stream)

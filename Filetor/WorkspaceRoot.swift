@@ -32,8 +32,8 @@ struct WorkspaceRoot: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                for group in app.groups where group.current.trashAccessDenied {
-                    group.current.load()
+                for group in app.visibleGroups {
+                    group.current.refreshVisibleDirectory()
                 }
             }
             .onDisappear {

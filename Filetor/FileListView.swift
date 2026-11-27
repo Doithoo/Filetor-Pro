@@ -12,6 +12,7 @@ struct FileListView: View {
     @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("striped") private var striped = true
     @AppStorage("statusBar") private var statusBar = true
+    @State private var visibilityOwner = UUID()
     var isActive = false
 
     private var scale: CGFloat { UIScale.value(textSize) }
@@ -97,9 +98,8 @@ struct FileListView: View {
                 .background(isActive ? Color.filetor.opacity(0.16) : Color.primary.opacity(0.025))
             }
         }
-        .onAppear { pane.setVisible(true) }
-        .onDisappear { pane.setVisible(false) }
-        .onChange(of: pane.id) { _, _ in pane.setVisible(true) }
+        .onAppear { pane.setVisible(true, owner: visibilityOwner) }
+        .onDisappear { pane.setVisible(false, owner: visibilityOwner) }
     }
 
     @ViewBuilder

@@ -39,9 +39,9 @@ nonisolated struct FileItem: Identifiable, Hashable, Sendable {
         .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey, .tagNamesKey
     ]
 
-    init(url: URL) {
+    init(url: URL, displayedURL: URL? = nil) {
         let v = try? url.resourceValues(forKeys: Set(Self.keys))
-        self.url = url.standardizedFileURL
+        self.url = (displayedURL ?? url).standardizedFileURL
         self.name = url.lastPathComponent
         self.isDirectory = v?.isDirectory ?? false
         self.isPackage = v?.isPackage ?? false

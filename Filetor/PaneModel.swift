@@ -14,7 +14,9 @@ final class PaneModel: Identifiable {
     private(set) var trashAccessDenied = false
     var loading = false
     var searchTruncated = false
-    var isVisible = false
+    private(set) var isVisible = false
+    @ObservationIgnored private var visibleOwners = Set<UUID?>()
+    @ObservationIgnored private var needsDirectoryRefresh = false
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadGeneration = UUID()
     @ObservationIgnored private var lastRecordedDirectory: URL?
@@ -166,12 +168,14 @@ final class PaneModel: Identifiable {
         return out
     }
 
-    nonisolated static func readDirectory(_ dir: URL, hidden: Bool) throws -> [FileItem] {
+    nonisolated static func readDirectory(_ dir: URL, hidden: Bool, explicitRoot: Bool = false) throws -> [FileItem] {
+        let physical = dir.resolvingSymlinksInPath()
+        let linked = physical.path != dir.path
         let urls = try FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: FileItem.keys, options: hidden ? [] : [.skipsHiddenFiles])
+            at: explicitRoot && linked ? physical : dir, includingPropertiesForKeys: FileItem.keys, options: hidden ? [] : [.skipsHiddenFiles])
         return try urls.map { url in
             try Task.checkCancellation()
-            return FileItem(url: url)
+            return FileItem(url: url, displayedURL: linked ? dir.appendingPathComponent(url.lastPathComponent, isDirectory: url.hasDirectoryPath) : nil)
         }
     }
 
@@ -231,12 +235,15 @@ final class PaneModel: Identifiable {
         selection = selection.filter { $0.deletingLastPathComponent() == currentURL }
     }
 
-    func setVisible(_ value: Bool) {
-        guard value != isVisible else { return }
-        isVisible = value
-        if value {
+    func setVisible(_ value: Bool, owner: UUID? = nil) {
+        // During a split or drag SwiftUI can mount the new view before retiring its predecessor.
+        if value { visibleOwners.insert(owner) } else { visibleOwners.remove(owner) }
+        let visible = !visibleOwners.isEmpty
+        guard visible != isVisible else { return }
+        isVisible = visible
+        if visible {
             lastRecordedDirectory = nil
-            reload(keepSelection: true); startWatching()
+            reload(keepSelection: true)
             if searchActive { restartSearch() }
             if tagFilter != nil { startTagQuery() }
         }
@@ -244,7 +251,9 @@ final class PaneModel: Identifiable {
     }
 
     func stop() {
+        visibleOwners.removeAll()
         isVisible = false
+        needsDirectoryRefresh = false
         stopWatching()
         loadTask?.cancel()
         loadGeneration = UUID()
@@ -360,8 +369,12 @@ final class PaneModel: Identifiable {
         reload(keepSelection: false)
     }
 
-    /// Re-reads the folder after a change made outside the app, keeping the selection.
-    private func refresh() { reload(keepSelection: true) }
+    /// Let the current read publish, then take one fresh snapshot for any events that arrived during it.
+    func refreshVisibleDirectory() {
+        guard isVisible else { return }
+        if loading { needsDirectoryRefresh = true }
+        else { reloadKeepingSelection() }
+    }
 
     /// Re-reads the folder (and the tag view) after a change made in the app, keeping the selection.
     func reloadKeepingSelection() {
@@ -458,6 +471,8 @@ final class PaneModel: Identifiable {
     }
 
     private func reload(keepSelection: Bool) {
+        startWatching()
+        needsDirectoryRefresh = false
         cancelExpandAll()
         loadTask?.cancel()
         let generation = UUID()
@@ -472,7 +487,7 @@ final class PaneModel: Identifiable {
         trashAccessDenied = false
         loadTask = Task { [weak self] in
             let worker = Task.detached(priority: .userInitiated) {
-                let items = try Self.readDirectory(root, hidden: hidden)
+                let items = try Self.readDirectory(root, hidden: hidden, explicitRoot: true)
                 var descendants: [URL: [FileItem]] = [:]
                 for url in openFolders {
                     try Task.checkCancellation()
@@ -483,6 +498,7 @@ final class PaneModel: Identifiable {
             let result = await withTaskCancellationHandler { await worker.result } onCancel: { worker.cancel() }
             guard let self, !Task.isCancelled, self.loadGeneration == generation, self.currentURL == root else { return }
             self.loading = false
+            defer { if self.needsDirectoryRefresh { self.refreshVisibleDirectory() } }
             switch result {
             case .success(let (items, descendants)):
                 self.items = items
@@ -518,7 +534,7 @@ final class PaneModel: Identifiable {
                         && [Int(EACCES), Int(EPERM)].contains((error as NSError).code))
             }
         }
-        if !keepSelection { startWatching(); if searchActive { restartSearch() } }
+        if !keepSelection && searchActive { restartSearch() }
     }
 
     // MARK: Search in subfolders
@@ -596,24 +612,32 @@ final class PaneModel: Identifiable {
     // MARK: Watching the folder for changes made outside the app
 
     @ObservationIgnored private var watchID: UUID?
+    @ObservationIgnored private var watchedURL: URL?
 
     private func stopWatching() {
         if let watchID { DirectoryMonitor.shared.remove(watchID) }
         watchID = nil
+        watchedURL = nil
     }
 
     private func startWatching() {
+        let root = currentURL
+        guard isVisible, root != watchedURL else { return }
         stopWatching()
-        guard isVisible else { return }
-        watchID = DirectoryMonitor.shared.observe(currentURL) { [weak self] paths in
-            guard let self, self.isVisible else { return }
+        watchedURL = root
+        watchID = DirectoryMonitor.shared.observe(root) { [weak self] paths in
+            guard let self, self.isVisible, self.currentURL == root else { return }
             // Ignore unrelated changes deep inside collapsed folders (especially Home/Library).
             let visible = Set(([self.currentURL] + Array(self.expanded)).map { $0.resolvingSymlinksInPath().path })
             guard self.searchActive || paths.isEmpty || UserDefaults.standard.bool(forKey: "calculateFolderSizes") || paths.contains(where: {
-                let path = URL(fileURLWithPath: $0).resolvingSymlinksInPath().path
-                return visible.contains(path) || visible.contains((path as NSString).deletingLastPathComponent)
+                let entry = $0 as NSString
+                if visible.contains($0) || visible.contains(entry.deletingLastPathComponent) { return true }
+                // macOS may report /private/var for a pane opened via /var. Resolve
+                // the parent, not a just-renamed entry or a link to a different folder.
+                let parent = URL(fileURLWithPath: entry.deletingLastPathComponent).resolvingSymlinksInPath()
+                return visible.contains(parent.path) || visible.contains(parent.appendingPathComponent(entry.lastPathComponent).path)
             }) else { return }
-            self.reloadKeepingSelection()
+            self.refreshVisibleDirectory()
         }
     }
 

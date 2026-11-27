@@ -438,6 +438,8 @@ struct Regression {
                 try duplicateReportTests(root)
             } else if CommandLine.arguments.contains("--sync-preparation-only") {
                 try await syncPreparationTests(root)
+            } else if CommandLine.arguments.contains("--live-directory-only") {
+                try await liveDirectoryTests(root)
             } else if CommandLine.arguments.contains("--quality-only") {
                 try await qualityTests(root)
             } else if CommandLine.arguments.contains("--help-only") {
@@ -477,6 +479,7 @@ struct Regression {
                 try archiveTests(root)
                 try await archiveActionsTests(root)
                 try await paneTests(root)
+                try await liveDirectoryTests(root)
                 try await managerTests(root)
                 try await fileContextActionsTests(root)
                 try await nativeUITests(root)
