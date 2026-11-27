@@ -13,6 +13,11 @@ struct FileListView: View {
     @AppStorage("striped") private var striped = true
     @AppStorage("statusBar") private var statusBar = true
     @State private var visibilityOwner = UUID()
+    private struct CapacityRequest: Equatable {
+        let directory: URL
+        let revision: Int
+    }
+    @State private var measuredCapacity: (directory: URL, value: VolumeCapacity)?
     var isActive = false
 
     private var scale: CGFloat { UIScale.value(textSize) }
@@ -96,6 +101,14 @@ struct FileListView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7 * scale)
                 .background(isActive ? Color.filetor.opacity(0.16) : Color.primary.opacity(0.025))
+                .task(id: capacityRequest) { [request = capacityRequest] in
+                    guard let request else { measuredCapacity = nil; return }
+                    let value = await Task.detached(priority: .utility) {
+                        VolumeCapacity.read(at: request.directory)
+                    }.value
+                    guard !Task.isCancelled else { return }
+                    measuredCapacity = value.map { (request.directory, $0) }
+                }
             }
         }
         .onAppear { pane.setVisible(true, owner: visibilityOwner) }
@@ -135,10 +148,9 @@ struct FileListView: View {
         }
     }
 
-    private var freeSpace: String {
-        let v = try? pane.currentURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-        guard let b = v?.volumeAvailableCapacityForImportantUsage else { return "" }
-        return ByteCountFormatter.string(fromByteCount: b, countStyle: .file) + L10n.tr(" available")
+    private var capacityRequest: CapacityRequest? {
+        guard statusBar, pane.tagFilter == nil, !pane.searchActive else { return nil }
+        return CapacityRequest(directory: pane.currentURL, revision: pane.revision)
     }
 
     private var statusText: String {
@@ -157,8 +169,9 @@ struct FileListView: View {
         let selected = pane.selection.count
         let items = total == 1 ? L10n.tr("1 item") : L10n.tr("\(total) items")
         var text = selected > 0 ? L10n.tr("\(selected) of \(items) selected") : items
-        let free = freeSpace
-        if !free.isEmpty { text += ", " + free }
+        if let measuredCapacity, measuredCapacity.directory == pane.currentURL {
+            text += " · " + measuredCapacity.value.statusText
+        }
         return text
     }
 }

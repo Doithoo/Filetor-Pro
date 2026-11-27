@@ -22,6 +22,19 @@ extension Regression {
             let label = FileTableView.Coordinator.dateString(date)
             try check(label.hasPrefix(prefix) && label.hasSuffix(suffix), "file date column shows two minute digits: " + label)
         }
+        let full = VolumeCapacity(available: 0, total: 1_000_000_000_000)
+        try check(full?.available == 0 && VolumeCapacity(available: nil, total: 1_000_000_000_000) == nil
+                  && VolumeCapacity(available: -1, total: 100) == nil && VolumeCapacity(available: 101, total: 100) == nil,
+                  "volume capacity distinguishes a full disk from missing or inconsistent statistics")
+        let sample = VolumeCapacity(available: 500_000_000_000, total: 1_000_000_000_000)!
+        let freeLabel = ByteCountFormatter.string(fromByteCount: sample.available, countStyle: .file)
+        let totalLabel = ByteCountFormatter.string(fromByteCount: sample.total, countStyle: .file)
+        try check(sample.statusText == (chinese ? "\(freeLabel) 可用，共 \(totalLabel)" : "\(freeLabel) available of \(totalLabel)"),
+                  "pane status includes both available space and total capacity in the selected language")
+        let local = VolumeCapacity.read(at: root)
+        let localFS = try fm.attributesOfFileSystem(forPath: root.path)
+        try check(local != nil && local?.total == (localFS[.systemSize] as? NSNumber)?.int64Value,
+                  "a subdirectory reports the capacity of its containing volume")
         let catalogKeys = SettingsSheet.Page.allCases.map(\.rawValue)
             + HelpState.Page.allCases.map(\.rawValue)
             + Shortcuts.groups.flatMap { [$0.title] + $0.entries.map(\.name) }

@@ -6,7 +6,6 @@
 "\nOriginal names restored." = "\nOriginal names restored.";
 "\nRecovery needed:\n" = "\nRecovery needed:\n";
 "\nSize: {0} bytes · Compressed: {1} bytes" = "\nSize: {0} bytes · Compressed: {1} bytes";
-" available" = " available";
 " in Active Pane" = " in Active Pane";
 " · Limit reached; narrow your search" = " · Limit reached; narrow your search";
 " · Limited preview" = " · Limited preview";
@@ -591,7 +590,7 @@
 "Show hidden items" = "Show hidden items";
 "Show in Folder" = "Show in Folder";
 "Show info panel" = "Show info panel";
-"Show item count and free space" = "Show item count and free space";
+"Show item count, available space and total capacity" = "Show item count, available space and total capacity";
 "Show labels" = "Show labels";
 "Show or Hide Hidden Files" = "Show or Hide Hidden Files";
 "Show or Hide Info Panel" = "Show or Hide Info Panel";
@@ -761,3 +760,4 @@
 "… and {0} more" = "… and {0} more";
 "↑ ↓ to move" = "↑ ↓ to move";
 "⌥ ⌘ K to close" = "⌥ ⌘ K to close";
+"{0} available of {1}" = "{0} available of {1}";

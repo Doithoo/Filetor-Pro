@@ -157,7 +157,7 @@ struct SettingsSheet: View {
             }
         case .window:
             Section {
-                Toggle(L10n.tr("Show item count and free space"), isOn: $statusBar)
+                Toggle(L10n.tr("Show item count, available space and total capacity"), isOn: $statusBar)
                 Toggle(L10n.tr("Show sidebar"), isOn: $showSidebar)
                 Toggle(L10n.tr("Show info panel"), isOn: $model.showInfo)
             }
