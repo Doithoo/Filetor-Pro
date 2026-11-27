@@ -31,18 +31,23 @@ extension Regression {
         let suite = "FiletorPaneToolbar." + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let entries = ["sidebar", "swap", "goTo", "space", "swap", "view"].map { ToolbarEntry(kind: $0) }
+        let entries = ["dual", "sidebar", "swap", "goTo", "space", "dual", "view"].map { ToolbarEntry(kind: $0) }
         defaults.set(try JSONEncoder().encode(entries), forKey: "toolbar.entries.v1")
         defaults.set(false, forKey: "toolbar.showLabels.v1")
         let toolbar = ToolbarModel(defaults: defaults)
-        try check(toolbar.entries == entries.filter { $0.kind != "swap" } && !toolbar.showLabels,
-                  "removing Swap Panes preserves all other toolbar IDs, order and icon-only preference")
-        try check(ToolbarModel(defaults: defaults).entries == toolbar.entries
-                  && !ToolCatalog.palette.contains("swap") && !ToolCatalog.defaultKinds.contains("swap")
-                  && ToolCatalog.def("swap") == nil && !CommandCatalog.all.contains(where: { $0.id == "swap" }),
-                  "obsolete swap action stays removed from persisted settings, defaults and palettes")
-        toolbar.toggle("swap"); toolbar.drop("new:swap", before: nil)
-        try check(!toolbar.contains("swap"), "stale toolbar drag payloads cannot reintroduce Swap Panes")
+        let retired = ["swap", "dual"]
+        let expected = entries.filter { !retired.contains($0.kind) }
+        try check(toolbar.entries == expected && !toolbar.showLabels,
+                  "retiring pane controls preserves the remaining toolbar IDs, order, spacers and icon-only preference")
+        let saved = try JSONDecoder().decode([ToolbarEntry].self, from: defaults.data(forKey: "toolbar.entries.v1")!)
+        try check(saved == expected, "obsolete pane controls are removed from the saved configuration")
+        toolbar.restoreDefaults()
+        for kind in retired {
+            toolbar.toggle(kind); toolbar.drop("new:" + kind, before: nil)
+            try check(!toolbar.contains(kind) && !ToolCatalog.palette.contains(kind)
+                      && ToolCatalog.def(kind) == nil && !CommandCatalog.all.contains(where: { $0.id == kind }),
+                      "retired pane control stays out of defaults, palettes and drag payloads: " + kind)
+        }
 
         let a = UUID(), b = UUID(), c = UUID(), d = UUID()
         let left = PaneLayout.split(id: UUID(), axis: .horizontal, ratio: 0.6, first: .pane(a), second: .pane(b))

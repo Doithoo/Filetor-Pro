@@ -39,8 +39,6 @@ enum ToolCatalog {
                 isEnabled: { $0.active.canCollapseAll }, run: { $0.active.collapseAll() }),
         ToolDef(id: "goTo", title: L10n.tr("Go To"), symbol: "folder",
                 isOn: { $0.showGoToFolder }, run: { $0.activateGoToFolder(focusPath: false) }),
-        ToolDef(id: "dual", title: L10n.tr("Pane Layout"), symbol: "rectangle.split.2x1",
-                isOn: { $0.dual }, run: { $0.dual.toggle() }),
         ToolDef(id: "quickLook", title: L10n.tr("Quick Look"), symbol: "eye", needsSelection: true,
                 run: { $0.quickLook($0.active.selection) }),
         ToolDef(id: "hidden", title: L10n.tr("Hidden Files"), symbol: "eye.slash",
@@ -109,7 +107,6 @@ enum ToolCatalog {
             return title + L10n.tr(" in Active Pane")
         case "sidebar": return app.sidebarVisibility == .detailOnly ? L10n.tr("Show Sidebar") : L10n.tr("Hide Sidebar")
         case "hidden": return app.active.showHidden ? L10n.tr("Hide Hidden Files") : L10n.tr("Show Hidden Files")
-        case "dual": return app.dual ? L10n.tr("Focus Active Pane") : (app.groups.count > 1 ? L10n.tr("Show All Panes") : L10n.tr("Split Vertically (Left / Right)"))
         default: return def.title
         }
     }
@@ -119,7 +116,7 @@ enum ToolCatalog {
 
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
-        "sidebar", "backfwd", "goTo", "title", "view", "expandAll", "collapseAll", "dual",
+        "sidebar", "backfwd", "goTo", "title", "view", "expandAll", "collapseAll",
         "quickLook", "hidden", "newFolder", "projectFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "convert", "optimize", "stripMeta", "touch", "copyPath", "terminal", "reload",
@@ -128,7 +125,7 @@ enum ToolCatalog {
 
     static let defaultKinds: [String] = [
         "sidebar", "backfwd", "goTo", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
-        "newFolder", "copyPath", "connect", "view", "expandAll", "collapseAll", "dual", "search",
+        "newFolder", "copyPath", "connect", "view", "expandAll", "collapseAll", "search",
     ]
 }
 
@@ -139,6 +136,7 @@ final class ToolbarModel {
 
     private let defaults: UserDefaults
     private static let key = "toolbar.entries.v1"
+    private static let retiredKinds: Set<String> = ["folderSize", "swap", "enclosing", "dual"]
     private static let labelsKey = "toolbar.showLabels.v1"
 
     /// Add the visible navigation entry once, keeping every existing item ID and order.
@@ -162,7 +160,7 @@ final class ToolbarModel {
         self.defaults = defaults
         if let data = defaults.data(forKey: Self.key),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
-            let kept = decoded.filter { $0.kind != "folderSize" && $0.kind != "swap" && $0.kind != "enclosing" }
+            let kept = decoded.filter { !Self.retiredKinds.contains($0.kind) }
             entries = kept
             if kept != decoded, let migrated = try? JSONEncoder().encode(kept) {
                 defaults.set(migrated, forKey: Self.key)

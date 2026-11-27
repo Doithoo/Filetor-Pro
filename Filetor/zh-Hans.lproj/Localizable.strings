@@ -280,7 +280,6 @@
 "Finish or cancel the file operations before quitting or restarting {0}." = "请先完成或取消文件操作，再退出或重新启动 {0}。";
 "First {0} items · Limited preview" = "前 {0} 个项目 · 预览内容受限";
 "Flexible Space" = "弹性空白";
-"Focus Active Pane" = "聚焦当前窗格";
 "Folder" = "文件夹";
 "Folder Access" = "文件夹访问权限";
 "Folder Preview" = "文件夹预览";
@@ -469,7 +468,6 @@
 "PDF" = "PDF";
 "PNG" = "PNG";
 "Pane" = "窗格";
-"Pane Layout" = "窗格布局";
 "Pane {0} — {1}" = "窗格 {0} — {1}";
 "Paste" = "粘贴";
 "Path" = "路径";

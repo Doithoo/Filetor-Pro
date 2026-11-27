@@ -280,7 +280,6 @@
 "Finish or cancel the file operations before quitting or restarting {0}." = "Finish or cancel the file operations before quitting or restarting {0}.";
 "First {0} items · Limited preview" = "First {0} items · Limited preview";
 "Flexible Space" = "Flexible Space";
-"Focus Active Pane" = "Focus Active Pane";
 "Folder" = "Folder";
 "Folder Access" = "Folder Access";
 "Folder Preview" = "Folder Preview";
@@ -469,7 +468,6 @@
 "PDF" = "PDF";
 "PNG" = "PNG";
 "Pane" = "Pane";
-"Pane Layout" = "Pane Layout";
 "Pane {0} — {1}" = "Pane {0} — {1}";
 "Paste" = "Paste";
 "Path" = "Path";

@@ -76,6 +76,9 @@ private struct WorkspaceCommands: Commands {
                     .keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(after: .toolbar) {
+                if app.focusedPaneID != nil {
+                    Button(L10n.tr("Show All Panes")) { app.dual = true }
+                }
                 Button(app.showInfo ? L10n.tr("Hide Info Panel") : L10n.tr("Show Info Panel")) { app.showInfo.toggle() }
                     .keyboardShortcut("i", modifiers: [.command, .option])
                 Button(app.showShortcuts ? L10n.tr("Hide Keyboard Shortcuts") : L10n.tr("Show Keyboard Shortcuts")) { app.showShortcuts.toggle() }
