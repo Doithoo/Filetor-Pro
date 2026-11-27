@@ -18,6 +18,13 @@ extension Regression {
         app.restoreWorkspace(decoded)
         try check(app.groups.count == 2 && app.active.currentURL == b && app.visibleGroups.count == 1,
                   "legacy focused workspace restores the active pane and retains hidden tabs")
+        let hidden = app.groups[0]
+        hidden.newTab(at: c)
+        app.splitPane(app.active, axis: .horizontal)
+        try check(app.groups.count == 2 && app.visibleGroups.count == 2 && hidden.tabs.count == 2
+                  && hidden.current.currentURL == c && app.activeGroup === hidden,
+                  "splitting a legacy focused pair reveals its hidden tabs without adding a third pane")
+        app.restoreWorkspace(decoded)
         app.dual = true
         let source = app.groups[0], targetB = app.groups[1]
         app.splitPane(source.current, axis: .horizontal)
@@ -255,5 +262,48 @@ extension Regression {
         click(help("Close Window")[0])
         try await until("last tab closes window") { !window.isVisible }
         try check(app.groups.count == 1, "closing the last tab closes the window without creating an empty workspace")
+
+        // Dock reopen creates a fresh workspace in the same process. A restored
+        // one-pane snapshot above cannot exercise that initializer path.
+        let defaults = UserDefaults.standard
+        let previousStartDual = defaults.object(forKey: "startDual")
+        defer { defaults.set(previousStartDual, forKey: "startDual") }
+        defaults.set(false, forKey: "startDual")
+        for axis in PaneSplitAxis.allCases {
+            let reopened = AppModel()
+            defer { reopened.stop() }
+            let reopenedWindow = NSWindow(contentRect: window.frame, styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            reopenedWindow.isReleasedWhenClosed = false
+            reopened.active.viewMode = 0
+            let reopenedHost = NSHostingView(rootView: DualPaneView(app: reopened))
+            reopenedWindow.contentView = reopenedHost
+            reopenedWindow.makeKeyAndOrderFront(nil)
+            defer { reopenedWindow.close() }
+            func reopenedTables() -> [QLTableView] { descendants(reopenedHost).compactMap { $0 as? QLTableView } }
+            try await until("reopened single pane") { reopenedTables().count == 1 }
+            try check(reopened.groups.count == 1 && reopened.focusedPaneID == nil, "a reopened single pane has no hidden sibling")
+            let sourceID = reopened.activeGroup.id
+            try splitMenu(reopenedTables()[0], axis)
+            guard case let .split(_, direction, ratio, .pane(first), .pane(second)) = reopened.layout else {
+                throw FileOperationSafety.failure("Splitting the reopened window must produce exactly two leaves")
+            }
+            try check(direction == axis && ratio == 0.5 && first == sourceID && second == reopened.activeGroup.id
+                      && reopened.groups.count == 2, "first split in a reopened window creates exactly two equal panes on the requested axis")
+            try await until("two visible tables after reopen") { reopenedTables().count == 2 }
+            reopened.closeTab()
+            try check(reopened.layout == .pane(sourceID), "closing that split returns to the original single pane")
+            reopened.closeTab()
+            try await until("reopened window closes") { !reopenedWindow.isVisible }
+        }
+        for twoPanes in [false, true] {
+            defaults.set(twoPanes, forKey: "startDual")
+            let id = UUID()
+            AppModel.windowLocations[id] = c
+            let located = AppModel(workspaceID: id)
+            defer { located.stop() }
+            try check(located.groups.count == (twoPanes ? 2 : 1) && located.visibleGroups.count == located.groups.count
+                      && located.groups.allSatisfy { $0.current.currentURL == c },
+                      "opening a folder in a new window initializes only the requested panes at its location")
+        }
     }
 }

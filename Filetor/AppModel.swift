@@ -16,8 +16,11 @@ struct UndoStep {
 @Observable
 final class PaneGroup: Identifiable {
     let id: UUID
-    init(id: UUID = UUID()) { self.id = id }
-    var tabs: [PaneModel] = [PaneModel()]
+    init(id: UUID = UUID(), tabs: [PaneModel] = [PaneModel()]) {
+        self.id = id
+        self.tabs = tabs
+    }
+    var tabs: [PaneModel]
     var selected = 0
     private var closed: [PaneSnapshot] = []
     var canReopen: Bool { !closed.isEmpty }
@@ -75,9 +78,9 @@ final class AppModel {
             activeIndex = index
         }
     }
-    var groups = [PaneGroup(), PaneGroup()]
+    var groups: [PaneGroup]
     var activeIndex = 0
-    var layout: PaneLayout = .pane(UUID())
+    var layout: PaneLayout
     var focusedPaneID: UUID?
     var pendingPaneChoice: PaneChoice?
     var paneDrag: PaneDragPayload?
@@ -91,7 +94,7 @@ final class AppModel {
             if newValue {
                 focusedPaneID = nil
                 if groups.count == 1 { splitPane(active, axis: .vertical) }
-            } else { focusedPaneID = activeGroup.id }
+            } else { focusedPaneID = groups.count > 1 ? activeGroup.id : nil }
             pendingPaneChoice = nil
             paneDrag = nil
             saveSession()
@@ -240,16 +243,16 @@ final class AppModel {
 
     init(workspaceID: UUID = UUID()) {
         self.workspaceID = workspaceID
-        layout = .row(groups.map(\.id))
-        if !(UserDefaults.standard.object(forKey: "startDual") as? Bool ?? true) { focusedPaneID = groups[0].id }
+        let startDual = UserDefaults.standard.object(forKey: "startDual") as? Bool ?? true
+        let location = Self.windowLocations.removeValue(forKey: workspaceID)
+        let initialGroups = (0..<(startDual ? 2 : 1)).map { _ in PaneGroup(tabs: [PaneModel(url: location)]) }
+        groups = initialGroups
+        layout = .row(initialGroups.map(\.id))
         Self.liveModels.add(self)
         transfers.onFinished = { [weak self] in self?.refresh() }
         transfers.onError = { [weak self] message in self?.alert = message }
         transfers.onCompleted = { [weak self] move, records, batch in self?.recordTransferUndo(move: move, records: records, batch: batch) }
-        if let location = Self.windowLocations.removeValue(forKey: workspaceID) {
-            groups[0].tabs = [PaneModel(url: location)]
-            groups[1].tabs = [PaneModel(url: location)]
-        } else if UserDefaults.standard.data(forKey: "workspace.\(workspaceID.uuidString)") != nil || !Self.hasRestoredInitialWindow {
+        if location == nil && (UserDefaults.standard.data(forKey: "workspace.\(workspaceID.uuidString)") != nil || !Self.hasRestoredInitialWindow) {
             restoreSession()
             Self.hasRestoredInitialWindow = true
         }
@@ -291,6 +294,12 @@ final class AppModel {
         if let data, let saved = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data) {
             restoreWorkspace(saved)
         } else if let legacy = defaults.dictionary(forKey: "session"), let tabs = legacy["tabs"] as? [[String]], tabs.count == 2 {
+            // Old sessions stored two tab arrays even in single-pane mode.
+            if groups.count == 1 && !tabs[1].isEmpty {
+                groups.append(PaneGroup())
+                layout = .row(groups.map(\.id))
+                focusedPaneID = activeGroup.id
+            }
             for i in groups.indices where !tabs[i].isEmpty { groups[i].tabs = tabs[i].map { PaneModel(url: URL(fileURLWithPath: $0)) } }
         }
     }
@@ -309,9 +318,9 @@ final class AppModel {
         activeIndex = min(max(saved.active, 0), groups.count - 1)
         let groupIDs = groups.map(\.id)
         layout = saved.layout.flatMap { $0.valid(for: groupIDs) ? $0 : nil } ?? .row(groupIDs)
-        focusedPaneID = saved.focusedPaneID.flatMap { groupIDs.contains($0) ? $0 : nil }
+        focusedPaneID = groups.count > 1 ? saved.focusedPaneID.flatMap { groupIDs.contains($0) ? $0 : nil } : nil
         if let focusedPaneID, let index = groups.firstIndex(where: { $0.id == focusedPaneID }) { activeIndex = index }
-        else if !saved.dual { focusedPaneID = activeGroup.id }
+        else if !saved.dual && groups.count > 1 { focusedPaneID = activeGroup.id }
     }
 
     var activeGroup: PaneGroup { groups[min(max(activeIndex, 0), groups.count - 1)] }
@@ -441,13 +450,19 @@ final class AppModel {
     }
 
     func splitPane(_ pane: PaneModel, axis: PaneSplitAxis) {
-        guard canSplitPane, let source = groups.first(where: { $0.current === pane }) else { return }
-        let added = PaneGroup()
-        added.tabs = [PaneSnapshot(pane).makePane()]
-        layout = layout.splitting(source.id, with: added.id, axis: axis)
-        groups.append(added)
+        guard canSplitPane, let source = visibleGroups.first(where: { $0.current === pane }) else { return }
+        if focusedPaneID != nil, groups.count == 2, let other = groups.first(where: { $0 !== source }) {
+            // Older single-pane windows saved a hidden sibling. Reuse it in
+            // the requested direction without discarding any of its tabs.
+            layout = PaneLayout.pane(source.id).splitting(source.id, with: other.id, axis: axis)
+            activeIndex = groups[0] === other ? 0 : 1
+        } else {
+            let added = PaneGroup(tabs: [PaneSnapshot(pane).makePane()])
+            layout = layout.splitting(source.id, with: added.id, axis: axis)
+            groups.append(added)
+            activeIndex = groups.count - 1
+        }
         focusedPaneID = nil
-        activeIndex = groups.count - 1
         paneDrag = nil
         pendingPaneChoice = nil
         refreshQuickLook()
