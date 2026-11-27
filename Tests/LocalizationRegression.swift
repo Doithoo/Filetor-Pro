@@ -12,6 +12,16 @@ extension Regression {
             try check(L10n.resourceBundle(for: language)?.url(forResource: "Localizable", withExtension: "strings") != nil,
                       "the app and test runner carry the \(language) resources")
         }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
+        for (day, hour, minute, prefix, suffix) in [(today, 0, 8, L10n.tr("Today, "), ":08"),
+                                                    (today, 12, 0, L10n.tr("Today, "), ":00"),
+                                                    (yesterday, 23, 59, L10n.tr("Yesterday, "), ":59")] {
+            let date = cal.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
+            let label = FileTableView.Coordinator.dateString(date)
+            try check(label.hasPrefix(prefix) && label.hasSuffix(suffix), "file date column shows two minute digits: " + label)
+        }
         let catalogKeys = SettingsSheet.Page.allCases.map(\.rawValue)
             + HelpState.Page.allCases.map(\.rawValue)
             + Shortcuts.groups.flatMap { [$0.title] + $0.entries.map(\.name) }

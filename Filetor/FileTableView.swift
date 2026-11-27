@@ -514,9 +514,9 @@ struct FileTableView: NSViewRepresentable {
             ])
         }
 
-        private static func dateString(_ d: Date) -> String {
+        static func dateString(_ d: Date) -> String {
             let cal = Calendar.current
-            let time = d.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute())
+            let time = d.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
             if cal.isDateInToday(d) { return L10n.tr("Today, ") + time }
             if cal.isDateInYesterday(d) { return L10n.tr("Yesterday, ") + time }
             return d.formatted(.dateTime.day().month(.abbreviated).year())
