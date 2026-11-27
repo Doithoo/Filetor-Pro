@@ -13,7 +13,7 @@ enum ArchiveMenuAction: String, CaseIterable, Identifiable {
     var help: String {
         switch self {
         case .compress: return L10n.tr("Create a ZIP in the current folder. Original files are kept.")
-        case .extract: return L10n.tr("Extract into a new folder here. Original archives and existing files are kept.")
+        case .extract: return L10n.tr("Extract each archive into a new folder beside it. Original archives and existing files are kept.")
         }
     }
     static func available(for urls: Set<URL>) -> [Self] {
@@ -73,7 +73,7 @@ extension AppModel {
     func startArchiveOperation(_ urls: Set<URL>, extracting: Bool) {
         guard !urls.isEmpty else { return }
         let pane = active
-        let directory = pane.currentURL
+        let zipDestination = pane.currentURL
         let list = urls.sorted { $0.path < $1.path }
         let job = TransferJob(title: extracting ? L10n.tr("Extracting \(list.count) archive(s)") : L10n.tr("Compressing to ZIP"))
         job.indeterminate = true
@@ -93,8 +93,8 @@ extension AppModel {
                 }
             }
             let result = await Task.detached(priority: .userInitiated) {
-                extracting ? ArchiveOperations.extract(list, in: directory, control: job.control)
-                           : ArchiveOperations.compress(list, in: directory, control: job.control)
+                extracting ? ArchiveOperations.extract(list, control: job.control)
+                           : ArchiveOperations.compress(list, in: zipDestination, control: job.control)
             }.value
             poller.cancel()
             TransferScheduler.shared.release(job.id)

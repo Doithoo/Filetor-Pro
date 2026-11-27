@@ -143,7 +143,8 @@ nonisolated enum ArchiveOperations {
         return result
     }
 
-    static func extract(_ urls: [URL], in directory: URL, control: TransferControl) -> Result {
+    /// Without an explicit destination each archive is unpacked beside its source.
+    static func extract(_ urls: [URL], in destination: URL? = nil, control: TransferControl) -> Result {
         var result = Result()
         control.setTotal(Int64(urls.count))
         for url in urls {
@@ -153,6 +154,7 @@ nonisolated enum ArchiveOperations {
                     throw FileOperationSafety.failure(L10n.tr("This format is not supported by built-in extraction. Use Open With to choose another application."))
                 }
                 control.setName(url.lastPathComponent)
+                let directory = destination ?? url.deletingLastPathComponent()
                 let staging = try stage(in: directory)
                 defer { try? FileManager.default.removeItem(at: staging) }
                 let contents = staging.appending(path: "Contents")

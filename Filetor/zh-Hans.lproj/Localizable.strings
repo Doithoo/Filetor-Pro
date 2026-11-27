@@ -259,7 +259,7 @@
 "Expansion stopped at the display limit ({0} folders, {1} items, or {2} levels). Open a subfolder to continue." = "展开已达到显示上限（{0} 个文件夹、{1} 个项目或 {2} 层）。请打开子文件夹继续浏览。";
 "Extensions" = "扩展名";
 "Extract Archive" = "解压缩";
-"Extract into a new folder here. Original archives and existing files are kept." = "解压到此处的新文件夹，并保留原压缩包和已有文件。";
+"Extract each archive into a new folder beside it. Original archives and existing files are kept." = "在每个压缩包所在的目录中新建文件夹进行解压，保留原压缩包和已有文件。";
 "Extracting {0} archive(s)" = "正在解压 {0} 个压缩包";
 "Favorites" = "个人收藏";
 "File" = "文件";

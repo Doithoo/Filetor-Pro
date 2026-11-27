@@ -259,7 +259,7 @@
 "Expansion stopped at the display limit ({0} folders, {1} items, or {2} levels). Open a subfolder to continue." = "Expansion stopped at the display limit ({0} folders, {1} items, or {2} levels). Open a subfolder to continue.";
 "Extensions" = "Extensions";
 "Extract Archive" = "Extract Archive";
-"Extract into a new folder here. Original archives and existing files are kept." = "Extract into a new folder here. Original archives and existing files are kept.";
+"Extract each archive into a new folder beside it. Original archives and existing files are kept." = "Extract each archive into a new folder beside it. Original archives and existing files are kept.";
 "Extracting {0} archive(s)" = "Extracting {0} archive(s)";
 "Favorites" = "Favorites";
 "File" = "File";

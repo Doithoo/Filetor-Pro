@@ -138,6 +138,33 @@ extension Regression {
         let job = app.transfers.jobs.first!
         try await until("archive operation completes") { job.isFinished }
         try check(app.alert == nil && job.fraction == 1 && !job.indeterminate, "native extraction reports completion through its owning workspace")
+        let downloads = try folder(root, "Downloads")
+        let archives = try folder(downloads, "Archives"), other = try folder(downloads, "Other")
+        let archiveA = archives.appending(path: "Example.zip"), archiveB = other.appending(path: "Example.zip")
+        try fm.copyItem(at: compressed.outputs[0], to: archiveA)
+        try fm.copyItem(at: archiveA, to: archiveB)
+        pane.navigate(to: downloads)
+        try await until("download folder loads") { !pane.loading }
+        pane.expand(archives); pane.expand(other)
+        try await until("inline archives appear") { [archiveA, archiveB].allSatisfy(Set(pane.sortedItems.map(\.url)).contains) }
+        pane.selection = [archiveA]
+        ArchiveMenuAction.extract.perform(pane.selection, app: app)
+        let inlineJob = app.transfers.jobs.last!
+        try await until("inline extraction finishes") { inlineJob.isFinished && !pane.loading }
+        let besideA = archives.appending(path: "Example")
+        try check(contents(besideA.appending(path: "资料/文件.txt")) == payload
+                  && pane.sortedItems.contains { $0.url.path == besideA.path }
+                  && !FileTools.exists(downloads.appending(path: "Example")),
+                  "extracting an inline archive creates a visible sibling inside its expanded folder")
+        let marker = try file(besideA, "keep.txt")
+        ArchiveMenuAction.extract.perform([archiveA, archiveB], app: app)
+        let batchJob = app.transfers.jobs.last!
+        try await until("cross-folder extraction finishes") { batchJob.isFinished }
+        try check(contents(archives.appending(path: "Example 2/资料/文件.txt")) == payload
+                  && contents(other.appending(path: "Example/资料/文件.txt")) == payload
+                  && contents(marker) == "fixture" && FileTools.exists(archiveA) && FileTools.exists(archiveB)
+                  && !FileTools.exists(downloads.appending(path: "Example")),
+                  "same-name archives use their own parents and preserve existing results and source archives")
         let lock = UUID()
         let acquired = await TransferScheduler.shared.acquire(lock)
         try check(acquired, "reserve operation queue for cancellation test")
