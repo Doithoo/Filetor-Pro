@@ -35,6 +35,8 @@ struct SettingsSheet: View {
     @AppStorage("statusBar") private var statusBar = true
     @AppStorage("startDual") private var startDual = true
     @AppStorage("showSidebar") private var showSidebar = true
+    @AppStorage(InteractionFeedback.clickKey) private var clickSounds = true
+    @AppStorage(InteractionFeedback.operationsKey) private var operationSounds = true
     @AppStorage("showHidden") private var showHidden = false
     @State private var language = L10n.selection()
     @State private var loginError: String?
@@ -122,6 +124,10 @@ struct SettingsSheet: View {
                 if let loginError { Text(loginError).foregroundStyle(.secondary) }
                 Toggle(L10n.tr("Open new windows with two panes"), isOn: $startDual)
                 Toggle(L10n.tr("Show hidden files"), isOn: $showHidden)
+            }
+            Section(L10n.tr("Sound effects")) {
+                Toggle(L10n.tr("Mouse click sounds"), isOn: $clickSounds)
+                Toggle(L10n.tr("File operation sounds"), isOn: $operationSounds)
             }
         case .appearance:
             Section {

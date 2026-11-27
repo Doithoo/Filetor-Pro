@@ -122,6 +122,9 @@ extension AppModel {
             }
             job.isFinished = true
             job.currentName = job.control.cancelled ? L10n.tr("Stopped") : (failures.isEmpty ? L10n.tr("Completed") : L10n.tr("Completed with errors"))
+            if !job.control.cancelled, deleted > 0, deleted == snapshot.items.count {
+                transfers.feedback.play(.removal)
+            }
             trashDeletionJob = nil
             refresh()
             if !failures.isEmpty || job.control.cancelled {

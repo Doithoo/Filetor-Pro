@@ -23,6 +23,9 @@ resources.mkdir(parents=True, exist_ok=True)
 for source in sorted((root / "Filetor").glob("*.lproj")):
     shutil.copytree(source, resources / source.name, dirs_exist_ok=True)
     shutil.copytree(source, out / "Resources" / source.name, dirs_exist_ok=True)
+for sound in (root / "Filetor/Sounds").glob("*.wav"):
+    shutil.copy2(sound, resources / sound.name)
+    shutil.copy2(sound, out / "Resources" / sound.name)
 sdk = subprocess.check_output(["xcrun", "--show-sdk-path"], text=True).strip()
 # The installed 27.x CLT SDK declares SwiftUI macros but omits their compiler
 # plugin. Use the installed stable SDK, or an explicit SDKROOT, for local builds.
