@@ -76,7 +76,6 @@ nonisolated final class TransferEngine: @unchecked Sendable {
     private var sticky: ConflictChoice?
     /// Everything that was copied or moved so far (read after `run` has finished).
     private(set) var records: [TransferRecord] = []
-    private(set) var skippedConflict = false
     private let fm = FileManager.default
 
     init(move: Bool,
@@ -147,7 +146,6 @@ nonisolated final class TransferEngine: @unchecked Sendable {
             let choice = await resolve(src: src, dst: dst)
             switch choice {
             case .skip:
-                skippedConflict = true
                 if !countsItems { control.add(size(of: src)) }
                 return
             case .stop:

@@ -425,7 +425,6 @@ struct Regression {
         // A prior failed run exits before its defer; start from the test app's
         // own clean preferences so restored test windows cannot leak across runs.
         UserDefaults.standard.removePersistentDomain(forName: "FiletorRegression")
-        UserDefaults.standard.set(false, forKey: InteractionFeedback.operationsKey)
         let root = fm.temporaryDirectory.appending(path: "FiletorRegression-\(UUID().uuidString)")
         defer {
             try? fm.removeItem(at: root)
@@ -441,8 +440,6 @@ struct Regression {
                 try await syncPreparationTests(root)
             } else if CommandLine.arguments.contains("--live-directory-only") {
                 try await liveDirectoryTests(root)
-            } else if CommandLine.arguments.contains("--feedback-only") {
-                try await interactionFeedbackTests(root)
             } else if CommandLine.arguments.contains("--quality-only") {
                 try await qualityTests(root)
             } else if CommandLine.arguments.contains("--help-only") {
@@ -475,7 +472,6 @@ struct Regression {
                 try await navigationTests(root)
             } else {
                 try await localizationTests(root)
-                try await interactionFeedbackTests(root)
                 try await qualityTests(root)
                 try await syncPreparationTests(root)
                 try renameTests(root)

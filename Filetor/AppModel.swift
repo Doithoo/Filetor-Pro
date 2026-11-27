@@ -101,7 +101,7 @@ final class AppModel {
         }
     }
     var canSplitPane: Bool { groups.count < 16 }
-    let transfers: TransferManager
+    let transfers = TransferManager()
     let toolbarModel = ToolbarModel()
     var sidebarVisibility: NavigationSplitViewVisibility =
         (UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true) ? .all : .detailOnly
@@ -241,10 +241,7 @@ final class AppModel {
         }
     }
 
-    convenience init(workspaceID: UUID = UUID()) { self.init(workspaceID: workspaceID, feedback: .shared) }
-
-    init(workspaceID: UUID = UUID(), feedback: InteractionFeedback) {
-        self.transfers = TransferManager(feedback: feedback)
+    init(workspaceID: UUID = UUID()) {
         self.workspaceID = workspaceID
         let startDual = UserDefaults.standard.object(forKey: "startDual") as? Bool ?? true
         let location = Self.windowLocations.removeValue(forKey: workspaceID)
@@ -594,9 +591,6 @@ final class AppModel {
             let r = await Task.detached(priority: .userInitiated) { Self.trashAll(urls, control: job.control) }.value
             shower.cancel()
             transfers.jobs.removeAll { $0.id == job.id }
-            if !job.control.cancelled, r.failed.isEmpty, r.noTrash.isEmpty, !r.moved.isEmpty {
-                transfers.feedback.play(.removal)
-            }
             finishTrash(failed: r.failed, noTrash: r.noTrash, moved: r.moved)
             completion?(Set(r.moved.map(\.original)))
         }
@@ -657,7 +651,6 @@ final class AppModel {
                 job.fraction = Double(i + 1) / Double(urls.count)
             }
             job.isFinished = true
-            if !job.control.cancelled, failed.isEmpty, !urls.isEmpty { transfers.feedback.play(.removal) }
             refresh()
             if !failed.isEmpty { alert = failed.joined(separator: "\n") }
             try? await Task.sleep(for: .seconds(1))

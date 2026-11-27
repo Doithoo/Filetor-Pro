@@ -32,10 +32,6 @@ final class TransferManager {
     var jobs: [TransferJob] = []
     private var queue: [ConflictRequest] = []
 
-    let feedback: InteractionFeedback
-    init(feedback: InteractionFeedback) { self.feedback = feedback }
-    convenience init() { self.init(feedback: .shared) }
-
     var onFinished: (() -> Void)?
     var onError: ((String) -> Void)?
     var onCompleted: ((_ move: Bool, _ records: [TransferRecord], _ batch: UUID?) -> Void)?
@@ -88,9 +84,6 @@ final class TransferManager {
             if !job.control.cancelled && failures.isEmpty { job.fraction = 1 }
             job.currentName = job.control.cancelled ? L10n.tr("Cancelled") : (failures.isEmpty ? L10n.tr("Completed") : L10n.tr("Completed with errors"))
             job.isFinished = true
-            if batch == nil, !job.control.cancelled, failures.isEmpty, !engine.skippedConflict, !engine.records.isEmpty {
-                feedback.play(.transfer)
-            }
             onFinished?()
             if !engine.records.isEmpty || batch != nil { onCompleted?(move, engine.records, batch) }
             completion?(engine.records)
